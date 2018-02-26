@@ -131,14 +131,14 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
 
   def isEmptyAclAndAuthorized(operation: Operation, resource: Resource, principal: KafkaPrincipal, host: String, acls: Set[Acl]): Boolean = {
     if (acls.isEmpty) {
-      authorizerLogger.debug(s"No acl found for resource $resource, authorized = $shouldAllowEveryoneIfNoAclIsFound")
+      authorizerLogger.debug("No acl found for resource" + resource + ", authorized = " + shouldAllowEveryoneIfNoAclIsFound)
       shouldAllowEveryoneIfNoAclIsFound
     } else false
   }
 
   def isSuperUser(operation: Operation, resource: Resource, principal: KafkaPrincipal, host: String): Boolean = {
     if (superUsers.contains(principal)) {
-      authorizerLogger.debug(s"principal = $principal is a super user, allowing operation without checking acls.")
+      authorizerLogger.debug("principal = " + principal + "is a super user, allowing operation without checking acls.")
       true
     } else false
   }
@@ -150,7 +150,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
         (operations == acl.operation || acl.operation == All) &&
         (acl.host == host || acl.host == Acl.WildCardHost)
     }.exists { acl =>
-      authorizerLogger.debug(s"operation = $operations on resource = $resource from host = $host is $permissionType based on acl = $acl")
+      authorizerLogger.debug(s"operation = " + operations + "on resource = " + resource + " from host = " + host + " is " + permissionType + " based on acl = " + acl)
       true
     }
   }
