@@ -17,7 +17,7 @@
 package org.apache.kafka.common.config.types;
 
 /**
- * A wrapper class for passwords to hide them while logging a config
+ * 用于在记录配置时隐藏密码的包装器类
  */
 public class Password {
 

@@ -24,10 +24,17 @@ import java.util.Map;
 /**
  *  String encoding defaults to UTF8 and can be customized by setting the property key.serializer.encoding,
  *  value.serializer.encoding or serializer.encoding. The first two take precedence over the last.
+ *  string 的序列化  使用 utf-8
  */
 public class StringSerializer implements Serializer<String> {
     private String encoding = "UTF8";
 
+
+    /**
+     * 设置字节编码
+     * @param configs configs in key/value pairs
+     * @param isKey whether is for key or value
+     */
     @Override
     public void configure(Map<String, ?> configs, boolean isKey) {
         String propertyName = isKey ? "key.serializer.encoding" : "value.serializer.encoding";

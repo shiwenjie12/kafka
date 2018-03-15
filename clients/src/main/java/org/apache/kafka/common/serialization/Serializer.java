@@ -21,6 +21,7 @@ import java.util.Map;
 
 /**
  * An interface for converting objects to bytes.
+ * 一个从对象转换到
  *
  * A class that implements this interface is expected to have a constructor with no parameter.
  * <p>
@@ -31,7 +32,7 @@ import java.util.Map;
 public interface Serializer<T> extends Closeable {
 
     /**
-     * Configure this class.
+     * 配置序列化的数据
      * @param configs configs in key/value pairs
      * @param isKey whether is for key or value
      */

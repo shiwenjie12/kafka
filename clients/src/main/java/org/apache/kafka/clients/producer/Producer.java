@@ -30,7 +30,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 /**
- * The interface for the {@link KafkaProducer}
+ * 用于对{@link KafkaProducer} 的接口 和 Mock的测试接口
  * @see KafkaProducer
  * @see MockProducer
  */

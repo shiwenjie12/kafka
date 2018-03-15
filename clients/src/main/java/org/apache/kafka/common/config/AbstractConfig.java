@@ -33,9 +33,10 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * A convenient base class for configurations to extend.
+ * 用于扩展配置的基类。
  * <p>
  * This class holds both the original configuration that was provided as well as the parsed
+ * 这个类既保留了提供的原始配置，又保留了解析后的原始配置。
  */
 public class AbstractConfig {
 
@@ -52,14 +53,21 @@ public class AbstractConfig {
 
     private final ConfigDef definition;
 
+    /**
+     *
+     * @param definition 继承配置的默认属性
+     * @param originals 用户 自定义属性
+     * @param doLog
+     */
     @SuppressWarnings("unchecked")
     public AbstractConfig(ConfigDef definition, Map<?, ?> originals, boolean doLog) {
-        /* check that all the keys are really strings */
+        /* 验证所有的key 是否是字符串 */
         for (Map.Entry<?, ?> entry : originals.entrySet())
             if (!(entry.getKey() instanceof String))
                 throw new ConfigException(entry.getKey().toString(), entry.getValue(), "Key must be a string.");
         this.originals = (Map<String, ?>) originals;
         this.values = definition.parse(this.originals);
+        // 对一些特殊配置 进行一些预处理
         Map<String, Object> configUpdates = postProcessParsedConfig(Collections.unmodifiableMap(this.values));
         for (Map.Entry<String, Object> update : configUpdates.entrySet()) {
             this.values.put(update.getKey(), update.getValue());

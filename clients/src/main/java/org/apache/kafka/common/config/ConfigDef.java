@@ -71,13 +71,18 @@ import java.util.Set;
  * <p/>
  * This class can be used standalone or in combination with {@link AbstractConfig} which provides some additional
  * functionality for accessing configs.
+ * 用于存储配置信息的类
  */
 public class ConfigDef {
     /**
      * A unique Java object which represents the lack of a default value.
+     * 代表配置的默认值
      */
     public static final Object NO_DEFAULT_VALUE = new Object();
 
+    /**
+     * 所有的配置信息
+     */
     private final Map<String, ConfigKey> configKeys;
     private final List<String> groups;
     private Set<String> configsWithNoParent;
@@ -98,7 +103,7 @@ public class ConfigDef {
 
     /**
      * Returns unmodifiable set of properties names defined in this {@linkplain ConfigDef}
-     *
+     * 返回不可修改的配置key Set
      * @return new unmodifiable {@link Set} instance containing the keys
      */
     public Set<String> names() {
@@ -114,6 +119,11 @@ public class ConfigDef {
         return defaultValues;
     }
 
+    /**
+     * 添加新的配置节点 流式方法
+     * @param key
+     * @return
+     */
     public ConfigDef define(ConfigKey key) {
         if (configKeys.containsKey(key.name)) {
             throw new ConfigException("Configuration " + key.name + " is defined twice.");
@@ -450,7 +460,7 @@ public class ConfigDef {
      * the appropriate type (int, string, etc).
      */
     public Map<String, Object> parse(Map<?, ?> props) {
-        // Check all configurations are defined
+        // 检查所有的配置是否是定义的
         List<String> undefinedConfigKeys = undefinedDependentConfigs();
         if (!undefinedConfigKeys.isEmpty()) {
             String joined = Utils.join(undefinedConfigKeys, ",");
@@ -463,6 +473,13 @@ public class ConfigDef {
         return values;
     }
 
+    /**
+     * 将自定义的配置属性 解析 成对应类型的 value
+     * @param key
+     * @param value
+     * @param isSet
+     * @return
+     */
     Object parseValue(ConfigKey key, Object value, boolean isSet) {
         Object parsedValue;
         if (isSet) {
@@ -627,7 +644,7 @@ public class ConfigDef {
     }
 
     /**
-     * Parse a value according to its expected type.
+     * 根据它定义的类型 解析一个值
      * @param name  The config name
      * @param value The config value
      * @param type  The expected type
@@ -779,7 +796,7 @@ public class ConfigDef {
     }
 
     /**
-     * The config types
+     * 配置的格式
      */
     public enum Type {
         BOOLEAN, STRING, INT, SHORT, LONG, DOUBLE, LIST, CLASS, PASSWORD
@@ -826,7 +843,7 @@ public class ConfigDef {
     }
 
     /**
-     * Validation logic the user may provide to perform single configuration validation.
+     * 用户可以提供执行逻辑验证的验证逻辑。
      */
     public interface Validator {
         /**
@@ -840,6 +857,7 @@ public class ConfigDef {
 
     /**
      * Validation logic for numeric ranges
+     * 数字 区域 验证器
      */
     public static class Range implements Validator {
         private final Number min;
@@ -914,6 +932,9 @@ public class ConfigDef {
         }
     }
 
+    /**
+     * 字符串 枚举 验证器
+     */
     public static class ValidString implements Validator {
         final List<String> validStrings;
 
@@ -1018,6 +1039,9 @@ public class ConfigDef {
         }
     }
 
+    /**
+     * ConfigDef的配置元素
+     */
     public static class ConfigKey {
         public final String name;
         public final Type type;

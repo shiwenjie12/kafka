@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Some configurations shared by both producer and consumer
+ * 生产者和消费者共享的一些配置(包括配置名和配置说明)
  */
 public class CommonClientConfigs {
     private static final Logger log = LoggerFactory.getLogger(CommonClientConfigs.class);
@@ -94,7 +94,7 @@ public class CommonClientConfigs {
     /**
      * Postprocess the configuration so that exponential backoff is disabled when reconnect backoff
      * is explicitly configured but the maximum reconnect backoff is not explicitly configured.
-     *
+     * 设置  重新连接的最大指数 值
      * @param config                    The config object.
      * @param parsedValues              The parsedValues as provided to postProcessParsedConfig.
      *

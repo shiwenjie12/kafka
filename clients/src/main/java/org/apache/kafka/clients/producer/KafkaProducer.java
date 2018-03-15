@@ -227,6 +227,7 @@ import static org.apache.kafka.common.serialization.ExtendedSerializer.Wrapper.e
  * certain client features.  For instance, the transactional APIs need broker versions 0.11.0 or later. You will receive an
  * <code>UnsupportedVersionException</code> when invoking an API that is not available in the running broker version.
  * </p>
+ * kafka默认的生产者
  */
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
