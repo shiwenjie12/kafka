@@ -20,6 +20,9 @@ import org.apache.kafka.common.config.internals.BrokerSecurityConfigs;
 
 import java.util.List;
 
+/**
+ * 在sasl验证模式下的配置信息
+ */
 public class SaslConfigs {
     /*
      * NOTE: DO NOT CHANGE EITHER CONFIG NAMES AS THESE ARE PART OF THE PUBLIC API AND CHANGE WILL BREAK USER CODE.

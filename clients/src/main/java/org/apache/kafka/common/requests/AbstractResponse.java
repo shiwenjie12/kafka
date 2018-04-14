@@ -27,6 +27,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * 所有响应的父类
+ */
 public abstract class AbstractResponse extends AbstractRequestResponse {
     public static final int DEFAULT_THROTTLE_TIME = 0;
 
@@ -68,6 +71,12 @@ public abstract class AbstractResponse extends AbstractRequestResponse {
 
     protected abstract Struct toStruct(short version);
 
+    /**
+     * 解析响应
+     * @param apiKey apikey的类型
+     * @param struct 响应实体
+     * @return
+     */
     public static AbstractResponse parseResponse(ApiKeys apiKey, Struct struct) {
         switch (apiKey) {
             case PRODUCE:

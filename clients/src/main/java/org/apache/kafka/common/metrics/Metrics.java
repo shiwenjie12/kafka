@@ -171,7 +171,7 @@ public class Metrics implements Closeable {
      */
     public MetricName metricName(String name, String group, String description, Map<String, String> tags) {
         Map<String, String> combinedTag = new LinkedHashMap<>(config.tags());
-        combinedTag.putAll(tags);
+        combinedTag.putAll(tags);// 将Metrics的标签和MetricName的标签合并
         return new MetricName(name, group, description, combinedTag);
     }
 

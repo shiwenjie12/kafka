@@ -33,7 +33,7 @@ public abstract class AbstractRequest extends AbstractRequestResponse {
         private final short latestAllowedVersion;
 
         /**
-         * Construct a new builder which allows any supported version
+         * 构建一个新的生成器，允许任何支持的版本
          */
         public Builder(ApiKeys apiKey) {
             this(apiKey, apiKey.oldestVersion(), apiKey.latestVersion());
@@ -47,7 +47,7 @@ public abstract class AbstractRequest extends AbstractRequestResponse {
         }
 
         /**
-         * Construct a new builder which allows an inclusive range of versions
+         * 使用一组可用的版本范围，创建一个新的构造器
          */
         public Builder(ApiKeys apiKey, short oldestAllowedVersion, short latestAllowedVersion) {
             this.apiKey = apiKey;
@@ -93,6 +93,7 @@ public abstract class AbstractRequest extends AbstractRequestResponse {
 
     /**
      * Use with care, typically {@link #toSend(String, RequestHeader)} should be used instead.
+     * 将请求头和 请求实体进行 序列化
      */
     public ByteBuffer serialize(RequestHeader header) {
         return serialize(header.toStruct(), toStruct());
@@ -134,7 +135,7 @@ public abstract class AbstractRequest extends AbstractRequestResponse {
     }
 
     /**
-     * Factory method for getting a request object based on ApiKey ID and a version
+     * 用于获取请求（基于apikey 和 版本）的工厂方法
      */
     public static AbstractRequest parseRequest(ApiKeys apiKey, short apiVersion, Struct struct) {
         switch (apiKey) {

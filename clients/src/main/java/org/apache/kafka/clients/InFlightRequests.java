@@ -27,10 +27,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
- * The set of requests which have been sent or are being sent but haven't yet received a response
+ * 已发送或正在发送但尚未收到响应的请求集。
  */
 final class InFlightRequests {
 
+    /**
+     * 每个连接最大的等待请求数
+     */
     private final int maxInFlightRequestsPerConnection;
     private final Map<String, Deque<NetworkClient.InFlightRequest>> requests = new HashMap<>();
     /** Thread safe total number of in flight requests. */
@@ -41,7 +44,7 @@ final class InFlightRequests {
     }
 
     /**
-     * Add the given request to the queue for the connection it was directed to
+     * 将给定的请求添加到队列中，增加数目
      */
     public void add(NetworkClient.InFlightRequest request) {
         String destination = request.destination;
@@ -82,7 +85,7 @@ final class InFlightRequests {
     }
 
     /**
-     * Complete the last request that was sent to a particular node.
+     * 完成发送到特定节点的最后一次请求。
      * @param node The node the request was sent to
      * @return The request
      */
@@ -93,7 +96,7 @@ final class InFlightRequests {
     }
 
     /**
-     * Can we send more requests to this node?
+     * 我们可以向这个节点发送更多的请求吗？
      *
      * @param node Node in question
      * @return true iff we have no requests still being sent to the given node
@@ -105,7 +108,7 @@ final class InFlightRequests {
     }
 
     /**
-     * Return the number of in-flight requests directed at the given node
+     * 返回指向给定节点的飞行请求数
      * @param node The node
      * @return The request count.
      */
@@ -141,7 +144,7 @@ final class InFlightRequests {
     }
 
     /**
-     * Clear out all the in-flight requests for the given node and return them
+     * 清除给定节点的所有飞行请求并返回它们
      *
      * @param node The node
      * @return All the in-flight requests for that node that have been removed
@@ -158,7 +161,7 @@ final class InFlightRequests {
     }
 
     /**
-     * Returns a list of nodes with pending in-flight request, that need to be timed out
+     * 返回具有待处理的飞行请求的节点列表，该节点的请求是超时的。
      *
      * @param now current time in milliseconds
      * @param requestTimeoutMs max time to wait for the request to be completed

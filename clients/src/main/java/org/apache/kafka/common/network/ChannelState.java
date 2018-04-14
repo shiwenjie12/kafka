@@ -43,6 +43,7 @@ import org.apache.kafka.common.errors.AuthenticationException;
  * </ul>
  * If the remote endpoint closes a channel, the state of the channel reflects the state the channel
  * was in at the time of disconnection. This state may be useful to identify the reason for disconnection.
+ * 在不同情况下的 通道状态转移
  * <p>
  * Typical transitions:
  * <ul>

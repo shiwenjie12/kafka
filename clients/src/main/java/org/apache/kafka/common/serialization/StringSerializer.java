@@ -24,7 +24,7 @@ import java.util.Map;
 /**
  *  String encoding defaults to UTF8 and can be customized by setting the property key.serializer.encoding,
  *  value.serializer.encoding or serializer.encoding. The first two take precedence over the last.
- *  string 的序列化  使用 utf-8
+ *  string 的序列化  默认使用 utf-8
  */
 public class StringSerializer implements Serializer<String> {
     private String encoding = "UTF8";

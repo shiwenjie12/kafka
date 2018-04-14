@@ -16,6 +16,9 @@
  */
 package org.apache.kafka.common.protocol.types;
 
+/**
+ * 协议中的字段（定义字段类型）
+ */
 public class Field {
     public final String name;
     public final String docString;

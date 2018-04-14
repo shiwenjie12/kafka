@@ -52,7 +52,7 @@ public final class Metadata {
 
     private static final Logger log = LoggerFactory.getLogger(Metadata.class);
 
-    public static final long TOPIC_EXPIRY_MS = 5 * 60 * 1000;
+    public static final long TOPIC_EXPIRY_MS = 5 * 60 * 1000;// 主题的过期时间
     private static final long TOPIC_EXPIRY_NEEDS_UPDATE = -1L;
 
     private final long refreshBackoffMs;
@@ -62,11 +62,11 @@ public final class Metadata {
     private long lastSuccessfulRefreshMs;
     private AuthenticationException authenticationException;
     private Cluster cluster;
-    private boolean needUpdate;
+    private boolean needUpdate;// 判断是否需要更新元数据
     /* Topics with expiry time */
-    private final Map<String, Long> topics;
-    private final List<Listener> listeners;
-    private final ClusterResourceListeners clusterResourceListeners;
+    private final Map<String, Long> topics; // 主题名和过期时间
+    private final List<Listener> listeners;// 元数据的监听器
+    private final ClusterResourceListeners clusterResourceListeners; // 集群资源的监听器
     private boolean needMetadataForAllTopics;
     private final boolean allowAutoTopicCreation;
     private final boolean topicExpiryEnabled;
@@ -76,14 +76,12 @@ public final class Metadata {
     }
 
     /**
-     * Create a new Metadata instance
-     * @param refreshBackoffMs The minimum amount of time that must expire between metadata refreshes to avoid busy
-     *        polling
-     * @param metadataExpireMs The maximum amount of time that metadata can be retained without refresh
-     * @param allowAutoTopicCreation If this and the broker config 'auto.create.topics.enable' are true, topics that
-     *                               don't exist will be created by the broker when a metadata request is sent
-     * @param topicExpiryEnabled If true, enable expiry of unused topics
-     * @param clusterResourceListeners List of ClusterResourceListeners which will receive metadata updates.
+     * 创建一个新的元数据实例
+     * @param refreshBackoffMs 元数据之间必须缩短的最小时间刷新，以避免繁忙轮询。
+     * @param metadataExpireMs 无需刷新就可以保留元数据的最大时间。
+     * @param allowAutoTopicCreation 如果代理配置自动创建主题为true，则在发送元数据请求时，将由代理创建不存在的主题。
+     * @param topicExpiryEnabled If true, 启用未使用主题的过期
+     * @param clusterResourceListeners 对clusterresourcelisteners将元数据更新列表。
      */
     public Metadata(long refreshBackoffMs, long metadataExpireMs, boolean allowAutoTopicCreation,
                     boolean topicExpiryEnabled, ClusterResourceListeners clusterResourceListeners) {
@@ -103,15 +101,14 @@ public final class Metadata {
     }
 
     /**
-     * Get the current cluster info without blocking
+     * 无阻塞获取当前集群信息
      */
     public synchronized Cluster fetch() {
         return this.cluster;
     }
 
     /**
-     * Add the topic to maintain in the metadata. If topic expiry is enabled, expiry time
-     * will be reset on the next update.
+     * 添加要在元数据中维护的主题。如果启用了主题过期，则将在下一次更新时重置过期时间。
      */
     public synchronized void add(String topic) {
         Objects.requireNonNull(topic, "topic cannot be null");
@@ -124,6 +121,9 @@ public final class Metadata {
      * The next time to update the cluster info is the maximum of the time the current info will expire and the time the
      * current info can be updated (i.e. backoff time has elapsed); If an update has been request then the expiry time
      * is now
+     * 判断到下一次更新的时间
+     * 下一次更新群集信息是当前信息过期的最大时间和当前信息可以更新的时间（即退避时间已经过去）；
+     * 如果请求更新了，则到期时间现在是现在。
      */
     public synchronized long timeToNextUpdate(long nowMs) {
         long timeToExpire = needUpdate ? 0 : Math.max(this.lastSuccessfulRefreshMs + this.metadataExpireMs - nowMs, 0);
@@ -132,7 +132,7 @@ public final class Metadata {
     }
 
     /**
-     * Request an update of the current cluster metadata info, return the current version before the update
+     * 请求更新当前集群元数据信息，在更新之前返回当前版本
      */
     public synchronized int requestUpdate() {
         this.needUpdate = true;
@@ -161,14 +161,14 @@ public final class Metadata {
     }
 
     /**
-     * Wait for metadata update until the current version is larger than the last version we know of
+     * 等待元数据更新，直到当前版本比我们所知道的最后一个版本大。
      */
     public synchronized void awaitUpdate(final int lastVersion, final long maxWaitMs) throws InterruptedException {
         if (maxWaitMs < 0) {
             throw new IllegalArgumentException("Max time to wait for metadata updates should not be < 0 milliseconds");
         }
         long begin = System.currentTimeMillis();
-        long remainingWaitMs = maxWaitMs;
+        long remainingWaitMs = maxWaitMs;// 持续等待时间
         while (this.version <= lastVersion) {
             AuthenticationException ex = getAndClearAuthenticationException();
             if (ex != null)
@@ -214,12 +214,11 @@ public final class Metadata {
     }
 
     /**
-     * Updates the cluster metadata. If topic expiry is enabled, expiry time
-     * is set for topics if required and expired topics are removed from the metadata.
+     * 更新集群元数据，
+     * 如果启用了主题过期，则如果需要，则为主题设置过期时间，并从元数据中删除过期主题。
      *
      * @param newCluster the cluster containing metadata for topics with valid metadata
-     * @param unavailableTopics topics which are non-existent or have one or more partitions whose
-     *        leader is not known
+     * @param unavailableTopics 不存在或有一个或多个不知道其领导人的分区的主题
      * @param now current time in milliseconds
      */
     public synchronized void update(Cluster newCluster, Set<String> unavailableTopics, long now) {
@@ -230,13 +229,13 @@ public final class Metadata {
         this.lastSuccessfulRefreshMs = now;
         this.version += 1;
 
-        if (topicExpiryEnabled) {
+        if (topicExpiryEnabled) {// 如果开启主题过期时间
             // Handle expiry of topics from the metadata refresh set.
             for (Iterator<Map.Entry<String, Long>> it = topics.entrySet().iterator(); it.hasNext(); ) {
                 Map.Entry<String, Long> entry = it.next();
                 long expireMs = entry.getValue();
                 if (expireMs == TOPIC_EXPIRY_NEEDS_UPDATE)
-                    entry.setValue(now + TOPIC_EXPIRY_MS);
+                    entry.setValue(now + TOPIC_EXPIRY_MS);// 设置默认过期时间
                 else if (expireMs <= now) {
                     it.remove();
                     log.debug("Removing unused topic {} from the metadata list, expiryMs {} now {}", entry.getKey(), expireMs, now);
@@ -258,7 +257,7 @@ public final class Metadata {
             this.cluster = newCluster;
         }
 
-        // The bootstrap cluster is guaranteed not to have any useful information
+        // 保证自举群集没有任何有用的信息。
         if (!newCluster.isBootstrapConfigured()) {
             String newClusterId = newCluster.clusterResource().clusterId();
             if (newClusterId == null ? previousClusterId != null : !newClusterId.equals(previousClusterId))
@@ -300,7 +299,7 @@ public final class Metadata {
     }
 
     /**
-     * Set state to indicate if metadata for all topics in Kafka cluster is required or not.
+     * 置状态以指示是否需要卡夫卡集群中所有主题的元数据。
      * @param needMetadataForAllTopics boolean indicating need for metadata of all topics in cluster.
      */
     public synchronized void needMetadataForAllTopics(boolean needMetadataForAllTopics) {
@@ -311,7 +310,7 @@ public final class Metadata {
     }
 
     /**
-     * Get whether metadata for all topics is needed or not
+     * 获取是否需要所有主题的元数据
      */
     public synchronized boolean needMetadataForAllTopics() {
         return this.needMetadataForAllTopics;
@@ -345,6 +344,9 @@ public final class Metadata {
         void onMetadataUpdate(Cluster cluster, Set<String> unavailableTopics);
     }
 
+    /**
+     * 为了新添加的主题更新请求
+     */
     private synchronized void requestUpdateForNewTopics() {
         // Override the timestamp of last refresh to let immediate update.
         this.lastRefreshMs = 0;

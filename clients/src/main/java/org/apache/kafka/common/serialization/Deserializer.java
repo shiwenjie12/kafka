@@ -21,6 +21,7 @@ import java.util.Map;
 
 /**
  * An interface for converting bytes to objects.
+ * 一个用于将buyes转换为objects对象
  *
  * A class that implements this interface is expected to have a constructor with no parameters.
  * <p>

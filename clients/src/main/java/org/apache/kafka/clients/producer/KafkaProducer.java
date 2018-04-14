@@ -249,6 +249,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     private final CompressionType compressionType;
     private final Sensor errors;
     private final Time time;
+    // 内部使用ExtendedSerializer，传入参数是Serializer，需要进行包装
     private final ExtendedSerializer<K> keySerializer;
     private final ExtendedSerializer<V> valueSerializer;
     private final ProducerConfig producerConfig;
@@ -331,11 +332,13 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             Map<String, Object> userProvidedConfigs = config.originals();
             this.producerConfig = config;
             this.time = Time.SYSTEM;
+            // 客户端id
             String clientId = config.getString(ProducerConfig.CLIENT_ID_CONFIG);
             if (clientId.length() <= 0)
                 clientId = "producer-" + PRODUCER_CLIENT_ID_SEQUENCE.getAndIncrement();
             this.clientId = clientId;
 
+            //事务id
             String transactionalId = userProvidedConfigs.containsKey(ProducerConfig.TRANSACTIONAL_ID_CONFIG) ?
                     (String) userProvidedConfigs.get(ProducerConfig.TRANSACTIONAL_ID_CONFIG) : null;
             LogContext logContext;
@@ -347,18 +350,19 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             log.trace("Starting the Kafka producer");
 
             Map<String, String> metricTags = Collections.singletonMap("client-id", clientId);
-            MetricConfig metricConfig = new MetricConfig().samples(config.getInt(ProducerConfig.METRICS_NUM_SAMPLES_CONFIG))
+            MetricConfig metricConfig = new MetricConfig()
+                    .samples(config.getInt(ProducerConfig.METRICS_NUM_SAMPLES_CONFIG))
                     .timeWindow(config.getLong(ProducerConfig.METRICS_SAMPLE_WINDOW_MS_CONFIG), TimeUnit.MILLISECONDS)
                     .recordLevel(Sensor.RecordingLevel.forName(config.getString(ProducerConfig.METRICS_RECORDING_LEVEL_CONFIG)))
                     .tags(metricTags);
             List<MetricsReporter> reporters = config.getConfiguredInstances(ProducerConfig.METRIC_REPORTER_CLASSES_CONFIG,
                     MetricsReporter.class);
-            reporters.add(new JmxReporter(JMX_PREFIX));
+            reporters.add(new JmxReporter(JMX_PREFIX));// 监控报表
             this.metrics = new Metrics(metricConfig, reporters, time);
             ProducerMetrics metricsRegistry = new ProducerMetrics(this.metrics);
-            this.partitioner = config.getConfiguredInstance(ProducerConfig.PARTITIONER_CLASS_CONFIG, Partitioner.class);
-            long retryBackoffMs = config.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
-            if (keySerializer == null) {
+            this.partitioner = config.getConfiguredInstance(ProducerConfig.PARTITIONER_CLASS_CONFIG, Partitioner.class);// 主题分区计算器
+            long retryBackoffMs = config.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);// 尝试次数
+            if (keySerializer == null) {// 获取默认的序列化类
                 this.keySerializer = ensureExtended(config.getConfiguredInstance(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                                                                                          Serializer.class));
                 this.keySerializer.configure(config.originals(), true);
@@ -379,15 +383,15 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             userProvidedConfigs.put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
             List<ProducerInterceptor<K, V>> interceptorList = (List) (new ProducerConfig(userProvidedConfigs, false)).getConfiguredInstances(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG,
                     ProducerInterceptor.class);
-            this.interceptors = new ProducerInterceptors<>(interceptorList);
+            this.interceptors = new ProducerInterceptors<>(interceptorList);// 链式拦截器
             ClusterResourceListeners clusterResourceListeners = configureClusterResourceListeners(keySerializer, valueSerializer, interceptorList, reporters);
             this.maxRequestSize = config.getInt(ProducerConfig.MAX_REQUEST_SIZE_CONFIG);
             this.totalMemorySize = config.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
             this.compressionType = CompressionType.forName(config.getString(ProducerConfig.COMPRESSION_TYPE_CONFIG));
 
-            this.maxBlockTimeMs = config.getLong(ProducerConfig.MAX_BLOCK_MS_CONFIG);
-            this.requestTimeoutMs = config.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
-            this.transactionManager = configureTransactionState(config, logContext, log);
+            this.maxBlockTimeMs = config.getLong(ProducerConfig.MAX_BLOCK_MS_CONFIG);// 最大阻塞时间
+            this.requestTimeoutMs = config.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);// 请求超时时间
+            this.transactionManager = configureTransactionState(config, logContext, log);// 事务管理器
             int retries = configureRetries(config, transactionManager != null, log);
             int maxInflightRequests = configureInflightRequests(config, transactionManager != null);
             short acks = configureAcks(config, transactionManager != null, log);
@@ -403,6 +407,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
                     time,
                     apiVersions,
                     transactionManager);
+            // 先驱的服务器用于获取 整体集群的信息
             List<InetSocketAddress> addresses = ClientUtils.parseAndValidateAddresses(config.getList(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG));
             if (metadata != null) {
                 this.metadata = metadata;
@@ -458,27 +463,34 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         }
     }
 
+    /**
+     * 配置事务状态
+     * @param config
+     * @param logContext
+     * @param log
+     * @return
+     */
     private static TransactionManager configureTransactionState(ProducerConfig config, LogContext logContext, Logger log) {
 
         TransactionManager transactionManager = null;
 
         boolean userConfiguredIdempotence = false;
-        if (config.originals().containsKey(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG))
+        if (config.originals().containsKey(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG))// 判断用户是否开启幂等的配置
             userConfiguredIdempotence = true;
 
         boolean userConfiguredTransactions = false;
-        if (config.originals().containsKey(ProducerConfig.TRANSACTIONAL_ID_CONFIG))
+        if (config.originals().containsKey(ProducerConfig.TRANSACTIONAL_ID_CONFIG))// 事务id
             userConfiguredTransactions = true;
 
-        boolean idempotenceEnabled = config.getBoolean(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG);
+        boolean idempotenceEnabled = config.getBoolean(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG);// 判断幂等是否开启
 
-        if (!idempotenceEnabled && userConfiguredIdempotence && userConfiguredTransactions)
+        if (!idempotenceEnabled && userConfiguredIdempotence && userConfiguredTransactions)// false  true   true
             throw new ConfigException("Cannot set a " + ProducerConfig.TRANSACTIONAL_ID_CONFIG + " without also enabling idempotence.");
 
         if (userConfiguredTransactions)
             idempotenceEnabled = true;
 
-        if (idempotenceEnabled) {
+        if (idempotenceEnabled) {// 开启事务
             String transactionalId = config.getString(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
             int transactionTimeoutMs = config.getInt(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG);
             long retryBackoffMs = config.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
@@ -492,19 +504,26 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         return transactionManager;
     }
 
+    /**
+     * 配置尝试次数
+     * @param config
+     * @param idempotenceEnabled 幂等性是否开启（事务管理器是否存在）
+     * @param log
+     * @return
+     */
     private static int configureRetries(ProducerConfig config, boolean idempotenceEnabled, Logger log) {
         boolean userConfiguredRetries = false;
         if (config.originals().containsKey(ProducerConfig.RETRIES_CONFIG)) {
             userConfiguredRetries = true;
         }
-        if (idempotenceEnabled && !userConfiguredRetries) {
+        if (idempotenceEnabled && !userConfiguredRetries) {// 如果没有配置重试次数，则设置为Integer.MAX_VALUE
             // We recommend setting infinite retries when the idempotent producer is enabled, so it makes sense to make
             // this the default.
             log.info("Overriding the default retries config to the recommended value of {} since the idempotent " +
                     "producer is enabled.", Integer.MAX_VALUE);
             return Integer.MAX_VALUE;
         }
-        if (idempotenceEnabled && config.getInt(ProducerConfig.RETRIES_CONFIG) == 0) {
+        if (idempotenceEnabled && config.getInt(ProducerConfig.RETRIES_CONFIG) == 0) {// 不符合配置条件
             throw new ConfigException("Must set " + ProducerConfig.RETRIES_CONFIG + " to non-zero when using the idempotent producer.");
         }
         return config.getInt(ProducerConfig.RETRIES_CONFIG);
@@ -537,6 +556,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         return acks;
     }
 
+    /* all -1:0:1*/
     private static int parseAcks(String acksString) {
         try {
             return acksString.trim().equalsIgnoreCase("all") ? -1 : Integer.parseInt(acksString.trim());
@@ -546,8 +566,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     /**
-     * Needs to be called before any other methods when the transactional.id is set in the configuration.
-     *
+     * 当配置中transactional.id设置，需要被调用在任何其他的方法使用时，
      * This method does the following:
      *   1. Ensures any transactions initiated by previous instances of the producer with the same
      *      transactional.id are completed. If the previous instance had failed with a transaction in
@@ -573,6 +592,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     /**
      * Should be called before the start of each new transaction. Note that prior to the first invocation
      * of this method, you must invoke {@link #initTransactions()} exactly one time.
+     * 开始事务
      *
      * @throws IllegalStateException if no transactional.id has been configured or if {@link #initTransactions()}
      *         has not yet been invoked
@@ -786,18 +806,18 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     /**
-     * Implementation of asynchronously send a record to a topic.
+     * 异步的实现发送一条记录到主题
      */
     private Future<RecordMetadata> doSend(ProducerRecord<K, V> record, Callback callback) {
         TopicPartition tp = null;
         try {
-            // first make sure the metadata for the topic is available
+            // 首先确保该主题的元数据可用。
             ClusterAndWaitTime clusterAndWaitTime = waitOnMetadata(record.topic(), record.partition(), maxBlockTimeMs);
-            long remainingWaitMs = Math.max(0, maxBlockTimeMs - clusterAndWaitTime.waitedOnMetadataMs);
+            long remainingWaitMs = Math.max(0, maxBlockTimeMs - clusterAndWaitTime.waitedOnMetadataMs);// 剩余阻塞时间
             Cluster cluster = clusterAndWaitTime.cluster;
             byte[] serializedKey;
             try {
-                serializedKey = keySerializer.serialize(record.topic(), record.headers(), record.key());
+                serializedKey = keySerializer.serialize(record.topic(), record.headers(), record.key());//序列化key
             } catch (ClassCastException cce) {
                 throw new SerializationException("Can't convert key of class " + record.key().getClass().getName() +
                         " to class " + producerConfig.getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +
@@ -805,7 +825,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             }
             byte[] serializedValue;
             try {
-                serializedValue = valueSerializer.serialize(record.topic(), record.headers(), record.value());
+                serializedValue = valueSerializer.serialize(record.topic(), record.headers(), record.value());// 序列化value
             } catch (ClassCastException cce) {
                 throw new SerializationException("Can't convert value of class " + record.value().getClass().getName() +
                         " to class " + producerConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
@@ -872,7 +892,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     /**
-     * Wait for cluster metadata including partitions for the given topic to be available.
+     * 等待集群元数据，包括给定主题的分区可用。
      * @param topic The topic we want metadata for
      * @param partition A specific partition expected to exist in metadata, or null if there's no preference
      * @param maxWaitMs The maximum time in ms for waiting on the metadata
@@ -885,6 +905,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         Integer partitionsCount = cluster.partitionCountForTopic(topic);
         // Return cached metadata if we have it, and if the record's partition is either undefined
         // or within the known partition range
+        // 返回缓存的元数据，如果有的话，如果记录的分区是未定义的，或者在已知的分区范围内
         if (partitionsCount != null && (partition == null || partition < partitionsCount))
             return new ClusterAndWaitTime(cluster, 0);
 
@@ -895,19 +916,19 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         // In case we already have cached metadata for the topic, but the requested partition is greater
         // than expected, issue an update request only once. This is necessary in case the metadata
         // is stale and the number of partitions for this topic has increased in the meantime.
-        do {
+        do {// 阻塞更新元数据
             log.trace("Requesting metadata update for topic {}.", topic);
             metadata.add(topic);
             int version = metadata.requestUpdate();
             sender.wakeup();
             try {
-                metadata.awaitUpdate(version, remainingWaitMs);
+                metadata.awaitUpdate(version, remainingWaitMs);// 等待更新完毕
             } catch (TimeoutException ex) {
                 // Rethrow with original maxWaitMs to prevent logging exception with remainingWaitMs
                 throw new TimeoutException("Failed to update metadata after " + maxWaitMs + " ms.");
             }
             cluster = metadata.fetch();
-            elapsed = time.milliseconds() - begin;
+            elapsed = time.milliseconds() - begin;// 消逝时间
             if (elapsed >= maxWaitMs)
                 throw new TimeoutException("Failed to update metadata after " + maxWaitMs + " ms.");
             if (cluster.unauthorizedTopics().contains(topic))
@@ -925,7 +946,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     /**
-     * Validate that the record size isn't too large
+     * 验证记录大小不是太大。
      */
     private void ensureValidRecordSize(int size) {
         if (size > this.maxRequestSize)
@@ -1116,7 +1137,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     /**
-     * computes partition for given record.
+     * 对给定的记录计算 分区号
      * if the record has partition returns the value otherwise
      * calls configured partitioner class to compute the partition.
      */
@@ -1128,6 +1149,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
                         record.topic(), record.key(), serializedKey, record.value(), serializedValue, cluster);
     }
 
+    /**
+     * 验证事务管理器是否为null
+     */
     private void throwIfNoTransactionManager() {
         if (transactionManager == null)
             throw new IllegalStateException("Cannot use transactional methods without enabling transactions " +
@@ -1136,7 +1160,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     private static class ClusterAndWaitTime {
         final Cluster cluster;
-        final long waitedOnMetadataMs;
+        final long waitedOnMetadataMs;// 用于等待元数据更新的时间
         ClusterAndWaitTime(Cluster cluster, long waitedOnMetadataMs) {
             this.cluster = cluster;
             this.waitedOnMetadataMs = waitedOnMetadataMs;

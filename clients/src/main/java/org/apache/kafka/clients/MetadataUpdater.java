@@ -24,20 +24,19 @@ import org.apache.kafka.common.requests.RequestHeader;
 import java.util.List;
 
 /**
- * The interface used by `NetworkClient` to request cluster metadata info to be updated and to retrieve the cluster nodes
- * from such metadata. This is an internal class.
+ * 通过 `NetworkClient`用来请求集群元数据信息进行更新，并从这些元数据检索群集节点的接口。这是一个内部类。
  * <p>
  * This class is not thread-safe!
  */
 interface MetadataUpdater {
 
     /**
-     * Gets the current cluster info without blocking.
+     * 获取当前集群的节点（不阻塞）
      */
     List<Node> fetchNodes();
 
     /**
-     * Returns true if an update to the cluster metadata info is due.
+     * 如果对集群元数据信息的更新到期，则返回true。
      */
     boolean isUpdateDue(long now);
 
@@ -54,7 +53,7 @@ interface MetadataUpdater {
     long maybeUpdate(long now);
 
     /**
-     * Handle disconnections for metadata requests.
+     * 为元数据请求处理断开连接
      *
      * This provides a mechanism for the `MetadataUpdater` implementation to use the NetworkClient instance for its own
      * requests with special handling for disconnections of such requests.
@@ -63,14 +62,14 @@ interface MetadataUpdater {
     void handleDisconnection(String destination);
 
     /**
-     * Handle authentication failure. Propagate the authentication exception if awaiting metadata.
+     * 处理授权失败. Propagate the authentication exception if awaiting metadata.
      *
      * @param exception authentication exception from broker
      */
     void handleAuthenticationFailure(AuthenticationException exception);
 
     /**
-     * Handle responses for metadata requests.
+     * 处理元数据请求的响应
      *
      * This provides a mechanism for the `MetadataUpdater` implementation to use the NetworkClient instance for its own
      * requests with special handling for completed receives of such requests.

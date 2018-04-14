@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * 加密协议
+ */
 public enum SecurityProtocol {
     /** Un-authenticated, non-encrypted channel */
     PLAINTEXT(0, "PLAINTEXT"),
@@ -36,7 +39,7 @@ public enum SecurityProtocol {
     private static final Map<Short, SecurityProtocol> CODE_TO_SECURITY_PROTOCOL;
     private static final List<String> NAMES;
 
-    static {
+    static {// 构造加密协议的内部变量
         SecurityProtocol[] protocols = SecurityProtocol.values();
         List<String> names = new ArrayList<>(protocols.length);
         Map<Short, SecurityProtocol> codeToSecurityProtocol = new HashMap<>(protocols.length);

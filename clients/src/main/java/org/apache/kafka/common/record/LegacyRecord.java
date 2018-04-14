@@ -30,15 +30,13 @@ import java.nio.ByteBuffer;
 import static org.apache.kafka.common.utils.Utils.wrapNullable;
 
 /**
- * This class represents the serialized key and value along with the associated CRC and other fields
- * of message format versions 0 and 1. Note that it is uncommon to need to access this class directly.
- * Usually it should be accessed indirectly through the {@link Record} interface which is exposed
- * through the {@link Records} object.
+ * 该类表示序列化的键和值，以及相关联的CRC和消息格式版本0和1的其他字段。（遗留的）
+ * 注意，需要直接访问这个类是不常见的，通常应该通过通过{@link Record}对象暴露的{@link Records} 接口间接访问它。
  */
 public final class LegacyRecord {
 
     /**
-     * The current offset and size for all the fixed-length fields
+     * 所有固定长度字段的当前偏移量和大小。
      */
     public static final int CRC_OFFSET = 0;
     public static final int CRC_LENGTH = 4;
@@ -484,6 +482,13 @@ public final class LegacyRecord {
         }
     }
 
+    /**
+     * 获取记录的大小的（根据magic版本）
+     * @param magic
+     * @param key
+     * @param value
+     * @return
+     */
     static int recordSize(byte magic, ByteBuffer key, ByteBuffer value) {
         return recordSize(magic, key == null ? 0 : key.limit(), value == null ? 0 : value.limit());
     }
@@ -492,7 +497,13 @@ public final class LegacyRecord {
         return recordOverhead(magic) + keySize + valueSize;
     }
 
-    // visible only for testing
+    /**
+     * 计算属性（magic、压缩的格式、时间格式）
+     * @param magic
+     * @param type
+     * @param timestampType
+     * @return
+     */
     public static byte computeAttributes(byte magic, CompressionType type, TimestampType timestampType) {
         byte attributes = 0;
         if (type.id > 0)
@@ -513,7 +524,7 @@ public final class LegacyRecord {
     }
 
     /**
-     * Compute the checksum of the record from the attributes, key and value payloads
+     * 从属性、键和值有效载荷计算记录的校验和。
      */
     private static long computeChecksum(byte magic, byte attributes, long timestamp, ByteBuffer key, ByteBuffer value) {
         Crc32 crc = new Crc32();

@@ -30,6 +30,9 @@ import static java.util.Objects.requireNonNull;
  * you need to represent relations between different principals. For example, you could extend
  * {@link KafkaPrincipal} in order to link a user principal to one or more role principals.
  *
+ *  卡夫卡中的主体是由类型和名称定义的。主类型总是“用户”。
+ *  对于简单的授权，默认是启用的，但客户的委托人可以利用不同
+ *  主要类型（如使组或角色的ACL）
  * For custom extensions of {@link KafkaPrincipal}, there two key points to keep in mind:
  *
  * 1. To be compatible with the ACL APIs provided by Kafka (including the command line tool), each ACL
@@ -47,6 +50,9 @@ public class KafkaPrincipal implements Principal {
 
     private final String principalType;
     private final String name;
+    /**
+     * 跳过验证
+     */
     private volatile boolean tokenAuthenticated;
 
     public KafkaPrincipal(String principalType, String name) {

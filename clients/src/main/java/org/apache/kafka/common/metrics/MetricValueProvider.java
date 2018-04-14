@@ -17,8 +17,7 @@
 package org.apache.kafka.common.metrics;
 
 /**
- * Super-interface for {@link Measurable} or {@link Gauge} that provides
- * metric values.
+ * 用于提供链接的{@link Measurable}或{@link Gauge} 的超级接口度量值。
  * <p>
  * In the future for Java8 and above, {@link Gauge#value(MetricConfig, long)} will be
  * moved to this interface with a default implementation in {@link Measurable} that returns

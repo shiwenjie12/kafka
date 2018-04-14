@@ -83,11 +83,11 @@ public class Rate implements MeasurableStat {
          * if no record is called for a period of time that time is not accounted for in windowSize and produces incorrect results.
          */
         long totalElapsedTimeMs = now - stat.oldest(now).lastWindowMs;
-        // Check how many full windows of data we have currently retained
+        // 检查当前保留的数据有多少个完整窗口
         int numFullWindows = (int) (totalElapsedTimeMs / config.timeWindowMs());
         int minFullWindows = config.samples() - 1;
 
-        // If the available windows are less than the minimum required, add the difference to the totalElapsedTime
+        // 如果可用的Windows是小于所需的最小，添加不同的totalelapsedtime
         if (numFullWindows < minFullWindows)
             totalElapsedTimeMs += (minFullWindows - numFullWindows) * config.timeWindowMs();
 

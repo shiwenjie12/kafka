@@ -166,12 +166,20 @@ public abstract class AbstractRecords implements Records {
         };
     }
 
+    /**
+     * 压缩后的大小
+     * @param magic
+     * @param baseOffset
+     * @param compressionType
+     * @param records
+     * @return
+     */
     public static int estimateSizeInBytes(byte magic,
                                           long baseOffset,
                                           CompressionType compressionType,
                                           Iterable<Record> records) {
         int size = 0;
-        if (magic <= RecordBatch.MAGIC_VALUE_V1) {
+        if (magic <= RecordBatch.MAGIC_VALUE_V1) {// V0 V1 才使用这个种方式
             for (Record record : records)
                 size += Records.LOG_OVERHEAD + LegacyRecord.recordSize(magic, record.key(), record.value());
         } else {
@@ -198,8 +206,7 @@ public abstract class AbstractRecords implements Records {
     }
 
     /**
-     * Get an upper bound estimate on the batch size needed to hold a record with the given fields. This is only
-     * an estimate because it does not take into account overhead from the compression algorithm.
+     * 对给定字段保存记录所需的批大小进行上界估计。这仅仅是一个估计，因为它没有考虑到压缩算法的开销。
      */
     public static int estimateSizeInBytesUpperBound(byte magic, CompressionType compressionType, byte[] key, byte[] value, Header[] headers) {
         return estimateSizeInBytesUpperBound(magic, compressionType, Utils.wrapNullable(key), Utils.wrapNullable(value), headers);
@@ -220,7 +227,7 @@ public abstract class AbstractRecords implements Records {
     }
 
     /**
-     * Return the size of the record batch header.
+     * 返回记录批处理头的大小。
      *
      * For V0 and V1 with no compression, it's unclear if Records.LOG_OVERHEAD or 0 should be chosen. There is no header
      * per batch, but a sequence of batches is preceded by the offset and size. This method returns `0` as it's what

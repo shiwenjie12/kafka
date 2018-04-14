@@ -24,7 +24,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 /**
- * This classes exposes low-level methods for reading/writing from byte streams or buffers.
+ * 这些类公开了从字节流或缓冲区读/写的低层方法。
  */
 public final class ByteUtils {
 
@@ -293,7 +293,7 @@ public final class ByteUtils {
     }
 
     /**
-     * Number of bytes needed to encode an integer in variable-length format.
+     * 在可变长度格式中编码整数所需的字节数。
      *
      * @param value The signed value
      */

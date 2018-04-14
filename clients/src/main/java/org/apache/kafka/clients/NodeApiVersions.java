@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.TreeMap;
 
 /**
- * An internal class which represents the API versions supported by a particular node.
+ * 表示特定节点支持的api版本的内部类。
  */
 public class NodeApiVersions {
     // A map of the usable versions of each API, keyed by the ApiKeys instance
@@ -73,11 +73,15 @@ public class NodeApiVersions {
         return new NodeApiVersions(apiVersions);
     }
 
+    /**
+     * 初始化节点可以支持的ApiVersion
+     * @param nodeApiVersions
+     */
     public NodeApiVersions(Collection<ApiVersion> nodeApiVersions) {
         for (ApiVersion nodeApiVersion : nodeApiVersions) {
-            if (ApiKeys.hasId(nodeApiVersion.apiKey)) {
+            if (ApiKeys.hasId(nodeApiVersion.apiKey)) {// 正常的api
                 ApiKeys nodeApiKey = ApiKeys.forId(nodeApiVersion.apiKey);
-                supportedVersions.put(nodeApiKey, nodeApiVersion);
+                supportedVersions.put(nodeApiKey, nodeApiVersion);// 支持的api
             } else {
                 // Newer brokers may support ApiKeys we don't know about
                 unknownApis.add(nodeApiVersion);
@@ -86,14 +90,14 @@ public class NodeApiVersions {
     }
 
     /**
-     * Return the most recent version supported by both the node and the local software.
+     * 返回由节点和本地软件支持的最新版本。
      */
     public short latestUsableVersion(ApiKeys apiKey) {
         return latestUsableVersion(apiKey, apiKey.oldestVersion(), apiKey.latestVersion());
     }
 
     /**
-     * Get the latest version supported by the broker within an allowed range of versions
+     * 在允许的范围内获取代理支持的最新版本。
      */
     public short latestUsableVersion(ApiKeys apiKey, short oldestAllowedVersion, short latestAllowedVersion) {
         ApiVersion usableVersion = supportedVersions.get(apiKey);

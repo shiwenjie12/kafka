@@ -20,6 +20,9 @@ import org.apache.kafka.common.protocol.types.Struct;
 
 import java.nio.ByteBuffer;
 
+/**
+ * 请求和响应的的分类，抽象类，实现serialize
+ */
 public abstract class AbstractRequestResponse {
     /**
      * Visible for testing.

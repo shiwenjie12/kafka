@@ -18,6 +18,7 @@ package org.apache.kafka.common;
 
 /**
  * Information about a Kafka node
+ * 一个kafka节点的信息
  */
 public class Node {
 
@@ -29,7 +30,7 @@ public class Node {
     private final int port;
     private final String rack;
 
-    // Cache hashCode as it is called in performance sensitive parts of the code (e.g. RecordAccumulator.ready)
+    // 这被称为缓存hashcode的代码性能敏感的部位  (e.g. RecordAccumulator.ready)
     private Integer hash;
 
     public Node(int id, String host, int port) {

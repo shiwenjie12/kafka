@@ -19,7 +19,7 @@ package org.apache.kafka.common.protocol.types;
 import java.nio.ByteBuffer;
 
 /**
- * Represents a type for an array of a particular type
+ * 表示特定类型数组的类型。
  */
 public class ArrayOf extends Type {
 

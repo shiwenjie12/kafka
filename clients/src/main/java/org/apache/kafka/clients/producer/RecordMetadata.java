@@ -22,7 +22,7 @@ import org.apache.kafka.common.record.RecordBatch;
 import org.apache.kafka.common.requests.ProduceResponse;
 
 /**
- * The metadata for a record that has been acknowledged by the server
+ * 服务器已确认的记录的元数据。
  */
 public final class RecordMetadata {
 

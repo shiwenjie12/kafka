@@ -22,6 +22,9 @@ import org.apache.kafka.common.ClusterResourceListener;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * 集群资源的监听器，当资源变更后，用于更新数据
+ */
 public class ClusterResourceListeners {
 
     private final List<ClusterResourceListener> clusterResourceListeners;

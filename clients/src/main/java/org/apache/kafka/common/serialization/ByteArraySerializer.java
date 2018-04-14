@@ -18,6 +18,7 @@ package org.apache.kafka.common.serialization;
 
 import java.util.Map;
 
+
 public class ByteArraySerializer implements Serializer<byte[]> {
 
     @Override
@@ -25,6 +26,7 @@ public class ByteArraySerializer implements Serializer<byte[]> {
         // nothing to do
     }
 
+    // 不需要再做处理
     @Override
     public byte[] serialize(String topic, byte[] data) {
         return data;

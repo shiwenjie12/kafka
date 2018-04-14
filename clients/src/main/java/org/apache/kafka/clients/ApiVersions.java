@@ -24,10 +24,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Maintains node api versions for access outside of NetworkClient (which is where the information is derived).
- * The pattern is akin to the use of {@link Metadata} for topic metadata.
- *
- * NOTE: This class is intended for INTERNAL usage only within Kafka.
+ * 维护节点的API版本以外的networkclient访问（这是那里的信息来源），模式类似于使用{@link Metadata} 为主题的元数据的元数据。
+ * NOTE: 此类仅用于内部使用，仅限于卡夫卡内部。
  */
 public class ApiVersions {
 
@@ -48,9 +46,14 @@ public class ApiVersions {
         return this.nodeApiVersions.get(nodeId);
     }
 
+    /**
+     *计算最大的可用版本 {@link ApiKeys.PRODUCE}
+     * @return
+     */
     private byte computeMaxUsableProduceMagic() {
         // use a magic version which is supported by all brokers to reduce the chance that
         // we will need to convert the messages when they are ready to be sent.
+        // 使用一个由所有代理支持的魔力版本，以减少我们在准备发送消息时需要转换消息的可能。
         byte maxUsableMagic = RecordBatch.CURRENT_MAGIC_VALUE;
         for (NodeApiVersions versions : this.nodeApiVersions.values()) {
             byte nodeMaxUsableMagic = ProduceRequest.requiredMagicForVersion(versions.latestUsableVersion(ApiKeys.PRODUCE));

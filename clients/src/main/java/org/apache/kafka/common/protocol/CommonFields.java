@@ -18,6 +18,9 @@ package org.apache.kafka.common.protocol;
 
 import org.apache.kafka.common.protocol.types.Field;
 
+/**
+ * 一些公用的字段
+ */
 public class CommonFields {
     public static final Field.Int32 THROTTLE_TIME_MS = new Field.Int32("throttle_time_ms",
             "Duration in milliseconds for which the request was throttled due to quota violation (Zero if the " +

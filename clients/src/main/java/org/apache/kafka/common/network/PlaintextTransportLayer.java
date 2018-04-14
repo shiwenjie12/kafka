@@ -16,10 +16,6 @@
  */
 package org.apache.kafka.common.network;
 
-/*
- * Transport layer for PLAINTEXT communication
- */
-
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -29,7 +25,9 @@ import java.nio.channels.SelectionKey;
 import java.security.Principal;
 
 import org.apache.kafka.common.security.auth.KafkaPrincipal;
-
+/*
+ * 明文通信传输层
+ */
 public class PlaintextTransportLayer implements TransportLayer {
     private final SelectionKey key;
     private final SocketChannel socketChannel;
@@ -48,7 +46,7 @@ public class PlaintextTransportLayer implements TransportLayer {
     @Override
     public boolean finishConnect() throws IOException {
         boolean connected = socketChannel.finishConnect();
-        if (connected)
+        if (connected)// 将SelectionKey 设置为读取状态
             key.interestOps(key.interestOps() & ~SelectionKey.OP_CONNECT | SelectionKey.OP_READ);
         return connected;
     }
@@ -85,15 +83,14 @@ public class PlaintextTransportLayer implements TransportLayer {
     }
 
     /**
-     * Performs SSL handshake hence is a no-op for the non-secure
-     * implementation
+     * 执行SSL握手，因此是非安全情况下，不需要实现
      * @throws IOException
     */
     @Override
     public void handshake() throws IOException {}
 
     /**
-    * Reads a sequence of bytes from this channel into the given buffer.
+    * 从这个通道读入一个字节序列到给定的缓冲区。
     *
     * @param dst The buffer into which bytes are to be transferred
     * @return The number of bytes read, possible zero or -1 if the channel has reached end-of-stream
@@ -130,7 +127,7 @@ public class PlaintextTransportLayer implements TransportLayer {
     }
 
     /**
-    * Writes a sequence of bytes to this channel from the given buffer.
+    * 从给定的缓冲区写入字节序列到这个通道。
     *
     * @param src The buffer from which bytes are to be retrieved
     * @returns The number of bytes read, possibly zero, or -1 if the channel has reached end-of-stream
@@ -168,8 +165,7 @@ public class PlaintextTransportLayer implements TransportLayer {
     }
 
     /**
-     * always returns false as there will be not be any
-     * pending writes since we directly write to socketChannel.
+     * 总是返回false，因为我们直接写入SocketChannel，所以将会有不任何挂起的写。
      */
     @Override
     public boolean hasPendingWrites() {
@@ -185,7 +181,7 @@ public class PlaintextTransportLayer implements TransportLayer {
     }
 
     /**
-     * Adds the interestOps to selectionKey.
+     * 添加selectionKey的操作符.
      */
     @Override
     public void addInterestOps(int ops) {
@@ -194,7 +190,7 @@ public class PlaintextTransportLayer implements TransportLayer {
     }
 
     /**
-     * Removes the interestOps from selectionKey.
+     * 移除selectionKey的操作符.
      */
     @Override
     public void removeInterestOps(int ops) {

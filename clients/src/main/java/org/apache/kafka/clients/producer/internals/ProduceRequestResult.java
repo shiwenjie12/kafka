@@ -25,9 +25,9 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
- * A class that models the future completion of a produce request for a single partition. There is one of these per
- * partition in a produce request and it is shared by all the {@link RecordMetadata} instances that are batched together
- * for the same partition in the request.
+ * 为将来单个分区的生产请求完成模型的类。
+ * 有一个每个分区在生产要求并共享所有{@link RecordMetadata}的情况下，
+ * 被收集在一起，为同一个分区的要求。
  */
 public final class ProduceRequestResult {
 
@@ -61,7 +61,7 @@ public final class ProduceRequestResult {
     }
 
     /**
-     * Mark this request as complete and unblock any threads waiting on its completion.
+     * 标记请求完成并解锁等待他完成的任何线程
      */
     public void done() {
         if (baseOffset == null)
@@ -70,7 +70,7 @@ public final class ProduceRequestResult {
     }
 
     /**
-     * Await the completion of this request
+     * 等待请求完成
      */
     public void await() throws InterruptedException {
         latch.await();

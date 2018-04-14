@@ -21,26 +21,27 @@ import java.util.List;
 import org.apache.kafka.common.Configurable;
 
 /**
- * A plugin interface to allow things to listen as new metrics are created so they can be reported.
+ * 一个插件接口，允许新的度量值创建时可以监听，这样就可以报告。
  * <p>
- * Implement {@link org.apache.kafka.common.ClusterResourceListener} to receive cluster metadata once it's available. Please see the class documentation for ClusterResourceListener for more information.
+ * Implement {@link org.apache.kafka.common.ClusterResourceListener} to receive cluster metadata once it's available.
+ * Please see the class documentation for ClusterResourceListener for more information.
  */
 public interface MetricsReporter extends Configurable {
 
     /**
-     * This is called when the reporter is first registered to initially register all existing metrics
+     * 当第一次注册时，它首先注册所有现有的指标。
      * @param metrics All currently existing metrics
      */
     public void init(List<KafkaMetric> metrics);
 
     /**
-     * This is called whenever a metric is updated or added
+     * 每当更新或添加度量时调用这个函数。
      * @param metric
      */
     public void metricChange(KafkaMetric metric);
 
     /**
-     * This is called whenever a metric is removed
+     * 每当删除一个度量值时调用这个函数。
      * @param metric
      */
     public void metricRemoval(KafkaMetric metric);

@@ -24,8 +24,7 @@ import java.util.Arrays;
 import java.util.Objects;
 
 /**
- * High-level representation of a kafka record. This is useful when building record sets to
- * avoid depending on a specific magic version.
+ * kafka记录的高等级表示。这对于构建记录集以避免依赖特定的magic版本非常有用。
  */
 public class SimpleRecord {
     private final ByteBuffer key;

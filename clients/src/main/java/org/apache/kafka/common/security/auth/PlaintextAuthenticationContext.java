@@ -18,6 +18,9 @@ package org.apache.kafka.common.security.auth;
 
 import java.net.InetAddress;
 
+/**
+ * 明文授权的上下文，明文验证器中只有 ip地址
+ */
 public class PlaintextAuthenticationContext implements AuthenticationContext {
     private final InetAddress clientAddress;
 

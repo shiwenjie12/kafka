@@ -55,13 +55,13 @@ public interface Records {
     int HEADER_SIZE_UP_TO_MAGIC = MAGIC_OFFSET + MAGIC_LENGTH;
 
     /**
-     * The size of these records in bytes.
+     * 这些记录的大小以字节为单位。.
      * @return The size in bytes of the records
      */
     int sizeInBytes();
 
     /**
-     * Attempts to write the contents of this buffer to a channel.
+     * 将此缓冲区的内容写入通道的尝试。
      * @param channel The channel to write to
      * @param position The position in the buffer to write from
      * @param length The number of bytes to write
@@ -80,14 +80,14 @@ public interface Records {
     Iterable<? extends RecordBatch> batches();
 
     /**
-     * Check whether all batches in this buffer have a certain magic value.
+     * 检查缓冲区中的所有批次是否具有一定的magic值
      * @param magic The magic value to check
      * @return true if all record batches have a matching magic value, false otherwise
      */
     boolean hasMatchingMagic(byte magic);
 
     /**
-     * Check whether this log buffer has a magic value compatible with a particular value
+     * 检查此日志缓冲区是否具有与特定值兼容的magic值。
      * (i.e. whether all message sets contained in the buffer have a matching or lower magic).
      * @param magic The magic version to ensure compatibility with
      * @return true if all batches have compatible magic, false otherwise
@@ -95,8 +95,8 @@ public interface Records {
     boolean hasCompatibleMagic(byte magic);
 
     /**
-     * Convert all batches in this buffer to the format passed as a parameter. Note that this requires
-     * deep iteration since all of the deep records must also be converted to the desired format.
+     * 将此缓冲区中的所有批次转换为作为参数传递的格式。
+     * 注意，这需要深度迭代，因为所有的深层记录也必须转换成所需的格式。
      * @param toMagic The magic value to convert to
      * @param firstOffset The starting offset for returned records. This only impacts some cases. See
      *                    {@link AbstractRecords#downConvert(Iterable, byte, long, Time) for an explanation.

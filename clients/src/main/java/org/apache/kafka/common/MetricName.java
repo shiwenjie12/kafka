@@ -70,7 +70,7 @@ public final class MetricName {
     private int hash = 0;
 
     /**
-     * Please create MetricName by method {@link org.apache.kafka.common.metrics.Metrics#metricName(String, String, String, Map)}
+     * 请通过这个方法创建{@link org.apache.kafka.common.metrics.Metrics#metricName(String, String, String, Map)}
      *
      * @param name        The name of the metric
      * @param group       logical group name of the metrics to which this metric belongs

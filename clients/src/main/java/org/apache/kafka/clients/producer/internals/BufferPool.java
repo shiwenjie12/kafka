@@ -32,8 +32,7 @@ import org.apache.kafka.common.utils.Time;
 
 
 /**
- * A pool of ByteBuffers kept under a given memory limit. This class is fairly specific to the needs of the producer. In
- * particular it has the following properties:
+ * 在一个给定的内存限制在一池字节缓冲区。这个类相当于生产者的需要。特别是它具有以下属性：
  * <ol>
  * <li>There is a special "poolable size" and buffers of this size are kept in a free list and recycled
  * <li>It is fair. That is all memory is given to the longest waiting thread until it has sufficient memory. This
@@ -59,13 +58,13 @@ public class BufferPool {
     /**
      * Create a new buffer pool
      *
-     * @param memory The maximum amount of memory that this buffer pool can allocate
-     * @param poolableSize The buffer size to cache in the free list rather than deallocating
+     * @param memory 此缓冲池可以分配的最大内存量。
+     * @param poolableSize 缓冲区缓存在自由列表，而不是释放
      * @param metrics instance of Metrics
      * @param time time instance
      * @param metricGrpName logical group name for metrics
      */
-    public BufferPool(long memory, int poolableSize, Metrics metrics, Time time, String metricGrpName) {
+    public  BufferPool(long memory, int poolableSize, Metrics metrics, Time time, String metricGrpName) {
         this.poolableSize = poolableSize;
         this.lock = new ReentrantLock();
         this.free = new ArrayDeque<>();
@@ -105,9 +104,9 @@ public class BufferPool {
         ByteBuffer buffer = null;
         this.lock.lock();
         try {
-            // check if we have a free buffer of the right size pooled
+            // 检查是否有一个合适大小的空闲缓冲池
             if (size == poolableSize && !this.free.isEmpty())
-                return this.free.pollFirst();
+                return this.free.pollFirst();// 删除头结点
 
             // now check if the request is immediately satisfiable with the
             // memory on hand or if we need to block
@@ -118,7 +117,7 @@ public class BufferPool {
                 freeUp(size);
                 this.nonPooledAvailableMemory -= size;
             } else {
-                // we are out of memory and will have to block
+                // 我们内存不足，不得不阻塞。
                 int accumulated = 0;
                 Condition moreMemory = this.lock.newCondition();
                 try {
@@ -147,12 +146,11 @@ public class BufferPool {
                         // check if we can satisfy this request from the free list,
                         // otherwise allocate memory
                         if (accumulated == 0 && size == this.poolableSize && !this.free.isEmpty()) {
-                            // just grab a buffer from the free list
+                            // 只需从空闲列表中获取一个缓冲区
                             buffer = this.free.pollFirst();
                             accumulated = size;
                         } else {
-                            // we'll need to allocate memory, but we may only get
-                            // part of what we need on this iteration
+                            // 我们需要分配内存，但是在这个迭代过程中我们只能得到我们需要的部分。
                             freeUp(size - accumulated);
                             int got = (int) Math.min(size - accumulated, this.nonPooledAvailableMemory);
                             this.nonPooledAvailableMemory -= got;
@@ -188,6 +186,7 @@ public class BufferPool {
     /**
      * Allocate a buffer.  If buffer allocation fails (e.g. because of OOM) then return the size count back to
      * available memory and signal the next waiter if it exists.
+     * 分配缓冲区。如果缓冲区分配失败（例如由于OOM）然后返回大小数回的可用内存和信号旁边的服务员如果它存在。
      */
     private ByteBuffer safeAllocateByteBuffer(int size) {
         boolean error = true;
@@ -217,6 +216,7 @@ public class BufferPool {
     /**
      * Attempt to ensure we have at least the requested number of bytes of memory for allocation by deallocating pooled
      * buffers (if needed)
+     * 为了保证我们至少有请求的字节数的 内存分配释放缓冲区的合并（如果需要）
      */
     private void freeUp(int size) {
         while (!this.free.isEmpty() && this.nonPooledAvailableMemory < size)
@@ -282,7 +282,7 @@ public class BufferPool {
     }
 
     /**
-     * The number of threads blocked waiting on memory
+     * 阻塞等待内存的线程数。
      */
     public int queued() {
         lock.lock();

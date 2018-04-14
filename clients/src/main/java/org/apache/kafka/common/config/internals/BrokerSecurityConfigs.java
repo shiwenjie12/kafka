@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Common home for broker-side security configs which need to be accessible from the libraries shared
  * between the broker and the client.
- *
+ * 主机的加密配置
  * Note this is an internal API and subject to change without notice.
  */
 public class BrokerSecurityConfigs {

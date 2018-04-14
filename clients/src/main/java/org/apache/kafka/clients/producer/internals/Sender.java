@@ -68,14 +68,13 @@ import java.util.Map;
 import static org.apache.kafka.common.record.RecordBatch.NO_TIMESTAMP;
 
 /**
- * The background thread that handles the sending of produce requests to the Kafka cluster. This thread makes metadata
- * requests to renew its view of the cluster and then sends produce requests to the appropriate nodes.
+ * 处理向Kafka集群发送生成请求的后台线程。 此线程使元数据请求更新其对群集的视图，然后将产品请求发送到适当的节点。
  */
 public class Sender implements Runnable {
 
     private final Logger log;
 
-    /* the state of each nodes connection */
+    /* 每个节点连接的状态  */
     private final KafkaClient client;
 
     /* the record accumulator that batches records */
@@ -84,7 +83,7 @@ public class Sender implements Runnable {
     /* the metadata for the client */
     private final Metadata metadata;
 
-    /* the flag indicating whether the producer should guarantee the message order on the broker or not. */
+    /* 标志指示生产者是否应该保证代理的消息顺序。  */
     private final boolean guaranteeMessageOrder;
 
     /* the maximum request size to attempt to send to the server */
@@ -152,12 +151,12 @@ public class Sender implements Runnable {
     }
 
     /**
-     * The main run loop for the sender thread
+     * sender线程的主要运行循环
      */
     public void run() {
         log.debug("Starting Kafka producer I/O thread.");
 
-        // main loop, runs until close is called
+        // 主循环，直到关闭前一直才调用
         while (running) {
             try {
                 run(time.milliseconds());
@@ -202,11 +201,11 @@ public class Sender implements Runnable {
         if (transactionManager != null) {
             try {
                 if (transactionManager.shouldResetProducerStateAfterResolvingSequences())
-                    // Check if the previous run expired batches which requires a reset of the producer state.
+                    // 检查前一次运行的过期批次是否需要重置生产商状态。
                     transactionManager.resetProducerId();
 
                 if (!transactionManager.isTransactional()) {
-                    // this is an idempotent producer, so make sure we have a producer id
+                    // 这是一个幂等生产者，所以确保我们有一个生产者ID。
                     maybeWaitForProducerId();
                 } else if (transactionManager.hasUnresolvedSequences() && !transactionManager.hasFatalError()) {
                     transactionManager.transitionToFatalError(new KafkaException("The client hasn't received acknowledgment for " +
@@ -242,15 +241,15 @@ public class Sender implements Runnable {
     private long sendProducerData(long now) {
         Cluster cluster = metadata.fetch();
 
-        // get the list of partitions with data ready to send
+        // 获取具有准备发送数据的分区列表
         RecordAccumulator.ReadyCheckResult result = this.accumulator.ready(cluster, now);
 
-        // if there are any partitions whose leaders are not known yet, force metadata update
+        // 如果有任何分区，其领导人还不知道，强制元数据更新
         if (!result.unknownLeaderTopics.isEmpty()) {
             // The set of topics with unknown leader contains topics with leader election pending as well as
             // topics which may have expired. Add the topic again to metadata to ensure it is included
             // and request metadata update, since there are messages to send to the topic.
-            for (String topic : result.unknownLeaderTopics)
+            for (String topic : result.unknownLeaderTopics)// 向元数据添加未知主题
                 this.metadata.add(topic);
             this.metadata.requestUpdate();
         }
@@ -260,7 +259,7 @@ public class Sender implements Runnable {
         long notReadyTimeout = Long.MAX_VALUE;
         while (iter.hasNext()) {
             Node node = iter.next();
-            if (!this.client.ready(node, now)) {
+            if (!this.client.ready(node, now)) {// 移除不能发送的节点（连接状态）
                 iter.remove();
                 notReadyTimeout = Math.min(notReadyTimeout, this.client.connectionDelay(node, now));
             }
@@ -269,14 +268,15 @@ public class Sender implements Runnable {
         // create produce requests
         Map<Integer, List<ProducerBatch>> batches = this.accumulator.drain(cluster, result.readyNodes,
                 this.maxRequestSize, now);
-        if (guaranteeMessageOrder) {
-            // Mute all the partitions drained
+        if (guaranteeMessageOrder) {// 在批次中只允许有一个请求
+            // 哑火所有分区
             for (List<ProducerBatch> batchList : batches.values()) {
                 for (ProducerBatch batch : batchList)
                     this.accumulator.mutePartition(batch.topicPartition);
             }
         }
 
+        // 处理过期的 ProducerBatch
         List<ProducerBatch> expiredBatches = this.accumulator.expiredBatches(this.requestTimeout, now);
         // Reset the producer id if an expired batch has previously been sent to the broker. Also update the metrics
         // for expired batches. see the documentation of @TransactionState.resetProducerId to understand why
@@ -418,6 +418,9 @@ public class Sender implements Runnable {
         return null;
     }
 
+    /**
+     * 用于等待ProducerId的设置
+     */
     private void maybeWaitForProducerId() {
         while (!transactionManager.hasProducerId() && !transactionManager.hasError()) {
             try {
@@ -454,7 +457,7 @@ public class Sender implements Runnable {
     }
 
     /**
-     * Handle a produce response
+     * 处理生产者响应
      */
     private void handleProduceResponse(ClientResponse response, Map<TopicPartition, ProducerBatch> batches, long now) {
         RequestHeader requestHeader = response.requestHeader();
@@ -596,6 +599,14 @@ public class Sender implements Runnable {
         failBatch(batch, response.baseOffset, response.logAppendTime, exception, adjustSequenceNumbers);
     }
 
+    /**
+     * 处理失败的ProducerBatch
+     * @param batch
+     * @param baseOffset
+     * @param logAppendTime
+     * @param exception
+     * @param adjustSequenceNumbers
+     */
     private void failBatch(ProducerBatch batch, long baseOffset, long logAppendTime, RuntimeException exception, boolean adjustSequenceNumbers) {
         if (transactionManager != null) {
             if (exception instanceof OutOfOrderSequenceException
@@ -640,7 +651,7 @@ public class Sender implements Runnable {
     }
 
     /**
-     * Transfer the record batches into a list of produce requests on a per-node basis
+     * 按每个节点将记录批次转移到生产请求列表中
      */
     private void sendProduceRequests(Map<Integer, List<ProducerBatch>> collated, long now) {
         for (Map.Entry<Integer, List<ProducerBatch>> entry : collated.entrySet())
@@ -648,7 +659,7 @@ public class Sender implements Runnable {
     }
 
     /**
-     * Create a produce request from the given record batches
+     * 从给定记录批次创建一个产品请求
      */
     private void sendProduceRequest(long now, int destination, short acks, int timeout, List<ProducerBatch> batches) {
         if (batches.isEmpty())
@@ -675,7 +686,7 @@ public class Sender implements Runnable {
             // client before sending. This is intended to handle edge cases around cluster upgrades where brokers may
             // not all support the same message format version. For example, if a partition migrates from a broker
             // which is supporting the new magic version to one which doesn't, then we will need to convert.
-            if (!records.hasMatchingMagic(minUsedMagic))
+            if (!records.hasMatchingMagic(minUsedMagic))// 转换成匹配版本的记录
                 records = batch.records().downConvert(minUsedMagic, 0, time).records();
             produceRecordsByPartition.put(tp, records);
             recordsByPartition.put(tp, batch);

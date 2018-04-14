@@ -34,7 +34,7 @@ import java.util.zip.Checksum;
 import static org.apache.kafka.common.record.RecordBatch.MAGIC_VALUE_V2;
 
 /**
- * This class implements the inner record format for magic 2 and above. The schema is as follows:
+ * 这个类实现了magic2和以上的内部记录格式。 The schema is as follows:
  *
  *
  * Record =>
@@ -170,7 +170,7 @@ public class DefaultRecord implements Record {
     }
 
     /**
-     * Write the record to `out` and return its size.
+     * 写入到 out 流中，返回它的大小
      */
     public static int writeTo(DataOutputStream out,
                               int offsetDelta,
@@ -393,6 +393,15 @@ public class DefaultRecord implements Record {
         return headers;
     }
 
+    /**
+     * 计算记录的大小
+     * @param offsetDelta
+     * @param timestampDelta
+     * @param key
+     * @param value
+     * @param headers
+     * @return
+     */
     public static int sizeInBytes(int offsetDelta,
                                   long timestampDelta,
                                   ByteBuffer key,
@@ -402,6 +411,15 @@ public class DefaultRecord implements Record {
         return bodySize + ByteUtils.sizeOfVarint(bodySize);
     }
 
+    /**
+     * 计算记录的大小
+     * @param offsetDelta
+     * @param timestampDelta
+     * @param keySize
+     * @param valueSize
+     * @param headers
+     * @return
+     */
     public static int sizeInBytes(int offsetDelta,
                                   long timestampDelta,
                                   int keySize,
@@ -427,7 +445,7 @@ public class DefaultRecord implements Record {
                                          int keySize,
                                          int valueSize,
                                          Header[] headers) {
-        int size = 1; // always one byte for attributes
+        int size = 1; // 属性总是一个byte
         size += ByteUtils.sizeOfVarint(offsetDelta);
         size += ByteUtils.sizeOfVarlong(timestampDelta);
         size += sizeOf(keySize, valueSize, headers);

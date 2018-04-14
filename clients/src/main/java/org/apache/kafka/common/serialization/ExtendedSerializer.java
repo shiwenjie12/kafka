@@ -21,7 +21,7 @@ import java.util.Map;
 import org.apache.kafka.common.header.Headers;
 
 /**
- * A Serializer that has access to the headers associated with the record.
+ * 能够访问与记录相关联的标头的Serializer。（增加了Headers的序列化）
  *
  * Prefer {@link Serializer} if access to the headers is not required. Once Kafka drops support for Java 7, the
  * {@code serialize()} method introduced by this interface will be added to Serializer with a default implementation
@@ -36,7 +36,7 @@ public interface ExtendedSerializer<T> extends Serializer<T> {
      * Convert {@code data} into a byte array.
      *
      * @param topic topic associated with data
-     * @param headers headers associated with the record
+     * @param headers 与记录关联的标头
      * @param data typed data
      * @return serialized bytes
      */
@@ -70,6 +70,12 @@ public interface ExtendedSerializer<T> extends Serializer<T> {
             serializer.close();
         }
 
+        /**
+         * 将Serializer包装成ExtendedSerializer
+         * @param serializer
+         * @param <T>
+         * @return
+         */
         public static <T> ExtendedSerializer<T> ensureExtended(Serializer<T> serializer) {
             return serializer == null ? null : serializer instanceof ExtendedSerializer ? (ExtendedSerializer<T>) serializer : new ExtendedSerializer.Wrapper<>(serializer);
         }

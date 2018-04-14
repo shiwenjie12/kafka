@@ -29,17 +29,14 @@ import java.util.List;
 public interface KafkaClient extends Closeable {
 
     /**
-     * Check if we are currently ready to send another request to the given node but don't attempt to connect if we
-     * aren't.
-     *
+     * 检查当前是否准备向指定节点发送另一个请求，但如果没有，请不要尝试连接。
      * @param node The node to check
      * @param now The current timestamp
      */
     boolean isReady(Node node, long now);
 
     /**
-     * Initiate a connection to the given node (if necessary), and return true if already connected. The readiness of a
-     * node will change only when poll is invoked.
+     * 初始化一个给定节点的连接，如果早已连接则返回true，只有当轮询被调用时，节点的就绪状态才会改变。
      *
      * @param node The node to connect to.
      * @param now The current time
@@ -48,9 +45,8 @@ public interface KafkaClient extends Closeable {
     boolean ready(Node node, long now);
 
     /**
-     * Returns the number of milliseconds to wait, based on the connection state, before attempting to send data. When
-     * disconnected, this respects the reconnect backoff time. When connecting or connected, this handles slow/stalled
-     * connections.
+     * 返回在试图发送数据之前基于连接状态等待的毫秒数。
+     * 当断开连接时，这意味着重新连接退避时间。连接或连接时，它处理慢/中断连接。
      *
      * @param node The node to check
      * @param now The current timestamp
@@ -62,6 +58,9 @@ public interface KafkaClient extends Closeable {
      * Check if the connection of the node has failed, based on the connection state. Such connection failure are
      * usually transient and can be resumed in the next {@link #ready(org.apache.kafka.common.Node, long)} }
      * call, but there are cases where transient failures needs to be caught and re-acted upon.
+     * 基于连接状态检查节点的连接是否失败。
+     * 这样的连接失败通常是暂时的，可以在之后{{@link #ready(org.apache.kafka.common.Node, long)} }调用，
+     * 但有时候失败需要被重新采取行动。
      *
      * @param node the node to check
      * @return true iff the connection has failed and the node is disconnected
@@ -78,14 +77,14 @@ public interface KafkaClient extends Closeable {
     AuthenticationException authenticationException(Node node);
 
     /**
-     * Queue up the given request for sending. Requests can only be sent on ready connections.
+     * 按给定的发送请求排队。只能在就绪连接上发送请求。
      * @param request The request
      * @param now The current timestamp
      */
     void send(ClientRequest request, long now);
 
     /**
-     * Do actual reads and writes from sockets.
+     * 从套接字执行实际的读写操作。
      *
      * @param timeout The maximum amount of time to wait for responses in ms, must be non-negative. The implementation
      *                is free to use a lower value if appropriate (common reasons for this are a lower request or
@@ -166,13 +165,13 @@ public interface KafkaClient extends Closeable {
                                    long createdTimeMs, boolean expectResponse);
 
     /**
-     * Create a new ClientRequest.
+     * 创建一个新的ClientRequest
      *
      * @param nodeId the node to send to
      * @param requestBuilder the request builder to use
      * @param createdTimeMs the time in milliseconds to use as the creation time of the request
      * @param expectResponse true iff we expect a response
-     * @param callback the callback to invoke when we get a response
+     * @param callback the callback to invoke when we get a response 当我们调用
      */
     ClientRequest newClientRequest(String nodeId, AbstractRequest.Builder<?> requestBuilder, long createdTimeMs,
                                    boolean expectResponse, RequestCompletionHandler callback);

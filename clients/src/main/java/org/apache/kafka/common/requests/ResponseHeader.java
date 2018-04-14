@@ -39,6 +39,10 @@ public class ResponseHeader extends AbstractRequestResponse {
         correlationId = struct.getInt(CORRELATION_KEY_FIELD);
     }
 
+    /**
+     * 请求的的相对Id
+     * @param correlationId
+     */
     public ResponseHeader(int correlationId) {
         this.correlationId = correlationId;
     }

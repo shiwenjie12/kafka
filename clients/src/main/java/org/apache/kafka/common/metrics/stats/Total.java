@@ -34,11 +34,23 @@ public class Total implements MeasurableStat {
         this.total = value;
     }
 
+    /**
+     * 记录信息
+     * @param config The configuration to use for this metric
+     * @param value The value to record
+     * @param now
+     */
     @Override
     public void record(MetricConfig config, double value, long now) {
         this.total += value;
     }
 
+    /**
+     * 测量显示
+     * @param config The configuration for this metric
+     * @param now The POSIX time in milliseconds the measurement is being taken
+     * @return
+     */
     @Override
     public double measure(MetricConfig config, long now) {
         return this.total;

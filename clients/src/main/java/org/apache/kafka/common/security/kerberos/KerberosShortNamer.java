@@ -24,9 +24,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * This class implements parsing and handling of Kerberos principal names. In
- * particular, it splits them apart and translates them down into local
- * operating system names.
+ * http://blog.csdn.net/wulantian/article/details/42418231
+ * 该类实现对Kerberos（驗證體系）主体名称的解析和处理。特别是，它将它们分开，并将它们转换为本地操作系统名称。
  */
 public class KerberosShortNamer {
 

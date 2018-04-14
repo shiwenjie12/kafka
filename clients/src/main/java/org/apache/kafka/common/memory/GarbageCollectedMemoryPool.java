@@ -121,6 +121,9 @@ public class GarbageCollectedMemoryPool extends SimpleMemoryPool implements Auto
         }
     }
 
+    /**
+     * 将ByteBuffer分装成弱引用类型
+     */
     private static final class BufferReference extends WeakReference<ByteBuffer> {
         private final int hashCode;
 

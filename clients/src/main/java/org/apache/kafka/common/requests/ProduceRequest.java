@@ -382,6 +382,11 @@ public class ProduceRequest extends AbstractRequest {
         return new ProduceRequest(ApiKeys.PRODUCE.parseRequest(version, buffer), version);
     }
 
+    /**
+     * 使用版本获取magic值
+     * @param produceRequestVersion
+     * @return
+     */
     public static byte requiredMagicForVersion(short produceRequestVersion) {
         switch (produceRequestVersion) {
             case 0:

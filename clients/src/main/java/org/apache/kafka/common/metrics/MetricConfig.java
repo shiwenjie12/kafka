@@ -21,15 +21,27 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Configuration values for metrics
+ * 用于metrics配置值
  */
 public class MetricConfig {
 
     private Quota quota;
+    /**
+     * 样本数目
+     */
     private int samples;
     private long eventWindow;
+    /**
+     * 时间窗口
+     */
     private long timeWindowMs;
+    /**
+     * 标签
+     */
     private Map<String, String> tags;
+    /**
+     * 记录的等级
+     */
     private Sensor.RecordingLevel recordingLevel;
 
     public MetricConfig() {

@@ -42,6 +42,9 @@ public final class TransactionalRequestResult {
         this.latch.countDown();
     }
 
+    /**
+     * 利用内部CountDownLatch，实现等待
+     */
     public void await() {
         boolean completed = false;
 
@@ -50,7 +53,7 @@ public final class TransactionalRequestResult {
                 latch.await();
                 completed = true;
             } catch (InterruptedException e) {
-                // Keep waiting until done, we have no other option for these transactional requests.
+                // 继续等待直到调用  done()调用，我们没有其他选项来处理这些事务请求。
             }
         }
 
@@ -70,6 +73,10 @@ public final class TransactionalRequestResult {
         return error == null;
     }
 
+    /**
+     * 判断是否完成
+     * @return
+     */
     public boolean isCompleted() {
         return latch.getCount() == 0L;
     }

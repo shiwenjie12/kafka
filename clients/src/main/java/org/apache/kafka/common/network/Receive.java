@@ -21,12 +21,12 @@ import java.io.IOException;
 import java.nio.channels.ScatteringByteChannel;
 
 /**
- * This interface models the in-progress reading of data from a channel to a source identified by an integer id
+ * 此接口模型从一个通道到一个由整数id标识的源的数据正在进行的读取。
  */
 public interface Receive extends Closeable {
 
     /**
-     * The numeric id of the source from which we are receiving data.
+     * 我们正在接收数据的源的数字id。
      */
     String source();
 
@@ -36,7 +36,7 @@ public interface Receive extends Closeable {
     boolean complete();
 
     /**
-     * Read bytes into this receive from the given channel
+     * 从给定通道读取字节到这个接收中
      * @param channel The channel to read from
      * @return The number of bytes read
      * @throws IOException If the reading fails

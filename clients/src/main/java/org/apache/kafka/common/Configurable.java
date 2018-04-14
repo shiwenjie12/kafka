@@ -19,7 +19,7 @@ package org.apache.kafka.common;
 import java.util.Map;
 
 /**
- * A Mix-in style interface for classes that are instantiated by reflection and need to take configuration parameters
+ * 为反射实例化而需要配置参数的类的混合样式接口。
  */
 public interface Configurable {
 

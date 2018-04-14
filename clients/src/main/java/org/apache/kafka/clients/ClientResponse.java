@@ -21,8 +21,7 @@ import org.apache.kafka.common.requests.AbstractResponse;
 import org.apache.kafka.common.requests.RequestHeader;
 
 /**
- * A response from the server. Contains both the body of the response as well as the correlated request
- * metadata that was originally sent.
+ * 来自服务器的响应。既包含响应的主体，也包含最初发送的相关请求元数据。
  */
 public class ClientResponse {
 
@@ -72,6 +71,10 @@ public class ClientResponse {
         return disconnected;
     }
 
+    /**
+     * 失配（版本不支持）
+     * @return
+     */
     public UnsupportedVersionException versionMismatch() {
         return versionMismatch;
     }

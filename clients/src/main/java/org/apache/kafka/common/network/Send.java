@@ -21,11 +21,12 @@ import java.nio.channels.GatheringByteChannel;
 
 /**
  * This interface models the in-progress sending of data to a specific destination
+ * 此接口建模表示将数据发送到特定的目的地。
  */
 public interface Send {
 
     /**
-     * The id for the destination of this send
+     * 这个发送的目的地id
      */
     String destination();
 
@@ -44,7 +45,7 @@ public interface Send {
     long writeTo(GatheringByteChannel channel) throws IOException;
 
     /**
-     * Size of the send
+     * 发送的大小
      */
     long size();
 

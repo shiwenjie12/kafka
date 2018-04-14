@@ -42,7 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Register metrics in JMX as dynamic mbeans based on the metric names
+ * metric 在JMX登记为基于指标名称 动态MBean
  */
 public class JmxReporter implements MetricsReporter {
 
@@ -110,6 +110,11 @@ public class JmxReporter implements MetricsReporter {
         return mbean;
     }
 
+    /**
+     * 将KafkaMetric 装换为 KafkaMbean，并添加
+     * @param metric
+     * @return
+     */
     private KafkaMbean addAttribute(KafkaMetric metric) {
         try {
             MetricName metricName = metric.metricName();
@@ -126,7 +131,7 @@ public class JmxReporter implements MetricsReporter {
 
     /**
      * @param metricName
-     * @return standard JMX MBean name in the following format domainName:type=metricType,key1=val1,key2=val2
+     * @return 构造jmx  Mbean名称 domainName:type=metricType,key1=val1,key2=val2
      */
     static String getMBeanName(String prefix, MetricName metricName) {
         StringBuilder mBeanName = new StringBuilder();
@@ -161,6 +166,10 @@ public class JmxReporter implements MetricsReporter {
         }
     }
 
+    /**
+     * 想jmx注册KafkaMbean
+     * @param mbean
+     */
     private void reregister(KafkaMbean mbean) {
         unregister(mbean);
         try {
@@ -170,6 +179,9 @@ public class JmxReporter implements MetricsReporter {
         }
     }
 
+    /**
+     * Kafka分装的DynamicMBean，增加了KafkaMetric
+     */
     private static class KafkaMbean implements DynamicMBean {
         private final ObjectName objectName;
         private final Map<String, KafkaMetric> metrics;

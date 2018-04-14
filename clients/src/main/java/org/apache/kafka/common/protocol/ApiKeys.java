@@ -116,7 +116,7 @@ import static org.apache.kafka.common.protocol.types.Type.NULLABLE_BYTES;
 import static org.apache.kafka.common.protocol.types.Type.RECORDS;
 
 /**
- * Identifiers for all the Kafka APIs
+ * 定义全部的Kafka APIs
  */
 public enum ApiKeys {
     PRODUCE(0, "Produce", ProduceRequest.schemaVersions(), ProduceResponse.schemaVersions()),
@@ -278,6 +278,11 @@ public enum ApiKeys {
         return 0;
     }
 
+    /**
+     * 获取响应版本的 方案
+     * @param version
+     * @return
+     */
     public Schema requestSchema(short version) {
         return schemaFor(requestSchemas, version);
     }
@@ -290,6 +295,12 @@ public enum ApiKeys {
         return requestSchema(version).read(buffer);
     }
 
+    /**
+     * 解析响应
+     * @param version
+     * @param buffer
+     * @return
+     */
     public Struct parseResponse(short version, ByteBuffer buffer) {
         return responseSchema(version).read(buffer);
     }

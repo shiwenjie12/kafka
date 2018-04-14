@@ -59,11 +59,9 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * This class acts as a queue that accumulates records into {@link MemoryRecords}
- * instances to be sent to the server.
+ * 这类作为一个队列，积累记录到{@link MemoryRecords}实例发送到服务器。
  * <p>
- * The accumulator uses a bounded amount of memory and append calls will block when that memory is exhausted, unless
- * this behavior is explicitly disabled.
+ * 累加器使用有限数量的内存，追加的调用将在内存耗尽时被阻止，除非他的行为被显式禁用。
  */
 public final class RecordAccumulator {
 
@@ -165,7 +163,7 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Add a record to the accumulator, return the append result
+     * 向累加器添加一条记录，返回附加结果
      * <p>
      * The append result will contain the future metadata, and flag for whether the appended batch is full or a new batch is created
      * <p>
@@ -251,6 +249,10 @@ public final class RecordAccumulator {
      *  resources like compression buffers. The batch will be fully closed (ie. the record batch headers will be written
      *  and memory records built) in one of the following cases (whichever comes first): right before send,
      *  if it is expired, or when the producer is closed.
+     *  如果它是满的，我们返回null并创建一个新批处理。
+     *  我们也关闭批记录追加腾出资源压缩缓冲区。
+     *  批处理将完全关闭（即记录批头会写和记忆记录建）有下列情形之一的（以先到者为准）：
+     *  正确发送的，如果是过期的，或当制作人是封闭的。
      */
     private RecordAppendResult tryAppend(long timestamp, byte[] key, byte[] value, Header[] headers,
                                          Callback callback, Deque<ProducerBatch> deque) {
@@ -266,7 +268,7 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Get a list of batches which have been sitting in the accumulator too long and need to be expired.
+     * 获取一个存放在累加器中过长且需要过期的批次列表。
      */
     public List<ProducerBatch> expiredBatches(int requestTimeout, long now) {
         List<ProducerBatch> expiredBatches = new ArrayList<>();
@@ -400,9 +402,8 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Get a list of nodes whose partitions are ready to be sent, and the earliest time at which any non-sendable
-     * partition will be ready; Also return the flag for whether there are any unknown leaders for the accumulated
-     * partition batches.
+     * 获取列表的分区准备发送节点，和最早的时候在任何非发送的分区将准备；
+     * 也回报是否有任何未知的领导人积累划分批次的旗帜。
      * <p>
      * A destination node is ready to send data if:
      * <ol>
@@ -432,7 +433,7 @@ public final class RecordAccumulator {
 
             Node leader = cluster.leaderFor(part);
             synchronized (deque) {
-                if (leader == null && !deque.isEmpty()) {
+                if (leader == null && !deque.isEmpty()) {// 不知道的领导者的主题
                     // This is a partition for which leader is not known, but messages are available to send.
                     // Note that entries are currently not removed from batches when deque is empty.
                     unknownLeaderTopics.add(part.topic());
@@ -445,13 +446,15 @@ public final class RecordAccumulator {
                         boolean full = deque.size() > 1 || batch.isFull();
                         boolean expired = waitedTimeMs >= timeToWaitMs;
                         boolean sendable = full || expired || exhausted || closed || flushInProgress();
-                        if (sendable && !backingOff) {
+                        if (sendable && !backingOff) {// 只是按照ProducerBatch，判断是否可以发送的节点
                             readyNodes.add(leader);
                         } else {
                             long timeLeftMs = Math.max(timeToWaitMs - waitedTimeMs, 0);
                             // Note that this results in a conservative estimate since an un-sendable partition may have
                             // a leader that will later be found to have sendable data. However, this is good enough
                             // since we'll just wake up and then sleep again for the remaining time.
+                            // 注意，这个结果在一个保守的估计，因为一个未发送的分区可能有一个领袖，后来被发现有发送的数据。
+                            // 然而，这是足够好的，因为我们只是醒来，然后再睡一段时间。
                             nextReadyCheckDelayMs = Math.min(timeLeftMs, nextReadyCheckDelayMs);
                         }
                     }
@@ -477,8 +480,8 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Drain all the data for the given nodes and collate them into a list of batches that will fit within the specified
-     * size on a per-node basis. This method attempts to avoid choosing the same topic-node over and over.
+     * 为给定的节点耗尽所有数据，并将它们整理成一个按每个节点大小排列在指定大小内的批列表。
+     * 此方法试图避免反复选择相同的主题节点。
      *
      * @param cluster The current cluster metadata
      * @param nodes The list of node to drain
@@ -498,7 +501,7 @@ public final class RecordAccumulator {
             int size = 0;
             List<PartitionInfo> parts = cluster.partitionsForNode(node.id());
             List<ProducerBatch> ready = new ArrayList<>();
-            /* to make starvation less likely this loop doesn't start at 0 */
+            /* 为了减少饥饿的可能性，这个循环不会从0开始。 */
             int start = drainIndex = drainIndex % parts.size();
             do {
                 PartitionInfo part = parts.get(drainIndex);
@@ -511,18 +514,17 @@ public final class RecordAccumulator {
                             ProducerBatch first = deque.peekFirst();
                             if (first != null) {
                                 boolean backoff = first.attempts() > 0 && first.waitedTimeMs(now) < retryBackoffMs;
-                                // Only drain the batch if it is not during backoff period.
-                                if (!backoff) {
+                                // 只有在回退期间才drain the batch
+                                if (!backoff) {// 第一次走，重试则不走
                                     if (size + first.estimatedSizeInBytes() > maxSize && !ready.isEmpty()) {
-                                        // there is a rare case that a single batch size is larger than the request size due
-                                        // to compression; in this case we will still eventually send this batch in a single
-                                        // request
+                                        // 有一种罕见的情况下，由于压缩,产生一批规模比要求的尺寸大；
+                                        // 在这种情况下，我们最终仍将在一个单一的请求发送这批
                                         break;
                                     } else {
                                         ProducerIdAndEpoch producerIdAndEpoch = null;
                                         boolean isTransactional = false;
                                         if (transactionManager != null) {
-                                            if (!transactionManager.isSendToPartitionAllowed(tp))
+                                            if (!transactionManager.isSendToPartitionAllowed(tp))// 不管不能发送的tp
                                                 break;
 
                                             producerIdAndEpoch = transactionManager.producerIdAndEpoch();
@@ -561,7 +563,9 @@ public final class RecordAccumulator {
                                             // and also have the transaction manager track the batch so as to ensure
                                             // that sequence ordering is maintained even if we receive out of order
                                             // responses.
+                                            // 设置batch的生产状态
                                             batch.setProducerState(producerIdAndEpoch, transactionManager.sequenceNumber(batch.topicPartition), isTransactional);
+                                            // 增加topicPartition的序号，增加该批次的数目
                                             transactionManager.incrementSequenceNumber(batch.topicPartition, batch.recordCount);
                                             log.debug("Assigned producerId {} and producerEpoch {} to batch with base sequence " +
                                                             "{} being sent to partition {}", producerIdAndEpoch.producerId,
@@ -569,8 +573,8 @@ public final class RecordAccumulator {
 
                                             transactionManager.addInFlightBatch(batch);
                                         }
-                                        batch.close();
-                                        size += batch.records().sizeInBytes();
+                                        batch.close();// 关闭当前批次的资源
+                                        size += batch.records().sizeInBytes();// 更新记录发送的大小1
                                         ready.add(batch);
                                         batch.drained(now);
                                     }
@@ -591,7 +595,7 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Get the deque for the given topic-partition, creating it if necessary.
+     * 把容器为给定的主题划分，必要时创建。
      */
     private Deque<ProducerBatch> getOrCreateDeque(TopicPartition tp) {
         Deque<ProducerBatch> d = this.batches.get(tp);
@@ -763,7 +767,7 @@ public final class RecordAccumulator {
     }
 
     /*
-     * The set of nodes that have at least one complete record batch in the accumulator
+     * 收集器中至少有一个完整记录批的一组节点。
      */
     public final static class ReadyCheckResult {
         public final Set<Node> readyNodes;

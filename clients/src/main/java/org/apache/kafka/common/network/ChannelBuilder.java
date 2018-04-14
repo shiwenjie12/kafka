@@ -25,6 +25,7 @@ import org.apache.kafka.common.memory.MemoryPool;
 
 /**
  * A ChannelBuilder interface to build Channel based on configs
+ * 基于配置构建通道的  接口
  */
 public interface ChannelBuilder extends AutoCloseable, Configurable {
 

@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
  * SSL authentication and SASL authentication. In the latter case, when GSSAPI is used, this
  * class applies {@link org.apache.kafka.common.security.kerberos.KerberosShortNamer} to transform
  * the name.
- *
+ * 默认实现{@link KafkaPrincipalBuilder }提供了基本的支持SSL认证和SASL认证。
  * NOTE: This is an internal class and can change without notice. Unlike normal implementations
  * of {@link KafkaPrincipalBuilder}, there is no default no-arg constructor since this class
  * must adapt implementations of the older {@link org.apache.kafka.common.security.auth.PrincipalBuilder} interface.
@@ -90,12 +90,18 @@ public class DefaultKafkaPrincipalBuilder implements KafkaPrincipalBuilder, Clos
     /**
      * Construct a new instance.
      *
-     * @param kerberosShortNamer Kerberos name rewrite rules or null if none have been configured
+     * @param kerberosShortNamer 如果没有配置，Kerberos名称重写规则為NULL，
      */
     public DefaultKafkaPrincipalBuilder(KerberosShortNamer kerberosShortNamer) {
         this(null, null, null, kerberosShortNamer);
     }
 
+    /**
+     * 根据我们传入的 验证上下文 构造 KafkaPrincipal
+     * @param context The authentication context (either {@link SslAuthenticationContext} or
+     *        {@link SaslAuthenticationContext})
+     * @return
+     */
     @Override
     public KafkaPrincipal build(AuthenticationContext context) {
         if (context instanceof PlaintextAuthenticationContext) {
@@ -136,6 +142,11 @@ public class DefaultKafkaPrincipalBuilder implements KafkaPrincipalBuilder, Clos
         }
     }
 
+    /**
+     * 将系统级别的Principal 转换为 KafkaPrincipal
+     * @param principal
+     * @return
+     */
     private KafkaPrincipal convertToKafkaPrincipal(Principal principal) {
         return new KafkaPrincipal(KafkaPrincipal.USER_TYPE, principal.getName());
     }

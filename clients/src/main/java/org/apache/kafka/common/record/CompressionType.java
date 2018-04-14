@@ -32,7 +32,7 @@ import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 /**
- * The compression type to use
+ * 要使用的压缩类型(None、gzip、snappy、lz4)
  */
 public enum CompressionType {
     NONE(0, "none", 1.0f) {

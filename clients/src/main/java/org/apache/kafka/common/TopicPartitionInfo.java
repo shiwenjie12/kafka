@@ -55,7 +55,7 @@ public class TopicPartitionInfo {
     }
 
     /**
-     * Return the leader of the partition or null if there is none.
+     * 返回这个分区的领导者，如果没有的话则为空
      */
     public Node leader() {
         return leader;
@@ -72,7 +72,7 @@ public class TopicPartitionInfo {
     }
 
     /**
-     * Return the in-sync replicas of the partition. Note that the ordering of the result is unspecified.
+     * 返回在同步replicas的分区。 Note that the ordering of the result is unspecified.
      */
     public List<Node> isr() {
         return isr;

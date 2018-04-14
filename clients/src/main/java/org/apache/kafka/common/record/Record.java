@@ -21,33 +21,32 @@ import java.nio.ByteBuffer;
 import org.apache.kafka.common.header.Header;
 
 /**
- * A log record is a tuple consisting of a unique offset in the log, a sequence number assigned by
- * the producer, a timestamp, a key and a value.
+ * 日志记录是由日志中的唯一偏移量、由生产者指定的序列号、时间戳、密钥和值组成的元组。
  */
 public interface Record {
 
     Header[] EMPTY_HEADERS = new Header[0];
 
     /**
-     * The offset of this record in the log
+     * 该记录在日志中的偏移量
      * @return the offset
      */
     long offset();
 
     /**
-     * Get the sequence number assigned by the producer.
+     * 获取由生产者分配的序列号。
      * @return the sequence number
      */
     int sequence();
 
     /**
-     * Get the size in bytes of this record.
+     * 获取此记录的字节大小。
      * @return the size of the record in bytes
      */
     int sizeInBytes();
 
     /**
-     * Get the record's timestamp.
+     * 获取记录的时间戳。
      * @return the record's timestamp
      */
     long timestamp();

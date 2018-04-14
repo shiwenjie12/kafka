@@ -288,7 +288,7 @@ public class AbstractConfig {
     }
 
     /**
-     * Log warnings for any unused configurations
+     * 记录未使用的配置信息
      */
     public void logUnused() {
         for (String key : unused())

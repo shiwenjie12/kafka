@@ -20,7 +20,7 @@ import java.nio.ByteBuffer;
 
 
 /**
- * A common memory pool interface for non-blocking pools.
+ * 用于非阻塞池的公共内存池接口。
  * Every buffer returned from {@link #tryAllocate(int)} must always be {@link #release(ByteBuffer) released}.
  */
 public interface MemoryPool {
@@ -57,7 +57,7 @@ public interface MemoryPool {
     };
 
     /**
-     * Tries to acquire a ByteBuffer of the specified size
+     * 试图获得一个ByteBuffer指定的大小
      * @param sizeBytes size required
      * @return a ByteBuffer (which later needs to be release()ed), or null if no memory available.
      *         the buffer will be of the exact size requested, even if backed by a larger chunk of memory
@@ -65,19 +65,19 @@ public interface MemoryPool {
     ByteBuffer tryAllocate(int sizeBytes);
 
     /**
-     * Returns a previously allocated buffer to the pool.
+     * 释放先前分配到池中的缓冲区。
      * @param previouslyAllocated a buffer previously returned from tryAllocate()
      */
     void release(ByteBuffer previouslyAllocated);
 
     /**
-     * Returns the total size of this pool
+     * 返回此池的总大小。
      * @return total size, in bytes
      */
     long size();
 
     /**
-     * Returns the amount of memory available for allocation by this pool.
+     * 返回可用此池分配的内存量。
      * NOTE: result may be negative (pools may over allocate to avoid starvation issues)
      * @return bytes available
      */
@@ -87,7 +87,7 @@ public interface MemoryPool {
      * Returns true if the pool cannot currently allocate any more buffers
      * - meaning total outstanding buffers meets or exceeds pool size and
      * some would need to be released before further allocations are possible.
-     *
+     * 判断是否超过内存
      * This is equivalent to availableMemory() <= 0
      * @return true if out of memory
      */

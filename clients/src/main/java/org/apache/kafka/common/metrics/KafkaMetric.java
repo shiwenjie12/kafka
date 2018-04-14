@@ -20,6 +20,9 @@ import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.utils.Time;
 
+/**
+ * KafkaMetric实现了Metric接口,可以看到它的核心方法metricValue()返回要监控的参数的值.
+ */
 public final class KafkaMetric implements Metric {
 
     private MetricName metricName;

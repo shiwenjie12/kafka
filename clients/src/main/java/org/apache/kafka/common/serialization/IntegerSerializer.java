@@ -18,6 +18,9 @@ package org.apache.kafka.common.serialization;
 
 import java.util.Map;
 
+/**
+ *  Integer的序列化
+ */
 public class IntegerSerializer implements Serializer<Integer> {
 
     public void configure(Map<String, ?> configs, boolean isKey) {

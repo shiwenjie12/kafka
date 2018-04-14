@@ -19,18 +19,16 @@ package org.apache.kafka.clients.producer;
 import org.apache.kafka.common.Configurable;
 
 /**
- * A plugin interface that allows you to intercept (and possibly mutate) the records received by the producer before
- * they are published to the Kafka cluster.
+ * 一个插件接口，允许你拦截（可能会变化）生产者收到的记录。它们被发布到卡夫卡集群。
  * <p>
  * This class will get producer config properties via <code>configure()</code> method, including clientId assigned
  * by KafkaProducer if not specified in the producer config. The interceptor implementation needs to be aware that it will be
  * sharing producer config namespace with other interceptors and serializers, and ensure that there are no conflicts.
  * <p>
- * Exceptions thrown by ProducerInterceptor methods will be caught, logged, but not propagated further. As a result, if
- * the user configures the interceptor with the wrong key and value type parameters, the producer will not throw an exception,
- * just log the errors.
+ * 通过producerinterceptor方法抛出的异常将被记录，而不是进一步传播。
+ * 因此，如果用户使用错误的密钥和值类型参数配置拦截器，生产者不会抛出异常，只记录错误。
  * <p>
- * ProducerInterceptor callbacks may be called from multiple threads. Interceptor implementation must ensure thread-safety, if needed.
+ * producerinterceptor回调可能从多个线程调用。如果需要，拦截器实现必须确保线程安全。
  * <p>
  * Implement {@link org.apache.kafka.common.ClusterResourceListener} to receive cluster metadata once it's available. Please see the class documentation for ClusterResourceListener for more information.
  */
@@ -67,8 +65,7 @@ public interface ProducerInterceptor<K, V> extends Configurable {
     public ProducerRecord<K, V> onSend(ProducerRecord<K, V> record);
 
     /**
-     * This method is called when the record sent to the server has been acknowledged, or when sending the record fails before
-     * it gets sent to the server.
+     * 这个方法在记录到服务确认收到，或者在它发送到服务器之前失败时被调动
      * <p>
      * This method is generally called just before the user callback is called, and in additional cases when <code>KafkaProducer.send()</code>
      * throws an exception.

@@ -27,7 +27,7 @@ import net.jpountz.xxhash.XXHash32;
 import net.jpountz.xxhash.XXHashFactory;
 
 /**
- * A partial implementation of the v1.5.1 LZ4 Frame format.
+ * 一部分实现的v1.5.1 lz4Frame格式。
  *
  * @see <a href="https://github.com/lz4/lz4/wiki/lz4_Frame_format.md">LZ4 Frame Format</a>
  *

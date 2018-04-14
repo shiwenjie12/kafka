@@ -29,6 +29,9 @@ import static org.apache.kafka.common.protocol.CommonFields.PRODUCER_ID;
 import static org.apache.kafka.common.protocol.CommonFields.TRANSACTIONAL_ID;
 import static org.apache.kafka.common.protocol.types.Type.BOOLEAN;
 
+/**
+ * 事务结束的请求
+ */
 public class EndTxnRequest extends AbstractRequest {
     private static final String TRANSACTION_RESULT_KEY_NAME = "transaction_result";
 

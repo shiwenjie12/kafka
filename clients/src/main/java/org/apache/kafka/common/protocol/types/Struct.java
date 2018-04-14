@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 
 /**
- * A record that can be serialized and deserialized according to a pre-defined schema
+ * 一个记录可以被序列化和反序列化，根据预定义模式
  */
 public class Struct {
     private final Schema schema;

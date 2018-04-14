@@ -27,6 +27,9 @@ import java.nio.ByteBuffer;
 import static org.apache.kafka.common.protocol.CommonFields.NULLABLE_TRANSACTIONAL_ID;
 import static org.apache.kafka.common.protocol.types.Type.INT32;
 
+/**
+ * 初始化生产者的请求
+ */
 public class InitProducerIdRequest extends AbstractRequest {
     public static final int NO_TRANSACTION_TIMEOUT_MS = Integer.MAX_VALUE;
 

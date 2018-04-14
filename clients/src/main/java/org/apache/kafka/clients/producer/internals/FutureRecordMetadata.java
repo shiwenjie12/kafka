@@ -25,6 +25,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 
 /**
  * The future result of a record send
+ * 一个记录发送的 future 的结果
  */
 public final class FutureRecordMetadata implements Future<RecordMetadata> {
 

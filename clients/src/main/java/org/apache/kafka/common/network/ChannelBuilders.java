@@ -34,11 +34,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 用于构造通道的工具类
+ */
 public class ChannelBuilders {
 
     private ChannelBuilders() { }
 
     /**
+     * 客户端的通道构建器
      * @param securityProtocol the securityProtocol
      * @param contextType the contextType, it must be non-null if `securityProtocol` is SASL_*; it is ignored otherwise
      * @param config client config
@@ -67,6 +71,7 @@ public class ChannelBuilders {
     }
 
     /**
+     * 服务端的通道构建器
      * @param listenerName the listenerName
      * @param securityProtocol the securityProtocol
      * @param config server config
@@ -83,6 +88,20 @@ public class ChannelBuilders {
                 isInterBrokerListener, null, true, credentialCache, tokenCache);
     }
 
+    /**
+     * 内部的构建器 （服务端和客户端 都使用）
+     * @param securityProtocol  加密协议
+     * @param mode  模式（服务端、客户端）
+     * @param contextType
+     * @param config
+     * @param listenerName
+     * @param isInterBrokerListener
+     * @param clientSaslMechanism
+     * @param saslHandshakeRequestEnable
+     * @param credentialCache
+     * @param tokenCache
+     * @return
+     */
     private static ChannelBuilder create(SecurityProtocol securityProtocol,
                                          Mode mode,
                                          JaasContext.Type contextType,
@@ -159,6 +178,14 @@ public class ChannelBuilders {
         return principalBuilder;
     }
 
+    /**
+     * 根据配置 principal.builder.class 创建KafkaPrincipalBuilder
+     * @param configs
+     * @param transportLayer
+     * @param authenticator
+     * @param kerberosShortNamer
+     * @return
+     */
     @SuppressWarnings("deprecation")
     public static KafkaPrincipalBuilder createPrincipalBuilder(Map<String, ?> configs,
                                                                TransportLayer transportLayer,
@@ -169,7 +196,7 @@ public class ChannelBuilders {
 
         if (principalBuilderClass == null || principalBuilderClass == DefaultKafkaPrincipalBuilder.class) {
             builder = new DefaultKafkaPrincipalBuilder(kerberosShortNamer);
-        } else if (KafkaPrincipalBuilder.class.isAssignableFrom(principalBuilderClass)) {
+        } else if (KafkaPrincipalBuilder.class.isAssignableFrom(principalBuilderClass)) {// 使用配置的子类
             builder = (KafkaPrincipalBuilder) Utils.newInstance(principalBuilderClass);
         } else if (org.apache.kafka.common.security.auth.PrincipalBuilder.class.isAssignableFrom(principalBuilderClass)) {
             org.apache.kafka.common.security.auth.PrincipalBuilder oldPrincipalBuilder =

@@ -22,7 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.GatheringByteChannel;
 
 /**
- * A send backed by an array of byte buffers
+ * 由字节缓冲数组支持的发送。
  */
 public class ByteBufferSend implements Send {
 
@@ -55,6 +55,12 @@ public class ByteBufferSend implements Send {
         return this.size;
     }
 
+    /**
+     * 调用GatheringByteChannel.write，发送内部的buffers
+     * @param channel The Channel to write to
+     * @return
+     * @throws IOException
+     */
     @Override
     public long writeTo(GatheringByteChannel channel) throws IOException {
         long written = channel.write(buffers);

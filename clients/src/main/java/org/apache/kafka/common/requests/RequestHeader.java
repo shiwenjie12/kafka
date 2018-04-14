@@ -30,7 +30,7 @@ import static org.apache.kafka.common.protocol.types.Type.INT32;
 import static org.apache.kafka.common.protocol.types.Type.NULLABLE_STRING;
 
 /**
- * The header for a request in the Kafka protocol
+ * kafka协议中的请求头
  */
 public class RequestHeader extends AbstractRequestResponse {
     private static final String API_KEY_FIELD_NAME = "api_key";

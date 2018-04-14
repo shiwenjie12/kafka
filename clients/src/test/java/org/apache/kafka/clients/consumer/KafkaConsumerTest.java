@@ -1408,6 +1408,7 @@ public class KafkaConsumerTest {
 
     @Test
     public void testConsumerWithinBlackoutPeriodAfterAuthenticationFailure() {
+
         Time time = new MockTime();
         Map<String, Integer> tpCounts = new HashMap<>();
         tpCounts.put(topic, 1);

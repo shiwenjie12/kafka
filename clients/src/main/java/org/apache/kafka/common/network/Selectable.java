@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * An interface for asynchronous, multi-channel network I/O
+ * 异步多通道网络I/O接口
  */
 public interface Selectable {
 
@@ -43,7 +43,7 @@ public interface Selectable {
     public void connect(String id, InetSocketAddress address, int sendBufferSize, int receiveBufferSize) throws IOException;
 
     /**
-     * Wakeup this selector if it is blocked on I/O
+     * 如果I/O阻塞，则唤醒selector
      */
     public void wakeup();
 
@@ -53,7 +53,7 @@ public interface Selectable {
     public void close();
 
     /**
-     * Close the connection identified by the given id
+     * 通过给定的id关闭已辨认的连接
      */
     public void close(String id);
 
@@ -70,6 +70,7 @@ public interface Selectable {
      */
     public void poll(long timeout) throws IOException;
 
+
     /**
      * The list of sends that completed on the last {@link #poll(long) poll()} call.
      */
@@ -84,7 +85,7 @@ public interface Selectable {
      * The connections that finished disconnecting on the last {@link #poll(long) poll()}
      * call. Channel state indicates the local channel state at the time of disconnection.
      */
-    public Map<String, ChannelState> disconnected();
+    public Map<String, ChannelState>  disconnected();
 
     /**
      * The list of connections that completed their connection on the last {@link #poll(long) poll()}

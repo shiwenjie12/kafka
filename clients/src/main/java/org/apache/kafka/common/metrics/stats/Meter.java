@@ -27,7 +27,7 @@ import org.apache.kafka.common.metrics.stats.Rate.SampledTotal;
 
 
 /**
- * A compound stat that includes a rate metric and a cumulative total metric.
+ * 包含速率度量和累积总度量的复合统计。
  */
 public class Meter implements CompoundStat {
 

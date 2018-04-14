@@ -25,7 +25,7 @@ import java.util.Map;
 
 /**
  * The state of our connection to each node in the cluster.
- *
+ * 在集群中，我们连接的每个节点的状态
  */
 final class ClusterConnectionStates {
     private final long reconnectBackoffInitMs;
@@ -44,9 +44,10 @@ final class ClusterConnectionStates {
     /**
      * Return true iff we can currently initiate a new connection. This will be the case if we are not
      * connected and haven't been connected for at least the minimum reconnection backoff period.
+     * 判断我们是否可以连接节点
      * @param id the connection id to check
      * @param now the current time in ms
-     * @return true if we can initiate a new connection
+     * @return 如果返回true，我们则可以初始化新的连接
      */
     public boolean canConnect(String id, long now) {
         NodeConnectionState state = nodeState.get(id);
@@ -58,7 +59,7 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * Return true if we are disconnected from the given node and can't re-establish a connection yet.
+     * 如果我们从给定的节点断开连接，无法重新建立连接，则返回true。
      * @param id the connection to check
      * @param now the current time in ms
      */
@@ -101,7 +102,7 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * Enter the connecting state for the given connection.
+     * 加入给定连接的连接状态。
      * @param id the id of the connection
      * @param now the current time
      */
@@ -183,7 +184,7 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * Return true if the connection has been disconnected
+     * 如果连接断开，返回true。
      * @param id The id of the node to check
      */
     public boolean isDisconnected(String id) {
@@ -262,13 +263,16 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * The state of our connection to a node.
+     * 节点的连接状态
      */
     private static class NodeConnectionState {
 
         ConnectionState state;
         AuthenticationException authenticationException;
         long lastConnectAttemptMs;
+        /**
+         * 失败尝试次数
+         */
         long failedAttempts;
         long reconnectBackoffMs;
 

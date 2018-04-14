@@ -18,7 +18,7 @@ package org.apache.kafka.common;
 
 
 /**
- * The <code>ClusterResource</code> class encapsulates metadata for a Kafka cluster.
+ * ClusterResource类概括了一个kafka集群的元数据 包含了集群id
  */
 public class ClusterResource {
 

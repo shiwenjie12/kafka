@@ -38,7 +38,7 @@ import java.util.NoSuchElementException;
 import static org.apache.kafka.common.record.Records.LOG_OVERHEAD;
 
 /**
- * RecordBatch implementation for magic 2 and above. The schema is given below:
+ * recordbatch实施magic2以上。The schema is given below:
  *
  * RecordBatch =>
  *  BaseOffset => Int64
@@ -55,8 +55,7 @@ import static org.apache.kafka.common.record.Records.LOG_OVERHEAD;
  *  BaseSequence => Int32
  *  Records => [Record]
  *
- * Note that when compression is enabled (see attributes below), the compressed record data is serialized
- * directly following the count of the number of records.
+ * 注意，当启用压缩时（请参阅下面的属性），压缩记录数据将在记录数量的计数之后直接序列化。
  *
  * The CRC covers the data from the attributes to the end of the batch (i.e. all the bytes that follow the CRC). It is
  * located after the magic byte, which means that clients must parse the magic byte before deciding how to interpret
@@ -429,6 +428,25 @@ public class DefaultRecordBatch extends AbstractRecordBatch implements MutableRe
                 producerEpoch, baseSequence, isTransactional, isControlRecord, partitionLeaderEpoch, 0);
     }
 
+    /**
+     * 写入头信息
+     * @param buffer
+     * @param baseOffset
+     * @param lastOffsetDelta
+     * @param sizeInBytes
+     * @param magic
+     * @param compressionType
+     * @param timestampType
+     * @param firstTimestamp
+     * @param maxTimestamp
+     * @param producerId
+     * @param epoch
+     * @param sequence
+     * @param isTransactional
+     * @param isControlBatch
+     * @param partitionLeaderEpoch
+     * @param numRecords
+     */
     static void writeHeader(ByteBuffer buffer,
                             long baseOffset,
                             int lastOffsetDelta,

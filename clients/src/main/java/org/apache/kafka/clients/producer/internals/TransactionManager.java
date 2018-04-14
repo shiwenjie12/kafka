@@ -60,7 +60,7 @@ import static org.apache.kafka.common.record.RecordBatch.NO_PRODUCER_EPOCH;
 import static org.apache.kafka.common.record.RecordBatch.NO_PRODUCER_ID;
 
 /**
- * A class which maintains state for transactions. Also keeps the state necessary to ensure idempotent production.
+ * 维护事务状态的类。还保持必要的状态，以确保幂等生产。
  */
 public class TransactionManager {
     private static final int NO_INFLIGHT_REQUEST_CORRELATION_ID = -1;
@@ -69,19 +69,19 @@ public class TransactionManager {
     private final String transactionalId;
     private final int transactionTimeoutMs;
 
-    // The base sequence of the next batch bound for a given partition.
+    // 给定分区的下一批绑定的基序列。
     private final Map<TopicPartition, Integer> nextSequence;
 
     // The sequence of the last record of the last ack'd batch from the given partition. When there are no
     // in flight requests for a partition, the lastAckedSequence(topicPartition) == nextSequence(topicPartition) - 1.
     private final Map<TopicPartition, Integer> lastAckedSequence;
 
-    // If a batch bound for a partition expired locally after being sent at least once, the partition has is considered
-    // to have an unresolved state. We keep track fo such partitions here, and cannot assign any more sequence numbers
-    // for this partition until the unresolved state gets cleared. This may happen if other inflight batches returned
-    // successfully (indicating that the expired batch actually made it to the broker). If we don't get any successful
-    // responses for the partition once the inflight request count falls to zero, we reset the producer id and
-    // consequently clear this data structure as well.
+    // 如果一个分区绑定到一个分区至少在发送一次后在本地到期，则该分区被认为具有未解决的状态。
+    // 我们在这里跟踪这些分区，不能分配更多的序列号。
+    // 对于这个分区，直到未解析状态被清除。
+    // 这可能在其他飞行批次返回发生成功地（表明过期的批次实际上是向经纪人提交的）。
+    // 如果我们没有取得任何成功该分区的反应，一旦飞行请求计数下降到零，
+    // 我们重置生产者ID和因此，也要清除这个数据结构。
     private final Set<TopicPartition> partitionsWithUnresolvedSequences;
 
     // Keep track of the in flight batches bound for a partition, ordered by sequence. This helps us to ensure that
@@ -94,10 +94,10 @@ public class TransactionManager {
     // responses which are due to the retention period elapsing, and those which are due to actual lost data.
     private final Map<TopicPartition, Long> lastAckedOffset;
 
-    private final PriorityQueue<TxnRequestHandler> pendingRequests;
+    private final PriorityQueue<TxnRequestHandler> pendingRequests;// 使用优先级队列（事务请求处理器）
     private final Set<TopicPartition> newPartitionsInTransaction;
     private final Set<TopicPartition> pendingPartitionsInTransaction;
-    private final Set<TopicPartition> partitionsInTransaction;
+    private final Set<TopicPartition> partitionsInTransaction;// 在事务中的TopicPartition
     private final Map<TopicPartition, CommittedOffset> pendingTxnOffsetCommits;
 
     // This is used by the TxnRequestHandlers to control how long to back off before a given request is retried.
@@ -113,21 +113,25 @@ public class TransactionManager {
     private Node transactionCoordinator;
     private Node consumerGroupCoordinator;
 
-    private volatile State currentState = State.UNINITIALIZED;
+    private volatile State currentState = State.UNINITIALIZED;// 最初默认的 未初始的
     private volatile RuntimeException lastError = null;
     private volatile ProducerIdAndEpoch producerIdAndEpoch;
     private volatile boolean transactionStarted = false;
 
+    /**
+     * 代表事务管理器的状态
+     */
     private enum State {
-        UNINITIALIZED,
-        INITIALIZING,
-        READY,
-        IN_TRANSACTION,
-        COMMITTING_TRANSACTION,
-        ABORTING_TRANSACTION,
-        ABORTABLE_ERROR,
-        FATAL_ERROR;
+        UNINITIALIZED,// 为初始化
+        INITIALIZING,// 初始化
+        READY,// 准备
+        IN_TRANSACTION,// 在事务中
+        COMMITTING_TRANSACTION,//  提交事务中
+        ABORTING_TRANSACTION,//  中止事务
+        ABORTABLE_ERROR,// 中止错误
+        FATAL_ERROR;// 致命的错误
 
+        // 规定了状态的装换过程
         private boolean isTransitionValid(State source, State target) {
             switch (target) {
                 case INITIALIZING:
@@ -155,6 +159,9 @@ public class TransactionManager {
     // We use the priority to determine the order in which requests need to be sent out. For instance, if we have
     // a pending FindCoordinator request, that must always go first. Next, If we need a producer id, that must go second.
     // The endTxn request must always go last.
+    // 我们使用优先级来确定需要发送请求的顺序。
+    // 例如，如果我们有一个悬而未决的findcoordinator请求，必须先。
+    // 其次，如果我们需要一个制作人的身份，必须二，endtxn请求必须总是最后。
     private enum Priority {
         FIND_COORDINATOR(0),
         INIT_PRODUCER_ID(1),
@@ -199,6 +206,10 @@ public class TransactionManager {
         this(new LogContext(), null, 0, 100);
     }
 
+    /**
+     * 初始化事务
+     * @return
+     */
     public synchronized TransactionalRequestResult initializeTransactions() {
         ensureTransactional();
         transitionTo(State.INITIALIZING);
@@ -234,6 +245,11 @@ public class TransactionManager {
         return beginCompletingTransaction(TransactionResult.ABORT);
     }
 
+    /**
+     * 发送结束事务的请求
+     * @param transactionResult
+     * @return
+     */
     private TransactionalRequestResult beginCompletingTransaction(TransactionResult transactionResult) {
         if (!newPartitionsInTransaction.isEmpty())
             enqueueRequest(addPartitionsToTransactionHandler());
@@ -289,10 +305,15 @@ public class TransactionManager {
         }
     }
 
+    /**
+     * 判断TopicPartition在事务管理器中是否可以发送
+     * @param tp
+     * @return
+     */
     synchronized boolean isSendToPartitionAllowed(TopicPartition tp) {
         if (hasFatalError())
             return false;
-        return !isTransactional() || partitionsInTransaction.contains(tp);
+        return !isTransactional() || partitionsInTransaction.contains(tp);// 不是事务管理器，或者TopicPartition已经在事务中
     }
 
     public String transactionalId() {
@@ -403,7 +424,7 @@ public class TransactionManager {
     }
 
     /**
-     * Returns the next sequence number to be written to the given TopicPartition.
+     * 返回下一个序列号被写入了topicpartition。
      */
     synchronized Integer sequenceNumber(TopicPartition topicPartition) {
         Integer currentSequenceNumber = nextSequence.get(topicPartition);
@@ -423,6 +444,10 @@ public class TransactionManager {
         nextSequence.put(topicPartition, currentSequenceNumber);
     }
 
+    /**
+     * 添加正在发送的批次
+     * @param batch
+     */
     synchronized void addInFlightBatch(ProducerBatch batch) {
         if (!batch.hasSequence())
             throw new IllegalStateException("Can't track batch for partition " + batch.topicPartition + " when sequence is not set.");
@@ -558,16 +583,23 @@ public class TransactionManager {
         return partitionsWithUnresolvedSequences.contains(topicPartition);
     }
 
+    /**
+     * 标记序列未解决的  {@link TopicPartition}
+     * @param topicPartition
+     */
     synchronized void markSequenceUnresolved(TopicPartition topicPartition) {
         log.debug("Marking partition {} unresolved", topicPartition);
         partitionsWithUnresolvedSequences.add(topicPartition);
     }
 
-    // Checks if there are any partitions with unresolved partitions which may now be resolved. Returns true if
-    // the producer id needs a reset, false otherwise.
+    /**
+     * 检查是否有任何分区有可解决的未解决的分区。
+     * 如果生产者ID需要重置，则返回true，否则返回false。
+     * @return
+     */
     synchronized boolean shouldResetProducerStateAfterResolvingSequences() {
-        if (isTransactional())
-            // We should not reset producer state if we are transactional. We will transition to a fatal error instead.
+        if (isTransactional())// 事务生产者
+            // 如果事务性的话，我们不应该重置生产者状态。我们将转换为致命错误。
             return false;
         for (Iterator<TopicPartition> iter = partitionsWithUnresolvedSequences.iterator(); iter.hasNext(); ) {
             TopicPartition topicPartition = iter.next();
@@ -751,14 +783,17 @@ public class TransactionManager {
         transitionTo(target, null);
     }
 
+    /**
+     * 将当前状态转换为目标状态，如果不能转换或者有错误，则抛出异常
+     */
     private synchronized void transitionTo(State target, RuntimeException error) {
-        if (!currentState.isTransitionValid(currentState, target)) {
+        if (!currentState.isTransitionValid(currentState, target)) {// 如果当前状态，不能转换为目标状态
             String idString = transactionalId == null ?  "" : "TransactionalId " + transactionalId + ": ";
             throw new KafkaException(idString + "Invalid transition attempted from state "
                     + currentState.name() + " to state " + target.name());
         }
 
-        if (target == State.FATAL_ERROR || target == State.ABORTABLE_ERROR) {
+        if (target == State.FATAL_ERROR || target == State.ABORTABLE_ERROR) {// 不应该出现 没有异常的失败
             if (error == null)
                 throw new IllegalArgumentException("Cannot transition to " + target + " with an null exception");
             lastError = error;
@@ -779,6 +814,9 @@ public class TransactionManager {
             throw new IllegalStateException("Transactional method invoked on a non-transactional producer.");
     }
 
+    /**
+     * 判断当前事务管理器中是否已经出错
+     */
     private void maybeFailWithError() {
         if (hasError())
             throw new KafkaException("Cannot execute transactional method because we are in an error state", lastError);
@@ -796,11 +834,20 @@ public class TransactionManager {
         return false;
     }
 
+    /**
+     * 加入到等待队列中
+     * @param requestHandler
+     */
     private void enqueueRequest(TxnRequestHandler requestHandler) {
         log.debug("Enqueuing transactional request {}", requestHandler.requestBuilder());
         pendingRequests.add(requestHandler);
     }
 
+    /**
+     * 寻找协调者
+     * @param type
+     * @param coordinatorKey
+     */
     private synchronized void lookupCoordinator(FindCoordinatorRequest.CoordinatorType type, String coordinatorKey) {
         switch (type) {
             case GROUP:
@@ -847,6 +894,9 @@ public class TransactionManager {
         return new TxnOffsetCommitHandler(result, builder);
     }
 
+    /**
+     * 事务请求的处理器 父类
+     */
     abstract class TxnRequestHandler implements RequestCompletionHandler {
         protected final TransactionalRequestResult result;
         private boolean isRetry = false;
@@ -876,6 +926,9 @@ public class TransactionManager {
             result.done();
         }
 
+        /**
+         * 重新入队
+         */
         void reenqueue() {
             synchronized (TransactionManager.this) {
                 this.isRetry = true;
@@ -904,7 +957,7 @@ public class TransactionManager {
                     log.trace("Received transactional response {} for request {}", response.responseBody(),
                             requestBuilder());
                     synchronized (TransactionManager.this) {
-                        handleResponse(response.responseBody());
+                        handleResponse(response.responseBody());// 处理请求
                     }
                 } else {
                     fatalError(new KafkaException("Could not execute transactional request for unknown reasons"));
@@ -912,6 +965,10 @@ public class TransactionManager {
             }
         }
 
+        /**
+         * 判断是否需要协助者
+         * @return
+         */
         boolean needsCoordinator() {
             return coordinatorType() != null;
         }
@@ -943,6 +1000,9 @@ public class TransactionManager {
         abstract Priority priority();
     }
 
+    /**
+     * 初始化生产者Id 处理器
+     */
     private class InitProducerIdHandler extends TxnRequestHandler {
         private final InitProducerIdRequest.Builder builder;
 
@@ -968,7 +1028,7 @@ public class TransactionManager {
             if (error == Errors.NONE) {
                 ProducerIdAndEpoch producerIdAndEpoch = new ProducerIdAndEpoch(initProducerIdResponse.producerId(), initProducerIdResponse.epoch());
                 setProducerIdAndEpoch(producerIdAndEpoch);
-                transitionTo(State.READY);
+                transitionTo(State.READY);// 表示初始化成功
                 lastError = null;
                 result.done();
             } else if (error == Errors.NOT_COORDINATOR || error == Errors.COORDINATOR_NOT_AVAILABLE) {
@@ -984,6 +1044,9 @@ public class TransactionManager {
         }
     }
 
+    /**
+     * 添加分区到事务的处理器
+     */
     private class AddPartitionsToTxnHandler extends TxnRequestHandler {
         private final AddPartitionsToTxnRequest.Builder builder;
         private long retryBackoffMs;

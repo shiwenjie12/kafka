@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A wrapper for Thread that sets things up nicely
+ * 一个线程（更好的配置）的包装
  */
 public class KafkaThread extends Thread {
 
@@ -44,6 +45,11 @@ public class KafkaThread extends Thread {
         configureThread(name, daemon);
     }
 
+    /**
+     * 配置线程
+     * @param name
+     * @param daemon
+     */
     private void configureThread(final String name, boolean daemon) {
         setDaemon(daemon);
         setUncaughtExceptionHandler(new UncaughtExceptionHandler() {

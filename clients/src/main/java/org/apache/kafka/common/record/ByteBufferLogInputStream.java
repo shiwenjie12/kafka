@@ -26,8 +26,7 @@ import static org.apache.kafka.common.record.Records.MAGIC_OFFSET;
 import static org.apache.kafka.common.record.Records.SIZE_OFFSET;
 
 /**
- * A byte buffer backed log input stream. This class avoids the need to copy records by returning
- * slices from the underlying byte buffer.
+ * 字节缓冲备份日志输入流。这个类避免了通过从底层字节缓冲区返回片来复制记录的需要。
  */
 class ByteBufferLogInputStream implements LogInputStream<MutableRecordBatch> {
     private final ByteBuffer buffer;

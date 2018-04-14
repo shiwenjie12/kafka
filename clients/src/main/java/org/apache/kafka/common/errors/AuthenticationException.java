@@ -19,9 +19,9 @@ package org.apache.kafka.common.errors;
 import javax.net.ssl.SSLException;
 
 /**
- * This exception indicates that SASL authentication has failed.
- * On authentication failure, clients abort the operation requested and raise one
- * of the subclasses of this exception:
+ * 该异常表示SASL认证失败。
+ * 在验证失败时，客户端中止请求的操作并增加一个。
+ * 此异常的子类中：
  * <ul>
  *   </li>{@link SaslAuthenticationException} if SASL handshake fails with invalid credentials
  *   or any other failure specific to the SASL mechanism used for authentication</li>

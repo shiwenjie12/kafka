@@ -23,10 +23,10 @@ import java.nio.ByteBuffer;
  * A ByteBuffer-backed OutputStream that expands the internal ByteBuffer as required. Given this, the caller should
  * always access the underlying ByteBuffer via the {@link #buffer()} method until all writes are completed.
  *
- * This class is typically used for 2 purposes:
+ * 这个类通常用于2个目的：
  *
- * 1. Write to a ByteBuffer when there is a chance that we may need to expand it in order to fit all the desired data
- * 2. Write to a ByteBuffer via methods that expect an OutputStream interface
+ * 1。写入给ByteBuffer的时候，我们可能需要扩展它，以适合所有需要的数据
+ * 2。写方法，期望通过OutputStream接口的缓冲区
  *
  * Hard to track bugs can happen when this class is used for the second reason and unexpected buffer expansion happens.
  * So, it's best to assume that buffer expansion can always happen. An improvement would be to create a separate class
@@ -117,7 +117,12 @@ public class ByteBufferOutputStream extends OutputStream {
             expandBuffer(remainingBytesRequired);
     }
 
+    /**
+     * 扩展buffer
+     * @param remainingRequired
+     */
     private void expandBuffer(int remainingRequired) {
+        // 确定扩展之后bytebuffer大小
         int expandSize = Math.max((int) (buffer.limit() * REALLOCATION_FACTOR), buffer.position() + remainingRequired);
         ByteBuffer temp = ByteBuffer.allocate(expandSize);
         int limit = limit();

@@ -30,9 +30,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A sensor applies a continuous sequence of numerical values to a set of associated metrics. For example a sensor on
- * message size would record a sequence of message sizes using the {@link #record(double)} api and would maintain a set
- * of metrics about request sizes such as the average or max.
+ * 传感器将连续的数值序列应用到一组相关度量中。
+ * 例如，一个传感器在消息大小会记录一系列消息的大小使用{@link #record(double)}的API和维持一套指标对请求的大小如平均或最大。
  */
 public final class Sensor {
 
@@ -46,6 +45,9 @@ public final class Sensor {
     private volatile long lastRecordTime;
     private final long inactiveSensorExpirationTimeMs;
 
+    /**
+     * 记录等级（info、debug）
+     */
     public enum RecordingLevel {
         INFO(0, "INFO"), DEBUG(1, "DEBUG");
 
@@ -89,6 +91,11 @@ public final class Sensor {
             return RecordingLevel.valueOf(name.toUpperCase(Locale.ROOT));
         }
 
+        /**
+         * 判断是否应该记录
+         * @param configId
+         * @return
+         */
         public boolean shouldRecord(final int configId) {
             return configId == DEBUG.id || configId == this.id;
         }

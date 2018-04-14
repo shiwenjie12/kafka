@@ -17,7 +17,7 @@
 package org.apache.kafka.common;
 
 /**
- * A metric tracked for monitoring purposes.
+ * 用于监测目的的度量。
  */
 public interface Metric {
 
@@ -35,7 +35,7 @@ public interface Metric {
     double value();
 
     /**
-     * The value of the metric, which may be measurable or a non-measurable gauge
+     * The value of the metric, 可以是可测量的或不可测量的。
      */
     Object metricValue();
 

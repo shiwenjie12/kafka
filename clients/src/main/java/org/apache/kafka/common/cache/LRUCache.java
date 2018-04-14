@@ -20,7 +20,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * A cache implementing a least recently used policy.
+ * 实现最少最近使用策略的缓存。
  */
 public class LRUCache<K, V> implements Cache<K, V> {
     private final LinkedHashMap<K, V> cache;

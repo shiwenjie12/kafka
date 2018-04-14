@@ -96,7 +96,7 @@ public final class ProducerBatch {
     }
 
     /**
-     * Append the record to the current record set and return the relative offset within that record set
+     * 将记录追加到当前记录集，并返回该记录集内的相对偏移量。
      *
      * @return The RecordSend corresponding to this record or null if there isn't sufficient room.
      */
@@ -282,7 +282,7 @@ public final class ProducerBatch {
     }
 
     /**
-     * A callback and the associated FutureRecordMetadata argument to pass to it.
+     * 回调函数和相关参数传递给它FutureRecordMetadata。
      */
     final private static class Thunk {
         final Callback callback;
@@ -386,6 +386,12 @@ public final class ProducerBatch {
         return recordsBuilder.isFull();
     }
 
+    /**
+     * 设置生产者这状态
+     * @param producerIdAndEpoch
+     * @param baseSequence
+     * @param isTransactional
+     */
     public void setProducerState(ProducerIdAndEpoch producerIdAndEpoch, int baseSequence, boolean isTransactional) {
         recordsBuilder.setProducerState(producerIdAndEpoch.producerId, producerIdAndEpoch.epoch, baseSequence, isTransactional);
     }

@@ -20,6 +20,11 @@ import org.apache.kafka.common.security.auth.KafkaPrincipal;
 
 public class SecurityUtils {
 
+    /**
+     * KafkaPrincipal的解析工具
+     * @param str
+     * @return
+     */
     public static KafkaPrincipal parseKafkaPrincipal(String str) {
         if (str == null || str.isEmpty()) {
             throw new IllegalArgumentException("expected a string in format principalType:principalName but got " + str);

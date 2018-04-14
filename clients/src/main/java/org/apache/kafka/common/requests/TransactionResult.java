@@ -16,6 +16,9 @@
  */
 package org.apache.kafka.common.requests;
 
+/**
+ * 事务结果
+ */
 public enum TransactionResult {
     ABORT(false), COMMIT(true);
 

@@ -65,17 +65,29 @@ public class MemoryRecordsBuilder {
     // from previous batches before appending any records.
     private float estimatedCompressionRatio = 1.0F;
 
-    // Used to append records, may compress data on the fly
+    // 用于附加记录，可以压缩数据。
     private DataOutputStream appendStream;
     private boolean isTransactional;
     private long producerId;
     private short producerEpoch;
     private int baseSequence;
+    /**
+     * 为压缩的记录大小
+     */
     private int uncompressedRecordsSizeInBytes = 0; // Number of bytes (excluding the header) written before compression
+    /**
+     * 记录数
+     */
     private int numRecords = 0;
+    /**
+     * 实际的压缩比例
+     */
     private float actualCompressionRatio = 1;
     private long maxTimestamp = RecordBatch.NO_TIMESTAMP;
     private long offsetOfMaxTimestamp = -1;
+    /**
+     * 最新偏移量
+     */
     private Long lastOffset = null;
     private Long firstTimestamp = null;
 
@@ -131,19 +143,18 @@ public class MemoryRecordsBuilder {
     /**
      * Construct a new builder.
      *
-     * @param buffer The underlying buffer to use (note that this class will allocate a new buffer if necessary
-     *               to fit the records appended)
-     * @param magic The magic value to use
-     * @param compressionType The compression codec to use
-     * @param timestampType The desired timestamp type. For magic > 0, this cannot be {@link TimestampType#NO_TIMESTAMP_TYPE}.
-     * @param baseOffset The initial offset to use for
-     * @param logAppendTime The log append time of this record set. Can be set to NO_TIMESTAMP if CREATE_TIME is used.
-     * @param producerId The producer ID associated with the producer writing this record set
+     * @param buffer 要使用的底层缓冲区（注意，该类将在必要时分配一个新的缓冲区以适应附加的记录）
+     * @param magic 使用的 magic 值
+     * @param compressionType 要使用的压缩编解码器
+     * @param timestampType 所需的时间戳类型. For magic > 0, this cannot be {@link TimestampType#NO_TIMESTAMP_TYPE}.
+     * @param baseOffset 要使用的初始偏移量
+     * @param logAppendTime 此记录集的日志追加时间。 Can be set to NO_TIMESTAMP if CREATE_TIME is used.
+     * @param producerId 与生成记录集的生产商关联的生产者ID
      * @param producerEpoch The epoch of the producer
-     * @param baseSequence The sequence number of the first record in this set
-     * @param isTransactional Whether or not the records are part of a transaction
-     * @param isControlBatch Whether or not this is a control batch (e.g. for transaction markers)
-     * @param partitionLeaderEpoch The epoch of the partition leader appending the record set to the log
+     * @param baseSequence 该集合中第一个记录的序列号
+     * @param isTransactional 记录是否是事务的一部分
+     * @param isControlBatch 这是否是控制批次 (e.g. for transaction markers)
+     * @param partitionLeaderEpoch 分区领导者将记录集追加到日志的Epoch。
      * @param writeLimit The desired limit on the total bytes for this record set (note that this can be exceeded
      *                   when compression is used since size estimates are rough, and in the case that the first
      *                   record added exceeds the size).
@@ -191,7 +202,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Close this builder and return the resulting buffer.
+     * 关闭此生成器并返回结果缓冲区。
      * @return The built log buffer
      */
     public MemoryRecords build() {
@@ -267,8 +278,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Release resources required for record appends (e.g. compression buffers). Once this method is called, it's only
-     * possible to update the RecordBatch header.
+     * 释放所需的资源用于记录追加（如压缩缓冲区）。一旦调用此方法，以更新RecordBatch头唯一的可能。
      */
     public void closeForRecordAppends() {
         if (appendStream != CLOSED_STREAM) {
@@ -326,6 +336,9 @@ public class MemoryRecordsBuilder {
         }
     }
 
+    /**
+     * 验证生产者状态
+     */
     private void validateProducerState() {
         if (isTransactional && producerId == RecordBatch.NO_PRODUCER_ID)
             throw new IllegalArgumentException("Cannot write transactional messages without a valid producer ID");
@@ -343,7 +356,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Write the header to the default batch.
+     * 写入默认批（V2）的头
      * @return the written compressed bytes.
      */
     private int writeDefaultBatchHeader() {
@@ -391,7 +404,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Append a record and return its checksum for message format v0 and v1, or null for v2 and above.
+     * 追加记录和返回的消息格式V0和V1的校验，或null的V2及以上。
      */
     private Long appendWithOffset(long offset, boolean isControlRecord, long timestamp, ByteBuffer key,
                                   ByteBuffer value, Header[] headers) {
@@ -412,10 +425,10 @@ public class MemoryRecordsBuilder {
             if (firstTimestamp == null)
                 firstTimestamp = timestamp;
 
-            if (magic > RecordBatch.MAGIC_VALUE_V1) {
+            if (magic > RecordBatch.MAGIC_VALUE_V1) {// V2
                 appendDefaultRecord(offset, timestamp, key, value, headers);
                 return null;
-            } else {
+            } else {// V1、V0
                 return appendLegacyRecord(offset, timestamp, key, value);
             }
         } catch (IOException e) {
@@ -507,7 +520,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Append a new record at the next sequential offset.
+     * 在下一个序列偏移量上追加一条新记录。
      * @param timestamp The record timestamp
      * @param key The record key
      * @param value The record value
@@ -621,6 +634,15 @@ public class MemoryRecordsBuilder {
         appendWithOffset(nextSequentialOffset(), record);
     }
 
+    /**
+     * V2 版本的添加记录
+     * @param offset
+     * @param timestamp
+     * @param key
+     * @param value
+     * @param headers
+     * @throws IOException
+     */
     private void appendDefaultRecord(long offset, long timestamp, ByteBuffer key, ByteBuffer value,
                                      Header[] headers) throws IOException {
         ensureOpenForRecordAppend();
@@ -630,28 +652,43 @@ public class MemoryRecordsBuilder {
         recordWritten(offset, timestamp, sizeInBytes);
     }
 
+    /**
+     * 添加历史遗留的记录（V0、V1） 无header的版本
+     * @param offset
+     * @param timestamp
+     * @param key
+     * @param value
+     * @return 返回此记录的crc32 统一校验码
+     * @throws IOException
+     */
     private long appendLegacyRecord(long offset, long timestamp, ByteBuffer key, ByteBuffer value) throws IOException {
-        ensureOpenForRecordAppend();
+        ensureOpenForRecordAppend();//  确保append stream 没有关闭
         if (compressionType == CompressionType.NONE && timestampType == TimestampType.LOG_APPEND_TIME)
-            timestamp = logAppendTime;
+            timestamp = logAppendTime;//?
 
-        int size = LegacyRecord.recordSize(magic, key, value);
+        int size = LegacyRecord.recordSize(magic, key, value);// 记录长度
         AbstractLegacyRecordBatch.writeHeader(appendStream, toInnerOffset(offset), size);
 
         if (timestampType == TimestampType.LOG_APPEND_TIME)
-            timestamp = logAppendTime;
-        long crc = LegacyRecord.write(appendStream, magic, timestamp, key, value, CompressionType.NONE, timestampType);
+            timestamp = logAppendTime;//?
+        long crc = LegacyRecord.write(appendStream, magic, timestamp, key, value, CompressionType.NONE, timestampType);// 写入数据
         recordWritten(offset, timestamp, size + Records.LOG_OVERHEAD);
         return crc;
     }
 
     private long toInnerOffset(long offset) {
-        // use relative offsets for compressed messages with magic v1
+        // 用压缩V1使用压缩消息的相对偏移量
         if (magic > 0 && compressionType != CompressionType.NONE)
             return offset - baseOffset;
         return offset;
     }
 
+    /**
+     * 记录写入信息
+     * @param offset
+     * @param timestamp
+     * @param size
+     */
     private void recordWritten(long offset, long timestamp, int size) {
         if (numRecords == Integer.MAX_VALUE)
             throw new IllegalArgumentException("Maximum number of records per batch exceeded, max records: " + Integer.MAX_VALUE);
@@ -669,6 +706,9 @@ public class MemoryRecordsBuilder {
         }
     }
 
+    /**
+     * 确保记录可以添加
+     */
     private void ensureOpenForRecordAppend() {
         if (appendStream == CLOSED_STREAM)
             throw new IllegalStateException("Tried to append a record, but MemoryRecordsBuilder is closed for record appends");
@@ -689,21 +729,20 @@ public class MemoryRecordsBuilder {
         if (compressionType == CompressionType.NONE) {
             return batchHeaderSizeInBytes + uncompressedRecordsSizeInBytes;
         } else {
-            // estimate the written bytes to the underlying byte buffer based on uncompressed written bytes
+            // 根据未压缩的字节估计到底层字节缓冲区的写入字节。
             return batchHeaderSizeInBytes + (int) (uncompressedRecordsSizeInBytes * estimatedCompressionRatio * COMPRESSION_RATE_ESTIMATION_FACTOR);
         }
     }
 
     /**
-     * Set the estimated compression ratio for the memory records builder.
+     * 为内存记录生成器设置估计的压缩比。
      */
     public void setEstimatedCompressionRatio(float estimatedCompressionRatio) {
         this.estimatedCompressionRatio = estimatedCompressionRatio;
     }
 
     /**
-     * Check if we have room for a new record containing the given key/value pair. If no records have been
-     * appended, then this returns true.
+     * 检查我们是否有一个包含给定键/值对的新记录的空间。如果没有记录附加，则返回true。
      */
     public boolean hasRoomFor(long timestamp, byte[] key, byte[] value, Header[] headers) {
         return hasRoomFor(timestamp, wrapNullable(key), wrapNullable(value), headers);

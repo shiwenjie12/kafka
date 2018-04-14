@@ -17,8 +17,8 @@
 package org.apache.kafka.clients;
 
 /**
- * A callback interface for attaching an action to be executed when a request is complete and the corresponding response
- * has been received. This handler will also be invoked if there is a disconnection while handling the request.
+ * 一个回调接口，用于在请求完成时附加一个要执行的操作，并接收到相应的响应。
+ * 如果在处理请求时有断开连接，也将调用该处理程序。
  */
 public interface RequestCompletionHandler {
 

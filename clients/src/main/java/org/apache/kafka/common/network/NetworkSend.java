@@ -19,7 +19,7 @@ package org.apache.kafka.common.network;
 import java.nio.ByteBuffer;
 
 /**
- * A size delimited Send that consists of a 4 byte network-ordered size N followed by N bytes of content
+ * 一个大小限定的send，由内容长度（4字节）和内容表示
  */
 public class NetworkSend extends ByteBufferSend {
 

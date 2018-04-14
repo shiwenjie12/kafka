@@ -22,10 +22,9 @@ import java.nio.ByteBuffer;
 import java.util.Iterator;
 
 /**
- * A record batch is a container for records. In old versions of the record format (versions 0 and 1),
- * a batch consisted always of a single record if no compression was enabled, but could contain
- * many records otherwise. Newer versions (magic versions 2 and above) will generally contain many records
- * regardless of compression.
+ * RecordBatch是记录的容器。
+ * 在旧版本的记录格式（版本0和1）中，如果没有启用压缩，批处理通常只有一个记录，但可能包含许多记录。
+ * 较新版本（magic版本2及以上）通常包含许多记录，不管压缩情况如何。
  */
 public interface RecordBatch extends Iterable<Record> {
 
@@ -42,13 +41,12 @@ public interface RecordBatch extends Iterable<Record> {
     byte CURRENT_MAGIC_VALUE = MAGIC_VALUE_V2;
 
     /**
-     * Timestamp value for records without a timestamp
+     * 没有时间戳的记录的时间戳值
      */
     long NO_TIMESTAMP = -1L;
 
     /**
-     * Values used in the v2 record format by non-idempotent/non-transactional producers or when
-     * up-converting from an older format.
+     * 由非幂等/非事务生产者或在从旧格式转换时使用的V2记录格式中的值。
      */
     long NO_PRODUCER_ID = -1L;
     short NO_PRODUCER_EPOCH = -1;

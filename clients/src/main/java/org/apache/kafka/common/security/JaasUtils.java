@@ -33,6 +33,10 @@ public final class JaasUtils {
 
     private JaasUtils() {}
 
+    /**
+     * 判断zk的加密模式是否是启用
+     * @return
+     */
     public static boolean isZkSecurityEnabled() {
         boolean zkSaslEnabled = Boolean.parseBoolean(System.getProperty(ZK_SASL_CLIENT, "true"));
         String zkLoginContextName = System.getProperty(ZK_LOGIN_CONTEXT_NAME_KEY, "Client");

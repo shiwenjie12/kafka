@@ -20,6 +20,9 @@ import org.apache.kafka.common.utils.Bytes;
 
 import java.util.Map;
 
+/**
+ * Bytes 直接获取 byte[]
+ */
 public class BytesSerializer implements Serializer<Bytes> {
 
     public void configure(Map<String, ?> configs, boolean isKey) {

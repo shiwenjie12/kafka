@@ -81,6 +81,11 @@ public abstract class SampledStat implements MeasurableStat {
         return this.samples.get(this.current);
     }
 
+    /**
+     * 获取最老的样本
+     * @param now
+     * @return
+     */
     public Sample oldest(long now) {
         if (samples.size() == 0)
             this.samples.add(newSample(now));
@@ -93,11 +98,25 @@ public abstract class SampledStat implements MeasurableStat {
         return oldest;
     }
 
+    /**
+     * 更新样本数据
+     * @param sample
+     * @param config
+     * @param value
+     * @param timeMs
+     */
     protected abstract void update(Sample sample, MetricConfig config, double value, long timeMs);
 
+    /**
+     * 汇合样本数据
+     * @param samples
+     * @param config
+     * @param now
+     * @return
+     */
     public abstract double combine(List<Sample> samples, MetricConfig config, long now);
 
-    /* Timeout any windows that have expired in the absence of any events */
+    /* 清除超时任何已过期的窗口 */
     protected void purgeObsoleteSamples(MetricConfig config, long now) {
         long expireAge = config.samples() * config.timeWindowMs();
         for (Sample sample : samples) {
@@ -106,6 +125,9 @@ public abstract class SampledStat implements MeasurableStat {
         }
     }
 
+    /**
+     * 样本
+     */
     protected static class Sample {
         public double initialValue;
         public long eventCount;
@@ -125,7 +147,7 @@ public abstract class SampledStat implements MeasurableStat {
             this.value = initialValue;
         }
 
-        public boolean isComplete(long timeMs, MetricConfig config) {
+        public boolean isComplete(long timeMs, MetricConfig config) {// 判断完成条件
             return timeMs - lastWindowMs >= config.timeWindowMs() || eventCount >= config.eventWindow();
         }
     }

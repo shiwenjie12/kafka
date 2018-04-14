@@ -19,6 +19,9 @@ package org.apache.kafka.clients.producer.internals;
 import static org.apache.kafka.common.record.RecordBatch.NO_PRODUCER_EPOCH;
 import static org.apache.kafka.common.record.RecordBatch.NO_PRODUCER_ID;
 
+/**
+ * 包含生成者Id和 Epich 用于处理事务 事务的开始节点的快照标记
+ */
 class ProducerIdAndEpoch {
     static final ProducerIdAndEpoch NONE = new ProducerIdAndEpoch(NO_PRODUCER_ID, NO_PRODUCER_EPOCH);
 
@@ -30,6 +33,10 @@ class ProducerIdAndEpoch {
         this.epoch = epoch;
     }
 
+    /**
+     * 判断是否是有效的
+     * @return
+     */
     public boolean isValid() {
         return NO_PRODUCER_ID < producerId;
     }

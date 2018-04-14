@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A representation of a subset of the nodes, topics, and partitions in the Kafka cluster.
+ * 卡夫卡集群中节点、主题和分区的子集的表示。（集群）
  */
 public final class Cluster {
 
@@ -39,7 +39,13 @@ public final class Cluster {
     private final Set<String> internalTopics;
     private final Node controller;
     private final Map<TopicPartition, PartitionInfo> partitionsByTopicPartition;
+    /**
+     * 通过主题查找分区列表
+     */
     private final Map<String, List<PartitionInfo>> partitionsByTopic;
+    /**
+     * 通过主题获取有效的分区列表（有明确的leader节点）
+     */
     private final Map<String, List<PartitionInfo>> availablePartitionsByTopic;
     private final Map<Integer, List<PartitionInfo>> partitionsByNode;
     private final Map<Integer, Node> nodesById;
@@ -183,7 +189,7 @@ public final class Cluster {
     }
 
     /**
-     * Get the current leader for the given topic-partition
+     * 获取给定主题分区的当前领导者
      * @param topicPartition The topic and partition we want to know the leader for
      * @return The node that is the leader for this topic-partition, or null if there is currently no leader
      */

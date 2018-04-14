@@ -26,7 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A size delimited Receive that consists of a 4 byte network-ordered size N followed by N bytes of content
+ * 大小分隔的接收，由一个4字节的网络组成，大小依次为n，后跟n字节的内容。
+ * 对应于  NetworkSend
  */
 public class NetworkReceive implements Receive {
 
@@ -115,6 +116,13 @@ public class NetworkReceive implements Receive {
     // Need a method to read from ReadableByteChannel because BlockingChannel requires read with timeout
     // See: http://stackoverflow.com/questions/2866557/timeout-for-socketchannel-doesnt-work
     // This can go away after we get rid of BlockingChannel
+
+    /**
+     *
+     * @param channel 可以分片读取的通道
+     * @return
+     * @throws IOException
+     */
     @Deprecated
     public long readFromReadableChannel(ReadableByteChannel channel) throws IOException {
         int read = 0;
@@ -123,7 +131,7 @@ public class NetworkReceive implements Receive {
             if (bytesRead < 0)
                 throw new EOFException();
             read += bytesRead;
-            if (!size.hasRemaining()) {
+            if (!size.hasRemaining()) {// 获取欲分配大小
                 size.rewind();
                 int receiveSize = size.getInt();
                 if (receiveSize < 0)
@@ -136,13 +144,13 @@ public class NetworkReceive implements Receive {
                 }
             }
         }
-        if (buffer == null && requestedBufferSize != -1) { //we know the size we want but havent been able to allocate it yet
+        if (buffer == null && requestedBufferSize != -1) {// 我们知道我们想要的大小，但还没有分配它。
             buffer = memoryPool.tryAllocate(requestedBufferSize);
             if (buffer == null)
                 log.trace("Broker low on memory - could not allocate buffer of size {} for source {}", requestedBufferSize, source);
         }
         if (buffer != null) {
-            int bytesRead = channel.read(buffer);
+            int bytesRead = channel.read(buffer);// 读取内容
             if (bytesRead < 0)
                 throw new EOFException();
             read += bytesRead;
@@ -151,6 +159,9 @@ public class NetworkReceive implements Receive {
         return read;
     }
 
+    /**
+     * @return 返回读取内容的ByteBuffer
+     */
     public ByteBuffer payload() {
         return this.buffer;
     }

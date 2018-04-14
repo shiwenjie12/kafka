@@ -34,6 +34,9 @@ import java.util.List;
 import static org.apache.kafka.common.protocol.types.Type.BOOLEAN;
 import static org.apache.kafka.common.protocol.types.Type.STRING;
 
+/**
+ * 元数据请求
+ */
 public class MetadataRequest extends AbstractRequest {
 
     private static final String TOPICS_KEY_NAME = "topics";

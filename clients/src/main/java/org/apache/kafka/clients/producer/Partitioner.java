@@ -28,7 +28,7 @@ import java.io.Closeable;
 public interface Partitioner extends Configurable, Closeable {
 
     /**
-     * Compute the partition for the given record.
+     * 计算给定记录的分区。
      *
      * @param topic The topic name
      * @param key The key to partition on (or null if no key)

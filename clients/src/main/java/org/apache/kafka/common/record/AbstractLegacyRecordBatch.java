@@ -268,6 +268,13 @@ public abstract class AbstractLegacyRecordBatch extends AbstractRecordBatch impl
         buffer.putInt(size);
     }
 
+    /**
+     * 写入头信息
+     * @param out
+     * @param offset
+     * @param size
+     * @throws IOException
+     */
     static void writeHeader(DataOutputStream out, long offset, int size) throws IOException {
         out.writeLong(offset);
         out.writeInt(size);

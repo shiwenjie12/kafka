@@ -18,6 +18,9 @@ package org.apache.kafka.common.serialization;
 
 import java.util.Map;
 
+/**
+ * Double 的 序列化
+ */
 public class DoubleSerializer implements Serializer<Double> {
 
     @Override
@@ -30,7 +33,7 @@ public class DoubleSerializer implements Serializer<Double> {
         if (data == null)
             return null;
 
-        long bits = Double.doubleToLongBits(data);
+        long bits = Double.doubleToLongBits(data);// 这个方法666
         return new byte[] {
             (byte) (bits >>> 56),
             (byte) (bits >>> 48),

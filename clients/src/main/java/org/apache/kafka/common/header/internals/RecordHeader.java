@@ -23,6 +23,9 @@ import java.util.Objects;
 import org.apache.kafka.common.header.Header;
 import org.apache.kafka.common.utils.Utils;
 
+/**
+ * 由三个变量构成 其中value和valueBuffer构成record的  值
+ */
 public class RecordHeader implements Header {
     private final String key;
     private ByteBuffer valueBuffer;
@@ -44,6 +47,10 @@ public class RecordHeader implements Header {
         return key;
     }
 
+    /**
+     * 如果value有值，则返回value，没有则返回buffer的数组
+     * @return
+     */
     public byte[] value() {
         if (value == null && valueBuffer != null) {
             value = Utils.toArray(valueBuffer);

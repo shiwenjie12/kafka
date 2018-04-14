@@ -19,6 +19,9 @@ package org.apache.kafka.common.serialization;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
+/**
+ * ByteBuffer 的序列化 稍微复杂点
+ */
 public class ByteBufferSerializer implements Serializer<ByteBuffer> {
 
     public void configure(Map<String, ?> configs, boolean isKey) {
@@ -29,7 +32,7 @@ public class ByteBufferSerializer implements Serializer<ByteBuffer> {
         if (data == null)
             return null;
 
-        data.rewind();
+        data.rewind();// 设置开始位置
 
         if (data.hasArray()) {
             byte[] arr = data.array();

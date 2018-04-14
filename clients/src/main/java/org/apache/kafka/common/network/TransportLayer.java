@@ -22,6 +22,9 @@ package org.apache.kafka.common.network;
  * and other network Channel implementations.
  * As NetworkClient replaces BlockingChannel and other implementations we will be using KafkaChannel as
  * a network I/O channel.
+ * 底层通信的传输层。
+ * 在最基本的水平是包裹SocketChannel，可用于代替SocketChannel和其他网络信道实现。
+ * 作为networkclient取代blockingchannel等实现，我们将使用kafkachannel作为网络I/O通道。
  */
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -37,17 +40,17 @@ import org.apache.kafka.common.errors.AuthenticationException;
 public interface TransportLayer extends ScatteringByteChannel, GatheringByteChannel {
 
     /**
-     * Returns true if the channel has handshake and authentication done.
+     * 如果通道确认握手并且已经验证，则返回true
      */
     boolean ready();
 
     /**
-     * Finishes the process of connecting a socket channel.
+     * 完成连接套接字通道
      */
     boolean finishConnect() throws IOException;
 
     /**
-     * disconnect socketChannel
+     * 断开连接
      */
     void disconnect();
 
@@ -57,12 +60,12 @@ public interface TransportLayer extends ScatteringByteChannel, GatheringByteChan
     boolean isConnected();
 
     /**
-     * returns underlying socketChannel
+     * 返回下层的socketChannel
      */
     SocketChannel socketChannel();
 
     /**
-     * Get the underlying selection key
+     * 返回下层的selection key
      */
     SelectionKey selectionKey();
 
@@ -76,7 +79,7 @@ public interface TransportLayer extends ScatteringByteChannel, GatheringByteChan
     void handshake() throws AuthenticationException, IOException;
 
     /**
-     * Returns true if there are any pending writes
+     * 如果有挂起的写入，则返回true
      */
     boolean hasPendingWrites();
 
@@ -93,13 +96,13 @@ public interface TransportLayer extends ScatteringByteChannel, GatheringByteChan
     boolean isMute();
 
     /**
-     * @return true if channel has bytes to be read in any intermediate buffers
+     * @return 如果通道有在任何中间缓冲区中读取的字节，则为true。
      */
     boolean hasBytesBuffered();
 
     /**
      * Transfers bytes from `fileChannel` to this `TransportLayer`.
-     *
+     * 将字节从` FileChannel `这` `传输层。
      * This method will delegate to {@link FileChannel#transferTo(long, long, java.nio.channels.WritableByteChannel)},
      * but it will unwrap the destination channel, if possible, in order to benefit from zero copy. This is required
      * because the fast path of `transferTo` is only executed if the destination buffer inherits from an internal JDK

@@ -29,8 +29,8 @@ import java.io.Closeable;
 import java.util.List;
 
 /**
- * A container that holds the list {@link org.apache.kafka.clients.producer.ProducerInterceptor}
- * and wraps calls to the chain of custom interceptors.
+ * 一个包含{@link org.apache.kafka.clients.producer.ProducerInterceptor}列表的容器
+ * 并且包装调用自定义的链式拦截器
  */
 public class ProducerInterceptors<K, V> implements Closeable {
     private static final Logger log = LoggerFactory.getLogger(ProducerInterceptors.class);
@@ -87,7 +87,7 @@ public class ProducerInterceptors<K, V> implements Closeable {
             try {
                 interceptor.onAcknowledgement(metadata, exception);
             } catch (Exception e) {
-                // do not propagate interceptor exceptions, just log
+                // 并不会传递连接器异常，只会log记录
                 log.warn("Error executing interceptor onAcknowledgement callback", e);
             }
         }
@@ -124,7 +124,7 @@ public class ProducerInterceptors<K, V> implements Closeable {
     }
 
     /**
-     * Closes every interceptor in a container.
+     * 关闭容器里面的所有拦截器
      */
     @Override
     public void close() {

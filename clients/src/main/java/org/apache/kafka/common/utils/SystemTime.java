@@ -19,8 +19,7 @@ package org.apache.kafka.common.utils;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A time implementation that uses the system clock and sleep call. Use `Time.SYSTEM` instead of creating an instance
- * of this class.
+ * 使用系统时钟和休眠调用的时间实现。使用“Time.SYSTEM”而不是创建这个类的实例。
  */
 public class SystemTime implements Time {
 

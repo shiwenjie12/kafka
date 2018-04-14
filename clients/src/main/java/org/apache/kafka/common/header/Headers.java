@@ -16,6 +16,9 @@
  */
 package org.apache.kafka.common.header;
 
+/**
+ * 利用迭代器实现的Headers
+ */
 public interface Headers extends Iterable<Header> {
     
     /**

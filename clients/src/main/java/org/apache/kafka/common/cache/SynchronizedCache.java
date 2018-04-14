@@ -20,6 +20,7 @@ package org.apache.kafka.common.cache;
  * Wrapper for caches that adds simple synchronization to provide a thread-safe cache. Note that this simply adds
  * synchronization around each cache method on the underlying unsynchronized cache. It does not add any support for
  * atomically checking for existence of an entry and computing and inserting the value if it is missing.
+ * 为增加简单同步以提供线程安全缓存的高速缓存的包装器。
  */
 public class SynchronizedCache<K, V> implements Cache<K, V> {
     private final Cache<K, V> underlying;

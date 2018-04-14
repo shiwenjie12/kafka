@@ -19,8 +19,8 @@ package org.apache.kafka.common.security.auth;
 import java.net.InetAddress;
 
 /**
- * An object representing contextual information from the authentication session. See
- * {@link SaslAuthenticationContext} and {@link SslAuthenticationContext}.
+ * 从身份验证会话中表示上下文信息的对象。
+ * .See{@link SaslAuthenticationContext} and {@link SslAuthenticationContext}.
  */
 public interface AuthenticationContext {
     /**

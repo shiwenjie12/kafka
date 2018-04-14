@@ -25,33 +25,33 @@ import org.apache.kafka.common.utils.Utils;
 import java.nio.ByteBuffer;
 
 /**
- * A serializable type
+ * 一个抽象基类的序列化格式
  */
 public abstract class Type {
 
     /**
-     * Write the typed object to the buffer
+     * 将类型化对象写入缓冲区。
      *
      * @throws SchemaException If the object is not valid for its type
      */
     public abstract void write(ByteBuffer buffer, Object o);
 
     /**
-     * Read the typed object from the buffer
+     * 从缓冲区读取类型化对象
      *
      * @throws SchemaException If the object is not valid for its type
      */
     public abstract Object read(ByteBuffer buffer);
 
     /**
-     * Validate the object. If succeeded return its typed object.
+     * 验证对象。如果成功返回它的类型对象。
      *
      * @throws SchemaException If validation failed
      */
     public abstract Object validate(Object o);
 
     /**
-     * Return the size of the object in bytes
+     * 以字节的形式返回对象的大小。
      */
     public abstract int sizeOf(Object o);
 

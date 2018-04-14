@@ -19,8 +19,7 @@ package org.apache.kafka.common.errors;
 import org.apache.kafka.common.KafkaException;
 
 /**
- * Any API exception that is part of the public protocol and should be a subclass of this class and be part of this
- * package.
+ * 任何属于公共协议的API异常，应该是这个类的一个子类，并且是这个包的一部分。
  */
 public class ApiException extends KafkaException {
 

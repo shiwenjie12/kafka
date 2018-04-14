@@ -22,21 +22,21 @@ import java.util.concurrent.ConcurrentMap;
 
 
 /**
- * This class help estimate the compression ratio for each topic and compression type combination.
+ * 这个类帮助估计每个主题的压缩比和压缩类型组合。
  */
 public class CompressionRatioEstimator {
-    // The constant speed to increase compression ratio when a batch compresses better than expected.
+    // 当批处理比预期压缩时提高压缩比的恒定速度。
     public static final float COMPRESSION_RATIO_IMPROVING_STEP = 0.005f;
-    // The minimum speed to decrease compression ratio when a batch compresses worse than expected.
+    // 当批处理压缩比期望值低时降低压缩比的最小速度。
     public static final float COMPRESSION_RATIO_DETERIORATE_STEP = 0.05f;
     private static final ConcurrentMap<String, float[]> COMPRESSION_RATIO = new ConcurrentHashMap<>();
 
     /**
-     * Update the compression ratio estimation for a topic and compression type.
+     * 更新主题和压缩类型的压缩比估计。
      *
      * @param topic         the topic to update compression ratio estimation.
      * @param type          the compression type.
-     * @param observedRatio the observed compression ratio.
+     * @param observedRatio 观测压缩比。
      * @return the compression ratio estimation after the update.
      */
     public static float updateEstimation(String topic, CompressionType type, float observedRatio) {
@@ -94,13 +94,17 @@ public class CompressionRatioEstimator {
         if (compressionRatioForTopic == null) {
             compressionRatioForTopic = initialCompressionRatio();
             float[] existingCompressionRatio = COMPRESSION_RATIO.putIfAbsent(topic, compressionRatioForTopic);
-            // Someone created the compression ratio array before us, use it.
+            // 有人在我们之前创建了压缩比数组，使用它。
             if (existingCompressionRatio != null)
                 return existingCompressionRatio;
         }
         return compressionRatioForTopic;
     }
 
+    /**
+     * 初始化默认的压缩速率（默认都为1）
+     * @return
+     */
     private static float[] initialCompressionRatio() {
         float[] compressionRatio = new float[CompressionType.values().length];
         for (CompressionType type : CompressionType.values()) {

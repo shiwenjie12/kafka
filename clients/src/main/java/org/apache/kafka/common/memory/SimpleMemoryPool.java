@@ -28,13 +28,21 @@ import org.slf4j.LoggerFactory;
 /**
  * a simple pool implementation. this implementation just provides a limit on the total outstanding memory.
  * any buffer allocated must be release()ed always otherwise memory is not marked as reclaimed (and "leak"s)
+ * 一个简单的内存池分配
  */
 public class SimpleMemoryPool implements MemoryPool {
     protected final Logger log = LoggerFactory.getLogger(getClass()); //subclass-friendly
 
     protected final long sizeBytes;
+    /**
+     * 严格分配
+     */
     protected final boolean strict;
+    /**
+     * 有效的可分配的内存
+     */
     protected final AtomicLong availableMemory;
+    /** 最大的可单次分配的内存 */
     protected final int maxSingleAllocationSize;
     protected final AtomicLong startOfNoMemPeriod = new AtomicLong(); //nanoseconds
     protected volatile Sensor oomTimeSensor;
@@ -62,6 +70,7 @@ public class SimpleMemoryPool implements MemoryPool {
         //in strict mode we will only allocate memory if we have at least the size required.
         //in non-strict mode we will allocate memory if we have _any_ memory available (so available memory
         //can dip into the negative and max allocated memory would be sizeBytes + maxSingleAllocationSize)
+        // 有剩余空间但是剩余空间不够分配的情况下，如果是严格情况下，则不能分配，否则是可以的
         long threshold = strict ? sizeBytes : 1;
         while ((available = availableMemory.get()) >= threshold) {
             success = availableMemory.compareAndSet(available, available - sizeBytes);
@@ -71,9 +80,9 @@ public class SimpleMemoryPool implements MemoryPool {
 
         if (success) {
             maybeRecordEndOfDrySpell();
-        } else {
+        } else {// 分配失败
             if (oomTimeSensor != null) {
-                startOfNoMemPeriod.compareAndSet(0, System.nanoTime());
+                startOfNoMemPeriod.compareAndSet(0, System.nanoTime());// 标识失败时间
             }
             log.trace("refused to allocate buffer of size {}", sizeBytes);
             return null;
@@ -109,9 +118,9 @@ public class SimpleMemoryPool implements MemoryPool {
         return availableMemory.get() <= 0;
     }
 
-    //allows subclasses to do their own bookkeeping (and validation) _before_ memory is returned to client code.
+    // 允许子类自己做簿记（验证）_before_内存返回给客户端的代码。
     protected void bufferToBeReturned(ByteBuffer justAllocated) {
-        log.trace("allocated buffer of size {} ", justAllocated.capacity());
+        log.trace("allocated buffer of size {} ", justAllocated.capacity());// 只进行日志跟踪
     }
 
     //allows subclasses to do their own bookkeeping (and validation) _before_ memory is marked as reclaimed.
@@ -129,7 +138,7 @@ public class SimpleMemoryPool implements MemoryPool {
         if (oomTimeSensor != null) {
             long startOfDrySpell = startOfNoMemPeriod.getAndSet(0);
             if (startOfDrySpell != 0) {
-                //how long were we refusing allocation requests for
+                //我们拒绝分配请求的时间有多长？
                 oomTimeSensor.record((System.nanoTime() - startOfDrySpell) / 1000000.0); //fractional (double) millis
             }
         }

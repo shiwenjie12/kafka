@@ -42,8 +42,8 @@ public class PlaintextChannelBuilder implements ChannelBuilder {
     @Override
     public KafkaChannel buildChannel(String id, SelectionKey key, int maxReceiveSize, MemoryPool memoryPool) throws KafkaException {
         try {
-            PlaintextTransportLayer transportLayer = new PlaintextTransportLayer(key);
-            PlaintextAuthenticator authenticator = new PlaintextAuthenticator(configs, transportLayer);
+            PlaintextTransportLayer transportLayer = new PlaintextTransportLayer(key);// 明文传输层
+            PlaintextAuthenticator authenticator = new PlaintextAuthenticator(configs, transportLayer);// 明文的验证层
             return new KafkaChannel(id, transportLayer, authenticator, maxReceiveSize,
                     memoryPool != null ? memoryPool : MemoryPool.NONE);
         } catch (Exception e) {
@@ -60,16 +60,21 @@ public class PlaintextChannelBuilder implements ChannelBuilder {
         private final KafkaPrincipalBuilder principalBuilder;
 
         private PlaintextAuthenticator(Map<String, ?> configs, PlaintextTransportLayer transportLayer) {
-            this.transportLayer = transportLayer;
+            this.transportLayer = transportLayer;// 明文传输层
             this.principalBuilder = ChannelBuilders.createPrincipalBuilder(configs, transportLayer, this, null);
         }
 
+        /**
+         * 明文无验证行为
+         * @throws IOException
+         */
         @Override
         public void authenticate() throws IOException {}
 
         @Override
         public KafkaPrincipal principal() {
             InetAddress clientAddress = transportLayer.socketChannel().socket().getInetAddress();
+            // 使用远程地址构建 明文验证的上下文
             return principalBuilder.build(new PlaintextAuthenticationContext(clientAddress));
         }
 

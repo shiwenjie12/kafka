@@ -97,8 +97,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * This class contains all the client-server errors--those errors that must be sent from the server to the client. These
- * are thus part of the protocol. The names can be changed but the error code cannot.
+ * 这个类包含所有客户机-服务器错误——这些错误必须从服务器发送到客户机。
+ * 因此，这些是协议的一部分。名称可以更改，但错误代码不能更改。
  *
  * Note that client library will convert an unknown error code to the non-retriable UnknownServerException if the client library
  * version is old and does not recognize the newly-added error code. Therefore when a new server-side error is added,

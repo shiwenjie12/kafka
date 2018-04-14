@@ -35,9 +35,9 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A {@link Records} implementation backed by a ByteBuffer. This is used only for reading or
- * modifying in-place an existing buffer of record batches. To create a new buffer see {@link MemoryRecordsBuilder},
- * or one of the {@link #builder(ByteBuffer, byte, CompressionType, TimestampType, long)} variants.
+ * 一个{@link Records} 现由字节缓冲区。这仅用于读取或修改记录批次现有缓冲区。
+ * 创建一个新的缓冲区看到{@link MemoryRecordsBuilder}，
+ * 或在一个# {@link #builder(ByteBuffer, byte, CompressionType, TimestampType, long)} 的变种。
  */
 public class MemoryRecords extends AbstractRecords {
     private static final Logger log = LoggerFactory.getLogger(MemoryRecords.class);
@@ -45,6 +45,9 @@ public class MemoryRecords extends AbstractRecords {
 
     private final ByteBuffer buffer;
 
+    /**
+     * 由ByteBuffer产生的 遍历器
+     */
     private final Iterable<MutableRecordBatch> batches = new Iterable<MutableRecordBatch>() {
         @Override
         public Iterator<MutableRecordBatch> iterator() {
@@ -54,7 +57,7 @@ public class MemoryRecords extends AbstractRecords {
 
     private int validBytes = -1;
 
-    // Construct a writable memory records
+    // 构建可写内存记录
     private MemoryRecords(ByteBuffer buffer) {
         Objects.requireNonNull(buffer, "buffer should not be null");
         this.buffer = buffer;

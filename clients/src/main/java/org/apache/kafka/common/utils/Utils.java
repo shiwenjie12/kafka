@@ -65,7 +65,7 @@ public final class Utils {
     private Utils() {}
 
     // This matches URIs of formats: host:port and protocol:\\host:port
-    // IPv6 is supported with [ip] pattern
+    // 支持ipv6
     private static final Pattern HOST_PORT_PATTERN = Pattern.compile(".*?\\[?([0-9a-zA-Z\\-%._:]*)\\]?:([0-9]+)");
 
     // Prints up to 2 decimal digits. Used for human readable printing
@@ -90,7 +90,7 @@ public final class Utils {
     }
 
     /**
-     * Turn the given UTF8 byte array into a string
+     * 将给定的UTF8字节数组转换为字符串
      *
      * @param bytes The byte array
      * @return The string
@@ -231,7 +231,7 @@ public final class Utils {
     }
 
     /**
-     * Wrap an array as a nullable ByteBuffer.
+     * 将数组作为空ByteBuffer。
      * @param array The nullable array to wrap
      * @return The wrapping ByteBuffer or null if array is null
      */
@@ -240,7 +240,7 @@ public final class Utils {
     }
 
     /**
-     * Read a byte array from the given offset and size in the buffer
+     * 从缓冲区中给定的偏移量和大小读取字节数组。
      * @param buffer The buffer to read from
      * @param offset The offset relative to the current position of the buffer
      * @param size The number of bytes to read into the array
@@ -286,7 +286,7 @@ public final class Utils {
     }
 
     /**
-     * Instantiate the class
+     * 实例化一个类
      */
     public static <T> T newInstance(Class<T> c) {
         if (c == null)
@@ -360,7 +360,7 @@ public final class Utils {
     }
 
     /**
-     * Generates 32 bit murmur2 hash from byte array
+     * 从字节数组生成32位murmur2散列。（一种hash算法）
      * @param data byte array to hash
      * @return 32 bit hash of the given array
      */
@@ -705,7 +705,7 @@ public final class Utils {
     }
 
     /**
-     * Closes all the provided closeables.
+     * 关闭所有具有 Closeable 接口的资源
      * @throws IOException if any of the close methods throws an IOException.
      *         The first IOException is thrown with subsequent exceptions
      *         added as suppressed exceptions.
@@ -718,7 +718,7 @@ public final class Utils {
                     closeable.close();
             } catch (IOException e) {
                 if (exception != null)
-                    exception.addSuppressed(e);
+                    exception.addSuppressed(e);// 添加到其中的异常列表
                 else
                     exception = e;
             }
@@ -728,7 +728,7 @@ public final class Utils {
     }
 
     /**
-     * Closes {@code closeable} and if an exception is thrown, it is logged at the WARN level.
+     * 快速关闭 自动关闭 对象，如果失败的话，则只记录warn log
      */
     public static void closeQuietly(AutoCloseable closeable, String name) {
         if (closeable != null) {

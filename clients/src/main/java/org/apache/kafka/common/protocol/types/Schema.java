@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * The schema for a compound record definition
+ * 复合记录定义的模式。
  */
 public class Schema extends Type {
 
@@ -30,7 +30,7 @@ public class Schema extends Type {
     private final Map<String, BoundField> fieldsByName;
 
     /**
-     * Construct the schema with a given list of its field values
+     * 用给定的字段值列表构造模式。
      *
      * @throws SchemaException If the given list have duplicate fields
      */

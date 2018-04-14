@@ -40,6 +40,11 @@ public final class ClientUtils {
 
     private ClientUtils() {}
 
+    /**
+     * 解析并验证连接字符串串
+     * @param urls
+     * @return
+     */
     public static List<InetSocketAddress> parseAndValidateAddresses(List<String> urls) {
         List<InetSocketAddress> addresses = new ArrayList<>();
         for (String url : urls) {

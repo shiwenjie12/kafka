@@ -33,6 +33,7 @@ public final class NetworkClientUtils {
     /**
      * Checks whether the node is currently connected, first calling `client.poll` to ensure that any pending
      * disconnects have been processed.
+     * 检查节点是否已连接，首先调用`client.poll`确保任何挂起的中断被处理。
      *
      * This method can be used to check the status of a connection prior to calling the blocking version to be able
      * to tell whether the latter completed a new connection.

@@ -23,7 +23,7 @@ import java.io.Closeable;
 import java.io.IOException;
 
 /**
- * Authentication for Channel
+ * 为通道设置的验证器 主要用于产生KafkaPrincipal
  */
 public interface Authenticator extends Closeable {
     /**
@@ -38,7 +38,7 @@ public interface Authenticator extends Closeable {
     void authenticate() throws AuthenticationException, IOException;
 
     /**
-     * Returns Principal using PrincipalBuilder
+     * 使用PrincipalBuilder构造Principal
      */
     KafkaPrincipal principal();
 

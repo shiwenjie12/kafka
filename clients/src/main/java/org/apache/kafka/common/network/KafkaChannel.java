@@ -27,6 +27,9 @@ import java.net.Socket;
 import java.nio.channels.SelectionKey;
 import java.util.Objects;
 
+/**
+ * 封装了 socketchannel、传输层、验证器
+ */
 public class KafkaChannel {
     private final String id;
     private final TransportLayer transportLayer;
@@ -44,6 +47,14 @@ public class KafkaChannel {
     private boolean muted;
     private ChannelState state;
 
+    /**
+     * @param id 节点Id
+     * @param transportLayer 传输层
+     * @param authenticator  验证器
+     * @param maxReceiveSize 允许接受的最大值
+     * @param memoryPool  内存池
+     * @throws IOException
+     */
     public KafkaChannel(String id, TransportLayer transportLayer, Authenticator authenticator, int maxReceiveSize, MemoryPool memoryPool) throws IOException {
         this.id = id;
         this.transportLayer = transportLayer;
@@ -56,6 +67,10 @@ public class KafkaChannel {
         this.state = ChannelState.NOT_CONNECTED;
     }
 
+    /**
+     * 设置为禁止连接状态，并回收资源
+     * @throws IOException
+     */
     public void close() throws IOException {
         this.disconnected = true;
         Utils.closeAll(transportLayer, authenticator, receive);
@@ -69,6 +84,7 @@ public class KafkaChannel {
     }
 
     /**
+     * 做关于传输层和验证器的  预处理
      * Does handshake of transportLayer and authentication using configured authenticator.
      * For SSL with client authentication enabled, {@link TransportLayer#handshake()} performs
      * authentication. For SASL, authentication is performed by {@link Authenticator#authenticate()}.
@@ -102,6 +118,11 @@ public class KafkaChannel {
         return this.state;
     }
 
+    /**
+     * 判断是否完成连接
+     * @return
+     * @throws IOException
+     */
     public boolean finishConnect() throws IOException {
         boolean connected = transportLayer.finishConnect();
         if (connected)
@@ -137,7 +158,7 @@ public class KafkaChannel {
     }
 
     /**
-     * Returns true if this channel has been explicitly muted using {@link KafkaChannel#mute()}
+     * 如果此通道已显静音，则返回true。  using {@link KafkaChannel#mute()}
      */
     public boolean isMute() {
         return muted;
@@ -154,6 +175,10 @@ public class KafkaChannel {
         return transportLayer.ready();
     }
 
+    /**
+     * 判断传输层和验证器是否准备完毕
+     * @return
+     */
     public boolean ready() {
         return transportLayer.ready() && authenticator.complete();
     }
@@ -172,6 +197,10 @@ public class KafkaChannel {
         return transportLayer.socketChannel().socket().getInetAddress();
     }
 
+    /**
+     * socket描述
+     * @return
+     */
     public String socketDescription() {
         Socket socket = transportLayer.socketChannel().socket();
         if (socket.getInetAddress() == null)
@@ -186,6 +215,11 @@ public class KafkaChannel {
         this.transportLayer.addInterestOps(SelectionKey.OP_WRITE);
     }
 
+    /**
+     * 接受通道中的数据
+     * @return
+     * @throws IOException
+     */
     public NetworkReceive read() throws IOException {
         NetworkReceive result = null;
 
@@ -205,6 +239,11 @@ public class KafkaChannel {
         return result;
     }
 
+    /**
+     * 将send数据发送到通道中
+     * @return
+     * @throws IOException
+     */
     public Send write() throws IOException {
         Send result = null;
         if (send != null && send(send)) {
@@ -215,7 +254,7 @@ public class KafkaChannel {
     }
 
     /**
-     * Accumulates network thread time for this channel.
+     * 这个通道所堆积网络线程时间。
      */
     public void addNetworkThreadTimeNanos(long nanos) {
         networkThreadTimeNanos += nanos;

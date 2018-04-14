@@ -17,7 +17,7 @@
 package org.apache.kafka.common;
 
 /**
- * This is used to describe per-partition state in the MetadataResponse.
+ * 用来描述每个分区的状态在 MetadaResponse
  */
 public class PartitionInfo {
 
@@ -33,6 +33,15 @@ public class PartitionInfo {
         this(topic, partition, leader, replicas, inSyncReplicas, new Node[0]);
     }
 
+    /**
+     *
+     * @param topic 分区的主题
+     * @param partition
+     * @param leader 领导节点
+     * @param replicas 备份节点
+     * @param inSyncReplicas 在同步状态的节点
+     * @param offlineReplicas
+     */
     public PartitionInfo(String topic, int partition, Node leader, Node[] replicas, Node[] inSyncReplicas, Node[] offlineReplicas) {
         this.topic = topic;
         this.partition = partition;
