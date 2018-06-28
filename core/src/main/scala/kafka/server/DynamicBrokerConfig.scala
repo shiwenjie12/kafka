@@ -75,6 +75,7 @@ object DynamicBrokerConfig {
 
   private[server] val DynamicSecurityConfigs = SslConfigs.RECONFIGURABLE_CONFIGS.asScala
 
+  // 全部的可配置的
   val AllDynamicConfigs = mutable.Set[String]()
   AllDynamicConfigs ++= DynamicSecurityConfigs
   AllDynamicConfigs ++= LogCleaner.ReconfigurableConfigs
@@ -88,11 +89,13 @@ object DynamicBrokerConfig {
 
   val ListenerConfigRegex = """listener\.name\.[^.]*\.(.*)""".r
 
+  // 动态配置中密码类型的配置属性
   private[server] val DynamicPasswordConfigs = {
     val passwordConfigs = KafkaConfig.configKeys.filter(_._2.`type` == ConfigDef.Type.PASSWORD).keySet
     AllDynamicConfigs.intersect(passwordConfigs)
   }
 
+  // 服务器配置的同义词，比如相同一配置，只是度量额度不同（秒，分钟）
   def brokerConfigSynonyms(name: String, matchListenerOverride: Boolean): List[String] = {
     name match {
       case KafkaConfig.LogRollTimeMillisProp | KafkaConfig.LogRollTimeHoursProp =>
@@ -124,11 +127,15 @@ object DynamicBrokerConfig {
   }
 }
 
+/**
+  * 动态的Broker配置
+  * @param kafkaConfig
+  */
 class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging {
 
   private[server] val staticBrokerConfigs = ConfigDef.convertToStringMapWithPasswordValues(kafkaConfig.originalsFromThisConfig).asScala
   private[server] val staticDefaultConfigs = ConfigDef.convertToStringMapWithPasswordValues(KafkaConfig.defaultValues.asJava).asScala
-  private val dynamicBrokerConfigs = mutable.Map[String, String]()
+  private val dynamicBrokerConfigs = mutable.Map[String, String]()// 当前broker的配置 有defult和broker共同构成
   private val dynamicDefaultConfigs = mutable.Map[String, String]()
   private val reconfigurables = mutable.Buffer[Reconfigurable]()
   private val brokerReconfigurables = mutable.Buffer[BrokerReconfigurable]()
@@ -136,11 +143,15 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
   private var currentConfig = kafkaConfig
   private val dynamicConfigPasswordEncoder = maybeCreatePasswordEncoder(kafkaConfig.passwordEncoderSecret)
 
+  /**
+    * 将传入的kafkaConfig初始化到zookeeper上
+    * @param zkClient
+    */
   private[server] def initialize(zkClient: KafkaZkClient): Unit = {
     val adminZkClient = new AdminZkClient(zkClient)
     updateDefaultConfig(adminZkClient.fetchEntityConfig(ConfigType.Broker, ConfigEntityName.Default))
-    val props = adminZkClient.fetchEntityConfig(ConfigType.Broker, kafkaConfig.brokerId.toString)
-    val brokerConfig = maybeReEncodePasswords(props, adminZkClient)
+    val props = adminZkClient.fetchEntityConfig(ConfigType.Broker, kafkaConfig.brokerId.toString)// 从zk中获取的服务器Id的配置
+    val brokerConfig = maybeReEncodePasswords(props, adminZkClient)// password类型的属性加密之后的
     updateBrokerConfig(kafkaConfig.brokerId, brokerConfig)
   }
 
@@ -191,6 +202,9 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
     }
   }
 
+  /**
+    * @param persistentProps 从zk中获取的配置属性，已经序列化的
+    */
   private[server] def updateDefaultConfig(persistentProps: Properties): Unit = CoreUtils.inWriteLock(lock) {
     try {
       val props = fromPersistentProps(persistentProps, perBrokerConfig = false)
@@ -231,11 +245,12 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
     props
   }
 
+  // 经过处理以后的属性
   private[server] def fromPersistentProps(persistentProps: Properties,
                                           perBrokerConfig: Boolean): Properties = {
     val props = persistentProps.clone().asInstanceOf[Properties]
 
-    // Remove all invalid configs from `props`
+    // 从“props”中删除所有无效的配置
     removeInvalidConfigs(props, perBrokerConfig)
     def removeInvalidProps(invalidPropNames: Set[String], errorMessage: String): Unit = {
       if (invalidPropNames.nonEmpty) {
@@ -272,13 +287,13 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
   // have been removed during broker restart.
   private def maybeReEncodePasswords(persistentProps: Properties, adminZkClient: AdminZkClient): Properties = {
     val props = persistentProps.clone().asInstanceOf[Properties]
-    if (!props.asScala.keySet.exists(DynamicPasswordConfigs.contains)) {
+    if (!props.asScala.keySet.exists(DynamicPasswordConfigs.contains)) {// 持久化属性中是否包含password类型的属性
       maybeCreatePasswordEncoder(kafkaConfig.passwordEncoderOldSecret).foreach { passwordDecoder =>
-        DynamicPasswordConfigs.foreach { configName =>
+        DynamicPasswordConfigs.foreach { configName => // 所有的动态密码配置
           val value = props.getProperty(configName)
           if (value != null) {
             val decoded = try {
-              Some(passwordDecoder.decode(value).value)
+              Some(passwordDecoder.decode(value).value)// 进行解码
             } catch {
               case _: Exception =>
                 debug(s"Dynamic password config $configName could not be decoded using old secret, new secret will be used.")
@@ -287,7 +302,7 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
             decoded.foreach { value => props.put(configName, passwordEncoder.encode(new Password(value))) }
           }
         }
-        adminZkClient.changeBrokerConfig(Seq(kafkaConfig.brokerId), props)
+        adminZkClient.changeBrokerConfig(Seq(kafkaConfig.brokerId), props)// 更改加密后的broker属性属性
       }
     }
     props
@@ -338,6 +353,11 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
     DynamicConfig.Broker.validate(baseProps)
   }
 
+  /**
+    * 移除无效的配置
+    * @param props
+    * @param perBrokerConfig
+    */
   private def removeInvalidConfigs(props: Properties, perBrokerConfig: Boolean): Unit = {
     try {
       validateConfigTypes(props)
@@ -366,7 +386,7 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
   }
 
   private def updatedConfigs(newProps: java.util.Map[String, _], currentProps: java.util.Map[_, _]): mutable.Map[String, _] = {
-    newProps.asScala.filter {
+    newProps.asScala.filter {// 过滤出于当前配置中需要更改的属性
       case (k, v) => v != currentProps.get(k)
     }
   }
@@ -377,6 +397,7 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
     * if `log.roll.ms` was defined in server.properties and `log.roll.hours` is configured dynamically,
     * `log.roll.hours` from the dynamic configuration will be used and `log.roll.ms` will be removed from
     * `props` (even though `log.roll.hours` is secondary to `log.roll.ms`).
+    * 消除一些可能冲突的变量，并添加到新的属性中
     */
   private def overrideProps(props: mutable.Map[String, String], propsOverride: mutable.Map[String, String]): Unit = {
     propsOverride.foreach { case (k, v) =>
@@ -389,6 +410,7 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
     }
   }
 
+  // 更新当前配置
   private def updateCurrentConfig(): Unit = {
     val newProps = mutable.Map[String, String]()
     newProps ++= staticBrokerConfigs
@@ -396,19 +418,25 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
     overrideProps(newProps, dynamicBrokerConfigs)
     val oldConfig = currentConfig
     val (newConfig, brokerReconfigurablesToUpdate) = processReconfiguration(newProps, validateOnly = false)
-    if (newConfig ne currentConfig) {
+    if (newConfig ne currentConfig) {// 如果不是当前配置
       currentConfig = newConfig
       kafkaConfig.updateCurrentConfig(newConfig)
 
-      // Process BrokerReconfigurable updates after current config is updated
+      // 更新当前配置后的进程代理重新配置更新
       brokerReconfigurablesToUpdate.foreach(_.reconfigure(oldConfig, newConfig))
     }
   }
 
+  /**
+    * 进行重新配置
+    * @param newProps
+    * @param validateOnly
+    * @return
+    */
   private def processReconfiguration(newProps: Map[String, String], validateOnly: Boolean): (KafkaConfig, List[BrokerReconfigurable]) = {
     val newConfig = new KafkaConfig(newProps.asJava, !validateOnly, None)
     val updatedMap = updatedConfigs(newConfig.originalsFromThisConfig, currentConfig.originals)
-    if (updatedMap.nonEmpty) {
+    if (updatedMap.nonEmpty) {// 有需要更新的属性
       try {
         val customConfigs = new util.HashMap[String, Object](newConfig.originalsFromThisConfig) // non-Kafka configs
         newConfig.valuesFromThisConfig.keySet.asScala.foreach(customConfigs.remove)
@@ -473,6 +501,7 @@ class DynamicBrokerConfig(private val kafkaConfig: KafkaConfig) extends Logging 
   }
 }
 
+// Broker重新配置节点
 trait BrokerReconfigurable {
 
   def reconfigurableConfigs: Set[String]

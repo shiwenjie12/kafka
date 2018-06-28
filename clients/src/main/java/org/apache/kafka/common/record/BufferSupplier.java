@@ -24,14 +24,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Simple non-threadsafe interface for caching byte buffers. This is suitable for simple cases like ensuring that
- * a given KafkaConsumer reuses the same decompression buffer when iterating over fetched records. For small record
- * batches, allocating a potentially large buffer (64 KB for LZ4) will dominate the cost of decompressing and
- * iterating over the records in the batch.
+ * 用于缓存字节缓冲区的简单非线程安全接口。
+ * 这适用于简单的情况，例如确保给定的KafkaConsumer在迭代获取的记录时重用相同的解压缩缓冲区。
+ * 对于小的记录批次，分配潜在的大缓冲区（LZ4的64 KB）将支配在批处理中的记录的解压缩和迭代的成本。
  */
 public abstract class BufferSupplier implements AutoCloseable {
 
-    public static final BufferSupplier NO_CACHING = new BufferSupplier() {
+    public static final BufferSupplier NO_CACHING = new BufferSupplier() {// 内部未实现快速缓存
         @Override
         public ByteBuffer get(int capacity) {
             return ByteBuffer.allocate(capacity);

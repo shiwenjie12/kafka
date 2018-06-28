@@ -44,6 +44,7 @@ import static org.apache.kafka.common.protocol.types.Type.INT32;
 import static org.apache.kafka.common.protocol.types.Type.NULLABLE_STRING;
 import static org.apache.kafka.common.protocol.types.Type.STRING;
 
+// 更新元数据请求
 public class UpdateMetadataRequest extends AbstractRequest {
 
     private static final String CONTROLLER_ID_KEY_NAME = "controller_id";
@@ -208,6 +209,7 @@ public class UpdateMetadataRequest extends AbstractRequest {
         }
     }
 
+    //  Partition级别的分区状态
     public static final class PartitionState {
         public final BasePartitionState basePartitionState;
         public final List<Integer> offlineReplicas;
@@ -217,8 +219,8 @@ public class UpdateMetadataRequest extends AbstractRequest {
                               int leaderEpoch,
                               List<Integer> isr,
                               int zkVersion,
-                              List<Integer> replicas,
-                              List<Integer> offlineReplicas) {
+                              List<Integer> replicas, // 在线的备份
+                              List<Integer> offlineReplicas) { // 下线的备份
             this.basePartitionState = new BasePartitionState(controllerEpoch, leader, leaderEpoch, isr, zkVersion, replicas);
             this.offlineReplicas = offlineReplicas;
         }

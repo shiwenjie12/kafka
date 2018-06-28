@@ -21,6 +21,7 @@ import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 import org.apache.kafka.common.internals.FatalExitError
 
+// 可以关闭的线程
 abstract class ShutdownableThread(val name: String, val isInterruptible: Boolean = true)
         extends Thread(name) with Logging {
   this.setDaemon(false)
@@ -42,7 +43,7 @@ abstract class ShutdownableThread(val name: String, val isInterruptible: Boolean
       if (isRunning) {
         info("Shutting down")
         shutdownInitiated.countDown()
-        if (isInterruptible)
+        if (isInterruptible) // 是否可以中断
           interrupt()
         true
       } else
@@ -51,7 +52,7 @@ abstract class ShutdownableThread(val name: String, val isInterruptible: Boolean
   }
 
   /**
-   * After calling initiateShutdown(), use this API to wait until the shutdown is complete
+   * 在调用initiateShutdown（）之后，使用此API等待关闭完成
    */
   def awaitShutdown(): Unit = {
     shutdownComplete.await()
@@ -89,7 +90,7 @@ abstract class ShutdownableThread(val name: String, val isInterruptible: Boolean
       case e: Throwable =>
         if (isRunning)
           error("Error due to", e)
-    } finally {
+    } finally { // 结束关闭
        shutdownComplete.countDown()
     }
     info("Stopped")

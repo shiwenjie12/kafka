@@ -29,11 +29,11 @@ import org.apache.kafka.common.config.ConfigDef.Type._
 import scala.collection.JavaConverters._
 
 /**
-  * Class used to hold dynamic configs. These are configs which have no physical manifestation in the server.properties
-  * and can only be set dynamically.
+  * 用于保存动态配置的类。这些是在服务器属性中没有物理显示的配置，只能动态设置。
   */
 object DynamicConfig {
 
+  // 服务器
   object Broker {
     //Properties
     val LeaderReplicationThrottledRateProp = "leader.replication.throttled.rate"

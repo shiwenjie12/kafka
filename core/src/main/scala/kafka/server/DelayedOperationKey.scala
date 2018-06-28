@@ -20,7 +20,7 @@ package kafka.server
 import org.apache.kafka.common.TopicPartition
 
 /**
- * Keys used for delayed operation metrics recording
+ * 用于延迟操作指标记录的键
  */
 trait DelayedOperationKey {
   def keyLabel: String

@@ -37,6 +37,7 @@ public class ApiVersions {
         this.maxUsableProduceMagic = computeMaxUsableProduceMagic();
     }
 
+    // 移除节点
     public synchronized void remove(String nodeId) {
         this.nodeApiVersions.remove(nodeId);
         this.maxUsableProduceMagic = computeMaxUsableProduceMagic();

@@ -22,20 +22,26 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.collection.{Seq, Set, mutable}
 
+// 控制器的上下文
 class ControllerContext {
   val stats = new ControllerStats
 
   var controllerChannelManager: ControllerChannelManager = null
 
+  // 正在关闭broker
   var shuttingDownBrokerIds: mutable.Set[Int] = mutable.Set.empty
   var epoch: Int = KafkaController.InitialControllerEpoch - 1
   var epochZkVersion: Int = KafkaController.InitialControllerEpochZkVersion - 1
   var allTopics: Set[String] = Set.empty
+  // 分配的副本分区
   var partitionReplicaAssignment: mutable.Map[TopicPartition, Seq[Int]] = mutable.Map.empty
+  // tp的领导中存储的信息
   var partitionLeadershipInfo: mutable.Map[TopicPartition, LeaderIsrAndControllerEpoch] = mutable.Map.empty
+  // 正在分配的分区
   val partitionsBeingReassigned: mutable.Map[TopicPartition, ReassignedPartitionsContext] = mutable.Map.empty
   val replicasOnOfflineDirs: mutable.Map[Int, Set[TopicPartition]] = mutable.Map.empty
 
+  // 潜在存活的broker，可能包含关闭中的broker
   private var liveBrokersUnderlying: Set[Broker] = Set.empty
   private var liveBrokerIdsUnderlying: Set[Int] = Set.empty
 
@@ -45,10 +51,11 @@ class ControllerContext {
     liveBrokerIdsUnderlying = liveBrokersUnderlying.map(_.id)
   }
 
-  // getter
+  // 存活的broker
   def liveBrokers = liveBrokersUnderlying.filter(broker => !shuttingDownBrokerIds.contains(broker.id))
   def liveBrokerIds = liveBrokerIdsUnderlying -- shuttingDownBrokerIds
 
+  // 存活的或者正在关闭的broker
   def liveOrShuttingDownBrokerIds = liveBrokerIdsUnderlying
   def liveOrShuttingDownBrokers = liveBrokersUnderlying
 
@@ -58,8 +65,9 @@ class ControllerContext {
     }.toSet
   }
 
+  // 判断 tp在某个broker上的副本是否在线
   def isReplicaOnline(brokerId: Int, topicPartition: TopicPartition, includeShuttingDownBrokers: Boolean = false): Boolean = {
-    val brokerOnline = {
+    val brokerOnline = { // broker是否在线
       if (includeShuttingDownBrokers) liveOrShuttingDownBrokerIds.contains(brokerId)
       else liveBrokerIds.contains(brokerId)
     }

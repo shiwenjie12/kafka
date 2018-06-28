@@ -37,12 +37,11 @@ trait LeaderEpochCache {
 }
 
 /**
-  * Represents a cache of (LeaderEpoch => Offset) mappings for a particular replica.
+  * 表示特定副本的（LeaderEpoch => Offset）映射的缓存。
+  * Leader Epoch = 由控制器分配给每个领导者的Epoch。
+  * Offset = 每个Epoch的第一条消息的偏移量。
   *
-  * Leader Epoch = epoch assigned to each leader by the controller.
-  * Offset = offset of the first message in each epoch.
-  *
-  * @param leo a function that determines the log end offset
+  * @param leo 一个确定日志结束偏移量的函数
   * @param checkpoint the checkpoint file
   */
 class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetMetadata, checkpoint: LeaderEpochCheckpoint) extends LeaderEpochCache with Logging {
@@ -52,7 +51,7 @@ class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetM
   /**
     * Assigns the supplied Leader Epoch to the supplied Offset
     * Once the epoch is assigned it cannot be reassigned
-    *
+    * 向缓存中分配一个 EpochEntry
     * @param epoch
     * @param offset
     */
@@ -83,8 +82,8 @@ class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetM
   /**
     * Returns the End Offset for a requested Leader Epoch.
     *
-    * This is defined as the start offset of the first Leader Epoch larger than the
-    * Leader Epoch requested, or else the Log End Offset if the latest epoch was requested.
+    * 这被定义为大于Leader Epoch请求的第一个Leader Epoch的起始偏移量，
+    * 或者如果请求最近的Epoch时间点，则是Log End Offset。
     *
     * During the upgrade phase, where there are existing messages may not have a leader epoch,
     * if requestedEpoch is < the first epoch cached, UNSUPPORTED_EPOCH_OFFSET will be returned
@@ -97,7 +96,7 @@ class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetM
     inReadLock(lock) {
       val offset =
         if (requestedEpoch == latestEpoch) {
-          leo().messageOffset
+          leo().messageOffset // 当前log的log end offset
         }
         else {
           val subsequentEpochs = epochs.filter(e => e.epoch > requestedEpoch)
@@ -113,7 +112,7 @@ class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetM
 
   /**
     * Removes all epoch entries from the store with start offsets greater than or equal to the passed offset.
-    *
+    * 从起始偏移量大于或等于传递的偏移量中删除存储中的所有时期条目。
     * @param offset
     */
   override def clearAndFlushLatest(offset: Long): Unit = {
@@ -180,6 +179,7 @@ class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetM
     if (epochs.isEmpty) -1 else epochs.last.startOffset
   }
 
+  // 将epochs写入到磁盘中
   private def flush(): Unit = {
     checkpoint.write(epochs)
   }
@@ -197,5 +197,5 @@ class LeaderEpochFileCache(topicPartition: TopicPartition, leo: () => LogOffsetM
   }
 }
 
-// Mapping of epoch to the first offset of the subsequent epoch
+// 将epoch 映射到后续时期的第一个偏移量
 case class EpochEntry(epoch: Int, startOffset: Long)

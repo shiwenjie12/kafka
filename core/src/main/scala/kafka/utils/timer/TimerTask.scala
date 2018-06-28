@@ -16,12 +16,14 @@
  */
 package kafka.utils.timer
 
+// 时间任务
 trait TimerTask extends Runnable {
 
   val delayMs: Long // timestamp in millisecond
 
   private[this] var timerTaskEntry: TimerTaskEntry = null
 
+  // 取消任务定时器
   def cancel(): Unit = {
     synchronized {
       if (timerTaskEntry != null) timerTaskEntry.remove()
@@ -33,6 +35,7 @@ trait TimerTask extends Runnable {
     synchronized {
       // if this timerTask is already held by an existing timer task entry,
       // we will remove such an entry first.
+      // 重新设置任务实体时，需要删除之前实体
       if (timerTaskEntry != null && timerTaskEntry != entry)
         timerTaskEntry.remove()
 

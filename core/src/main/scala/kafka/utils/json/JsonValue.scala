@@ -23,7 +23,7 @@ import com.fasterxml.jackson.databind.node.{ArrayNode, ObjectNode}
 /**
  * A simple wrapper over Jackson's JsonNode that enables type safe parsing via the `DecodeJson` type
  * class.
- *
+ * 一个简单的包装在Jackson的 JsonNode使类型安全的解析，通过` decodejson `型类。
  * Typical usage would be something like:
  *
  * {{{
@@ -103,7 +103,7 @@ trait JsonValue {
 object JsonValue {
 
   /**
-   * Create an instance of `JsonValue` from Jackson's `JsonNode`.
+   * 从Jackson's `JsonNode`中创建一个`JsonValue`
    */
   def apply(node: JsonNode): JsonValue = node match {
     case n: ObjectNode => new JsonObject(n)

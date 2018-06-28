@@ -23,6 +23,7 @@ import org.apache.kafka.common.utils.Time
 
 import scala.math._
 
+// 包含延迟时间的项
 class DelayedItem(delayMs: Long) extends Delayed with Logging {
 
   private val dueMs = Time.SYSTEM.milliseconds + delayMs
@@ -30,7 +31,7 @@ class DelayedItem(delayMs: Long) extends Delayed with Logging {
   def this(delay: Long, unit: TimeUnit) = this(unit.toMillis(delay))
 
   /**
-   * The remaining delay time
+   * 剩余的延迟时间
    */
   def getDelay(unit: TimeUnit): Long = {
     unit.convert(max(dueMs - Time.SYSTEM.milliseconds, 0), TimeUnit.MILLISECONDS)

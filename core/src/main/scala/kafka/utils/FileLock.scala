@@ -21,9 +21,9 @@ import java.nio.channels._
 import java.nio.file.{FileAlreadyExistsException, Files}
 
 /**
- * A file lock a la flock/funlock
+  * 利用java.nio.channels.FileLock实现的文件锁
  * 
- * The given path will be created and opened if it doesn't exist.
+  * 如果它不存在，给定路径将被创建和打开。
  */
 class FileLock(val file: File) extends Logging {
 

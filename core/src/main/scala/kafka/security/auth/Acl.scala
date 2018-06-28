@@ -36,7 +36,7 @@ object Acl {
 
   /**
    *
-   * @param bytes of acls json string
+   * @param bytes 从json字符串转换为acl
    *
    * <p>
       {

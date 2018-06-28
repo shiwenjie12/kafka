@@ -29,10 +29,11 @@ import java.nio.ByteBuffer;
 
 import static org.apache.kafka.common.protocol.ApiKeys.API_VERSIONS;
 
+// 请求上下文
 public class RequestContext {
     public final RequestHeader header;
     public final String connectionId;
-    public final InetAddress clientAddress;
+    public final InetAddress clientAddress; // 客户端地址
     public final KafkaPrincipal principal;
     public final ListenerName listenerName;
     public final SecurityProtocol securityProtocol;
@@ -78,6 +79,7 @@ public class RequestContext {
         return body.toSend(connectionId, responseHeader, apiVersion());
     }
 
+    // 不支持api版本的请求
     private boolean isUnsupportedApiVersionsRequest() {
         return header.apiKey() == API_VERSIONS && !API_VERSIONS.isVersionSupported(header.apiVersion());
     }

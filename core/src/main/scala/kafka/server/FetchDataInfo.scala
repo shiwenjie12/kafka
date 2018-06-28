@@ -20,6 +20,7 @@ package kafka.server
 import org.apache.kafka.common.record.Records
 import org.apache.kafka.common.requests.FetchResponse.AbortedTransaction
 
+// 获取数据的信息
 case class FetchDataInfo(fetchOffsetMetadata: LogOffsetMetadata,
                          records: Records,
                          firstEntryIncomplete: Boolean = false,

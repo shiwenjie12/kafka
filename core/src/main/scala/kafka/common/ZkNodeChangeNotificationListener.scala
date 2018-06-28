@@ -25,7 +25,7 @@ import kafka.zookeeper.{StateChangeHandler, ZNodeChildChangeHandler}
 import org.apache.kafka.common.utils.Time
 
 /**
- * Handle the notificationMessage.
+ * 处理notificationMessage.
  */
 trait NotificationHandler {
   def processNotification(notificationMessage: Array[Byte])
@@ -72,7 +72,7 @@ class ZkNodeChangeNotificationListener(private val zkClient: KafkaZkClient,
   }
 
   /**
-   * Process notifications
+   * 处理唤醒
    */
   private def processNotifications() {
     try {
@@ -81,11 +81,11 @@ class ZkNodeChangeNotificationListener(private val zkClient: KafkaZkClient,
         info(s"Processing notification(s) to $seqNodeRoot")
         val now = time.milliseconds
         for (notification <- notifications) {
-          val changeId = changeNumber(notification)
-          if (changeId > lastExecutedChange) {
+          val changeId = changeNumber(notification) // 获取序号
+          if (changeId > lastExecutedChange) {  // 获取为更新的changid节点
             val changeZnode = seqNodeRoot + "/" + notification
             val (data, _) = zkClient.getDataAndStat(changeZnode)
-            data match {
+            data match {  // 改变数据的节点
               case Some(d) => notificationHandler.processNotification(d)
               case None => warn(s"read null data from $changeZnode when processing notification $notification")
             }
@@ -110,7 +110,7 @@ class ZkNodeChangeNotificationListener(private val zkClient: KafkaZkClient,
   }
 
   /**
-   * Purges expired notifications.
+   * 清除过期的通知。
    *
    * @param now
    * @param notifications
@@ -120,7 +120,7 @@ class ZkNodeChangeNotificationListener(private val zkClient: KafkaZkClient,
       val notificationNode = seqNodeRoot + "/" + notification
       val (data, stat) = zkClient.getDataAndStat(notificationNode)
       if (data.isDefined) {
-        if (now - stat.getCtime > changeExpirationMs) {
+        if (now - stat.getCtime > changeExpirationMs) { // 如果超过过期时间，则删除节点
           debug(s"Purging change notification $notificationNode")
           zkClient.deletePath(notificationNode)
         }
@@ -132,7 +132,7 @@ class ZkNodeChangeNotificationListener(private val zkClient: KafkaZkClient,
   private def changeNumber(name: String): Long = name.substring(seqNodePrefix.length).toLong
 
   class ChangeEventProcessThread(name: String) extends ShutdownableThread(name = name) {
-    override def doWork(): Unit = queue.take().process
+    override def doWork(): Unit = queue.take().process  // 阻塞队列
   }
 
   object ChangeNotificationHandler extends ZNodeChildChangeHandler {

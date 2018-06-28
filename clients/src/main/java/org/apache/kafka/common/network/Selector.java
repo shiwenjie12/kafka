@@ -137,8 +137,8 @@ public class Selector implements Selectable, AutoCloseable {
      * @param time Time implementation
      * @param metricGrpPrefix Prefix for the group of metrics registered by Selector
      * @param metricTags Additional tags to add to metrics registered by Selector
-     * @param metricsPerConnection Whether or not to enable per-connection metrics
-     * @param channelBuilder Channel builder for every new connection
+     * @param metricsPerConnection 是否启用每个连接度量
+     * @param channelBuilder 为每个链接的通道构建器
      * @param logContext Context for logging with additional info
      */
     public Selector(int maxReceiveSize,
@@ -197,8 +197,7 @@ public class Selector implements Selectable, AutoCloseable {
     }
 
     /**
-     * Begin connecting to the given address and add the connection to this nioSelector associated with the given id
-     * number.
+     * 开始连接到给定的地址，并添加连接到这个nioSelector与给定的id号相关联。
      * <p>
      * Note that this call only initiates the connection, which will be completed on a future {@link #poll(long)}
      * call. Check {@link #connected()} to see which (if any) connections have completed after a given poll call.
@@ -216,7 +215,7 @@ public class Selector implements Selectable, AutoCloseable {
         try {
             configureSocketChannel(socketChannel, sendBufferSize, receiveBufferSize);
             boolean connected = doConnect(socketChannel, address);
-            SelectionKey key = registerChannel(id, socketChannel, SelectionKey.OP_CONNECT);
+            SelectionKey key = registerChannel(id, socketChannel, SelectionKey.OP_CONNECT); // 注册kafka通道
 
             if (connected) {
                 // OP_CONNECT won't trigger for immediately connected channels
@@ -299,7 +298,7 @@ public class Selector implements Selectable, AutoCloseable {
      * @throws IOException
      */
     private SelectionKey registerChannel(String id, SocketChannel socketChannel, int interestedOps) throws IOException {
-        SelectionKey key = socketChannel.register(nioSelector, interestedOps);
+        SelectionKey key = socketChannel.register(nioSelector, interestedOps); // 注册通道事件
         KafkaChannel channel = buildAndAttachKafkaChannel(socketChannel, id, key);
         this.channels.put(id, channel);
         return key;
@@ -419,7 +418,7 @@ public class Selector implements Selectable, AutoCloseable {
             throw new IllegalArgumentException("timeout should be >= 0");
 
         boolean madeReadProgressLastCall = madeReadProgressLastPoll;
-        clear();
+        clear(); // 清除当前kafka通道的数据
 
         boolean dataInBuffers = !keysWithBufferedRead.isEmpty();
 
@@ -470,6 +469,7 @@ public class Selector implements Selectable, AutoCloseable {
 
         // we use the time at the end of select to ensure that we don't close any connections that
         // have just been processed in pollSelectionKeys
+        // 关闭可以关闭的连接
         maybeCloseOldestConnection(endSelect);
 
         // Add to completedReceives after closing expired connections to avoid removing
@@ -911,9 +911,9 @@ public class Selector implements Selectable, AutoCloseable {
             while (iter.hasNext()) {
                 Map.Entry<KafkaChannel, Deque<NetworkReceive>> entry = iter.next();
                 KafkaChannel channel = entry.getKey();
-                if (!explicitlyMutedChannels.contains(channel)) {
+                if (!explicitlyMutedChannels.contains(channel)) { // 明确哑火的通道并不包含
                     Deque<NetworkReceive> deque = entry.getValue();
-                    addToCompletedReceives(channel, deque);
+                    addToCompletedReceives(channel, deque); // 添加到接受队列中
                     if (deque.isEmpty())
                         iter.remove();
                 }

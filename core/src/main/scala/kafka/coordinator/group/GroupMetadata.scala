@@ -28,7 +28,7 @@ import scala.collection.{Seq, immutable, mutable}
 private[group] sealed trait GroupState
 
 /**
- * Group is preparing to rebalance
+ * group正在准备重新平衡
  *
  * action: respond to heartbeats with REBALANCE_IN_PROGRESS
  *         respond to sync group with REBALANCE_IN_PROGRESS
@@ -43,7 +43,7 @@ private[group] sealed trait GroupState
 private[group] case object PreparingRebalance extends GroupState
 
 /**
- * Group is awaiting state assignment from the leader
+ * group正在等待领导者的状态分配
  *
  * action: respond to heartbeats with REBALANCE_IN_PROGRESS
  *         respond to offset commits with REBALANCE_IN_PROGRESS
@@ -58,7 +58,7 @@ private[group] case object PreparingRebalance extends GroupState
 private[group] case object CompletingRebalance extends GroupState
 
 /**
- * Group is stable
+ * Group是稳定的
  *
  * action: respond to member heartbeats normally
  *         respond to sync group from any member with current assignment
@@ -74,7 +74,7 @@ private[group] case object CompletingRebalance extends GroupState
 private[group] case object Stable extends GroupState
 
 /**
- * Group has no more members and its metadata is being removed
+ * group没有更多成员，其元数据正在被删除
  *
  * action: respond to join group with UNKNOWN_MEMBER_ID
  *         respond to sync group with UNKNOWN_MEMBER_ID
@@ -87,8 +87,7 @@ private[group] case object Stable extends GroupState
 private[group] case object Dead extends GroupState
 
 /**
-  * Group has no more members, but lingers until all offsets have expired. This state
-  * also represents groups which use Kafka only for offset commits and have no members.
+  * 小组没有更多成员，但是直到所有偏移都已经过期。 这种状态也代表使用卡夫卡仅用于抵消提交并且没有成员的组。...
   *
   * action: respond normally to join group from new members
   *         respond to sync group with UNKNOWN_MEMBER_ID
@@ -105,6 +104,7 @@ private[group] case object Empty extends GroupState
 
 
 private object GroupMetadata {
+  // 有效的前置状态
   private val validPreviousStates: Map[GroupState, Set[GroupState]] =
     Map(Dead -> Set(Stable, PreparingRebalance, CompletingRebalance, Empty, Dead),
       CompletingRebalance -> Set(PreparingRebalance),
@@ -144,40 +144,42 @@ case class GroupSummary(state: String,
                         members: List[MemberSummary])
 
 /**
-  * We cache offset commits along with their commit record offset. This enables us to ensure that the latest offset
-  * commit is always materialized when we have a mix of transactional and regular offset commits. Without preserving
-  * information of the commit record offset, compaction of the offsets topic it self may result in the wrong offset commit
-  * being materialized.
+  * 我们缓存偏移提交及其提交记录偏移量。
+  * 这使我们能够确保在我们混合使用事务性和常规偏移量提交时始终实现最新的偏移量提交。
+  * 在不保留提交记录偏移的信息的情况下，压缩偏移主题它可能导致错误的偏移提交被实现。
   */
 case class CommitRecordMetadataAndOffset(appendedBatchOffset: Option[Long], offsetAndMetadata: OffsetAndMetadata) {
   def olderThan(that: CommitRecordMetadataAndOffset) : Boolean = appendedBatchOffset.get < that.appendedBatchOffset.get
 }
 
 /**
- * Group contains the following metadata:
+ * 组包含以下元数据：
  *
- *  Membership metadata:
- *  1. Members registered in this group
- *  2. Current protocol assigned to the group (e.g. partition assignment strategy for consumers)
- *  3. Protocol metadata associated with group members
+ *   Membership metadata:
+ *   1.在此组中注册的会员
+ *   2.分配给组的当前协议（例如消费者的分区分配策略）
+ *   3.与组成员相关的协议元数据
  *
- *  State metadata:
- *  1. group state
- *  2. generation id
- *  3. leader id
+ *   State metadata:
+ *   1.团体状态
+ *   2.生成ID
+ *   3.领导者身份证
  */
 @nonthreadsafe
 private[group] class GroupMetadata(val groupId: String, initialState: GroupState) extends Logging {
   private[group] val lock = new ReentrantLock
 
+  // 分组状态
   private var state: GroupState = initialState
   var protocolType: Option[String] = None
+  // 构造出的唯一标识符
   var generationId = 0
   private var leaderId: Option[String] = None
   private var protocol: Option[String] = None
 
   private val members = new mutable.HashMap[String, MemberMetadata]
   private val offsets = new mutable.HashMap[TopicPartition, CommitRecordMetadataAndOffset]
+  // 等待提交的tp偏移量
   private val pendingOffsetCommits = new mutable.HashMap[TopicPartition, OffsetAndMetadata]
   private val pendingTransactionalOffsetCommits = new mutable.HashMap[Long, mutable.Map[TopicPartition, CommitRecordMetadataAndOffset]]()
   private var receivedTransactionalOffsetCommits = false
@@ -237,6 +239,7 @@ private[group] class GroupMetadata(val groupId: String, initialState: GroupState
 
   def canRebalance = GroupMetadata.validPreviousStates(PreparingRebalance).contains(state)
 
+  // 设置分组状态
   def transitionTo(groupState: GroupState) {
     assertValidTransition(groupState)
     state = groupState
@@ -270,6 +273,7 @@ private[group] class GroupMetadata(val groupId: String, initialState: GroupState
     members.isEmpty || (memberProtocols & candidateProtocols).nonEmpty
   }
 
+  // 初始化下一次版本
   def initNextGeneration() = {
     assert(notYetRejoinedMembers == List.empty[MemberMetadata])
     if (members.nonEmpty) {
@@ -388,8 +392,7 @@ private[group] class GroupMetadata(val groupId: String, initialState: GroupState
     }
   }
 
-  /* Complete a pending transactional offset commit. This is called after a commit or abort marker is fully written
-   * to the log.
+  /* 完成待处理的事务性偏移量提交。 这是在提交或中止标记完全写入日志后调用的。
    */
   def completePendingTxnOffsetCommit(producerId: Long, isCommit: Boolean): Unit = {
     val pendingOffsetsOpt = pendingTransactionalOffsetCommits.remove(producerId)
@@ -423,6 +426,7 @@ private[group] class GroupMetadata(val groupId: String, initialState: GroupState
 
   def removeAllOffsets(): immutable.Map[TopicPartition, OffsetAndMetadata] = removeOffsets(offsets.keySet.toSeq)
 
+  // 移除tp
   def removeOffsets(topicPartitions: Seq[TopicPartition]): immutable.Map[TopicPartition, OffsetAndMetadata] = {
     topicPartitions.flatMap { topicPartition =>
       pendingOffsetCommits.remove(topicPartition)
@@ -434,10 +438,11 @@ private[group] class GroupMetadata(val groupId: String, initialState: GroupState
     }.toMap
   }
 
+  // 移除过期的偏移量
   def removeExpiredOffsets(startMs: Long) : Map[TopicPartition, OffsetAndMetadata] = {
     val expiredOffsets = offsets
       .filter {
-        case (topicPartition, commitRecordMetadataAndOffset) =>
+        case (topicPartition, commitRecordMetadataAndOffset) => // 过期并且是等待提交的偏移量中未包含当前tp
           commitRecordMetadataAndOffset.offsetAndMetadata.expireTimestamp < startMs && !pendingOffsetCommits.contains(topicPartition)
       }
       .map {

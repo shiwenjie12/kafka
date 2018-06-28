@@ -177,9 +177,9 @@ public class ApiVersionsResponse extends AbstractResponse {
     }
 
     public static ApiVersionsResponse createApiVersionsResponse(int throttleTimeMs, final byte minMagic) {
-        List<ApiVersionsResponse.ApiVersion> versionList = new ArrayList<>();
+        List<ApiVersionsResponse.ApiVersion> versionList = new ArrayList<>(); // 版本列表
         for (ApiKeys apiKey : ApiKeys.values()) {
-            if (apiKey.minRequiredInterBrokerMagic <= minMagic) {
+            if (apiKey.minRequiredInterBrokerMagic <= minMagic) { // 小于消息的magic
                 versionList.add(new ApiVersionsResponse.ApiVersion(apiKey));
             }
         }

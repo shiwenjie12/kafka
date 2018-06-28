@@ -22,16 +22,19 @@ package kafka.metrics
 
 import kafka.utils.{VerifiableProperties, CoreUtils}
 
+/**
+  * kafka的监控配置
+  * @param props
+  */
 class KafkaMetricsConfig(props: VerifiableProperties) {
 
   /**
-   * Comma-separated list of reporter types. These classes should be on the
-   * classpath and will be instantiated at run-time.
+    * 报告类型的逗号分隔列表。这些类应该在classpath，将在运行时实例化。
    */
   val reporters = CoreUtils.parseCsvList(props.getString("kafka.metrics.reporters", ""))
 
   /**
-   * The metrics polling interval (in seconds).
+    * 监控每次拉取的时间间隔（秒）
    */
   val pollingIntervalSecs = props.getInt("kafka.metrics.polling.interval.secs", 10)
 }

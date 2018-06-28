@@ -39,7 +39,7 @@ case class ProducePartitionStatus(requiredOffset: Long, responseStatus: Partitio
 }
 
 /**
- * The produce metadata maintained by the delayed produce operation
+ * 延迟生产操作维护的元数据
  */
 case class ProduceMetadata(produceRequiredAcks: Short,
                            produceStatus: Map[TopicPartition, ProducePartitionStatus]) {
@@ -49,8 +49,7 @@ case class ProduceMetadata(produceRequiredAcks: Short,
 }
 
 /**
- * A delayed produce operation that can be created by the replica manager and watched
- * in the produce operation purgatory
+  * 一个延迟的生产操作，可以由副本管理器创建并在生产操作炼狱（purgatory）中观察
  */
 class DelayedProduce(delayMs: Long,
                      produceMetadata: ProduceMetadata,
@@ -59,13 +58,13 @@ class DelayedProduce(delayMs: Long,
                      lockOpt: Option[Lock] = None)
   extends DelayedOperation(delayMs, lockOpt) {
 
-  // first update the acks pending variable according to the error code
+  // 首先根据错误代码更新ACK挂起变量
   produceMetadata.produceStatus.foreach { case (topicPartition, status) =>
     if (status.responseStatus.error == Errors.NONE) {
-      // Timeout error state will be cleared when required acks are received
+      // 当接收到需要的ACK时，将清除超时错误状态。
       status.acksPending = true
-      status.responseStatus.error = Errors.REQUEST_TIMED_OUT
-    } else {
+      status.responseStatus.error = Errors.REQUEST_TIMED_OUT// 初始化请求超时
+    } else { // 有错误则不需要等待
       status.acksPending = false
     }
 
@@ -73,9 +72,7 @@ class DelayedProduce(delayMs: Long,
   }
 
   /**
-   * The delayed produce operation can be completed if every partition
-   * it produces to is satisfied by one of the following:
-   *
+   * 如果生成的每个分区都满足下列延迟之一，则可以完成延迟生成操作：
    * Case A: This broker is no longer the leader: set an error in response
    * Case B: This broker is the leader:
    *   B.1 - If there was a local error thrown while checking if at least requiredAcks
@@ -86,17 +83,17 @@ class DelayedProduce(delayMs: Long,
     // check for each partition if it still has pending acks
     produceMetadata.produceStatus.foreach { case (topicPartition, status) =>
       trace(s"Checking produce satisfaction for $topicPartition, current status $status")
-      // skip those partitions that have already been satisfied
+      // 跳过那些已经满足的分区
       if (status.acksPending) {
         val (hasEnough, error) = replicaManager.getPartition(topicPartition) match {
           case Some(partition) =>
-            if (partition eq ReplicaManager.OfflinePartition)
+            if (partition eq ReplicaManager.OfflinePartition)  // 下线的分区
               (false, Errors.KAFKA_STORAGE_ERROR)
             else
-              partition.checkEnoughReplicasReachOffset(status.requiredOffset)
+              partition.checkEnoughReplicasReachOffset(status.requiredOffset) // 检查是否有足够的副本到达指定的偏移量
           case None =>
             // Case A
-            (false, Errors.UNKNOWN_TOPIC_OR_PARTITION)
+            (false, Errors.UNKNOWN_TOPIC_OR_PARTITION)  // 未找的的分区
         }
         // Case B.1 || B.2
         if (error != Errors.NONE || hasEnough) {
@@ -122,11 +119,11 @@ class DelayedProduce(delayMs: Long,
   }
 
   /**
-   * Upon completion, return the current response status along with the error code per partition
+   * 完成后，将当前响应状态连同每个分区的错误代码一起返回。
    */
   override def onComplete() {
     val responseStatus = produceMetadata.produceStatus.mapValues(status => status.responseStatus)
-    responseCallback(responseStatus)
+    responseCallback(responseStatus) // 回调响应
   }
 }
 

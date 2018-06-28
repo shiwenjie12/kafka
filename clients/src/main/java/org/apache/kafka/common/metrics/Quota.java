@@ -17,7 +17,7 @@
 package org.apache.kafka.common.metrics;
 
 /**
- * An upper or lower bound for metrics
+ * 度量的上下界
  */
 public final class Quota {
 
@@ -45,6 +45,7 @@ public final class Quota {
         return this.bound;
     }
 
+    // 是否符合范围
     public boolean acceptable(double value) {
         return (upper && value <= bound) || (!upper && value >= bound);
     }

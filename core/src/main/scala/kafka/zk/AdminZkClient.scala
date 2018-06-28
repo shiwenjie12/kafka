@@ -31,7 +31,7 @@ import org.apache.zookeeper.KeeperException.NodeExistsException
 import scala.collection.{Map, Seq}
 
 /**
- * Provides admin related methods for interacting with ZooKeeper.
+ * 提供与管理员相关的管理相关方法。
  *
  * This is an internal class and no compatibility guarantees are provided,
  * see org.apache.kafka.clients.admin.AdminClient for publicly supported APIs.
@@ -52,12 +52,12 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
                   topicConfig: Properties = new Properties,
                   rackAwareMode: RackAwareMode = RackAwareMode.Enforced) {
     val brokerMetadatas = getBrokerMetadatas(rackAwareMode)
-    val replicaAssignment = AdminUtils.assignReplicasToBrokers(brokerMetadatas, partitions, replicationFactor)
-    createOrUpdateTopicPartitionAssignmentPathInZK(topic, replicaAssignment, topicConfig)
+    val replicaAssignment = AdminUtils.assignReplicasToBrokers(brokerMetadatas, partitions, replicationFactor) // 分配分区
+    createOrUpdateTopicPartitionAssignmentPathInZK(topic, replicaAssignment, topicConfig)  // 创建主题和分配分区
   }
 
   /**
-   * Gets broker metadata list
+   * 获取broker的元数据列表
    * @param rackAwareMode
    * @param brokerList
    * @return
@@ -81,21 +81,21 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
   }
 
   /**
-   * Creates or Updates the partition assignment for a given topic
+   * 创建或更新给定主题的分区分配
    * @param topic
    * @param partitionReplicaAssignment
    * @param config
    * @param update
    */
   def createOrUpdateTopicPartitionAssignmentPathInZK(topic: String,
-                                                     partitionReplicaAssignment: Map[Int, Seq[Int]],
+                                                     partitionReplicaAssignment: Map[Int, Seq[Int]], // 分区分配的副本
                                                      config: Properties = new Properties,
                                                      update: Boolean = false) {
-    validateCreateOrUpdateTopic(topic, partitionReplicaAssignment, config, update)
+    validateCreateOrUpdateTopic(topic, partitionReplicaAssignment, config, update) // 验证
 
     // Configs only matter if a topic is being created. Changing configs via AlterTopic is not supported
     if (!update) {
-      // write out the config if there is any, this isn't transactional with the partition assignments
+      // 写出配置，如果有的话，这不是与分区分配分区
       zkClient.setOrCreateEntityConfigs(ConfigType.Topic, topic, config)
     }
 
@@ -104,7 +104,7 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
   }
 
   /**
-   * Validate method to use before the topic creation or update
+   * 验证方法在主题创建或更新之前使用
    * @param topic
    * @param partitionReplicaAssignment
    * @param config
@@ -117,13 +117,12 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
     // validate arguments
     Topic.validate(topic)
 
-    if (!update) {
+    if (!update) { // 判断是否是存在的主题
       if (zkClient.topicExists(topic))
         throw new TopicExistsException(s"Topic '$topic' already exists.")
       else if (Topic.hasCollisionChars(topic)) {
         val allTopics = zkClient.getAllTopicsInCluster
-        // check again in case the topic was created in the meantime, otherwise the
-        // topic could potentially collide with itself
+        // 同时在主题创建的情况下再次检查，否则该主题可能会与自身发生冲突
         if (allTopics.contains(topic))
           throw new TopicExistsException(s"Topic '$topic' already exists.")
         val collidingTopics = allTopics.filter(Topic.hasCollision(topic, _))
@@ -137,7 +136,7 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
       throw new InvalidReplicaAssignmentException("All partitions should have the same number of replicas")
 
     partitionReplicaAssignment.values.foreach(reps =>
-      if (reps.size != reps.toSet.size)
+      if (reps.size != reps.toSet.size) // 是否有重复的副本
         throw new InvalidReplicaAssignmentException("Duplicate replica assignment found: " + partitionReplicaAssignment)
     )
 
@@ -146,6 +145,7 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
       LogConfig.validate(config)
   }
 
+  // 写入tp到zk
   private def writeTopicPartitionAssignment(topic: String, replicaAssignment: Map[Int, Seq[Int]], update: Boolean) {
     try {
       val assignment = replicaAssignment.map { case (partitionId, replicas) => (new TopicPartition(topic,partitionId), replicas) }.toMap
@@ -350,8 +350,7 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
   }
 
   /**
-    * Override the broker config on some set of brokers. These overrides will be persisted between sessions, and will
-    * override any defaults entered in the broker's config files
+    * 重写一些经纪人的代理配置。这些重写将在会话之间持久化，并且将重写在代理配置文件中输入的任何默认值。
     *
     * @param brokers: The list of brokers to apply config changes to
     * @param configs: The config to change, as properties
@@ -385,8 +384,9 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
     DynamicConfig.Broker.validate(configs)
   }
 
+  // 改变配置实体数据
   private def changeEntityConfig(rootEntityType: String, fullSanitizedEntityName: String, configs: Properties) {
-    val sanitizedEntityPath = rootEntityType + '/' + fullSanitizedEntityName
+    val sanitizedEntityPath = rootEntityType + '/' + fullSanitizedEntityName // 具体的路径
     zkClient.setOrCreateEntityConfigs(rootEntityType, fullSanitizedEntityName, configs)
 
     // create the change notification
@@ -396,8 +396,8 @@ class AdminZkClient(zkClient: KafkaZkClient) extends Logging {
   /**
    * Read the entity (topic, broker, client, user or <user, client>) config (if any) from zk
    * sanitizedEntityName is <topic>, <broker>, <client-id>, <user> or <user>/clients/<client-id>.
-   * @param rootEntityType
-   * @param sanitizedEntityName
+   * @param rootEntityType 根节点下的 节点类型（config）
+   * @param sanitizedEntityName 实体名称
    * @return
    */
   def fetchEntityConfig(rootEntityType: String, sanitizedEntityName: String): Properties = {

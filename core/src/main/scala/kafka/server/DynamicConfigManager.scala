@@ -31,7 +31,7 @@ import scala.collection.JavaConverters._
 import scala.collection._
 
 /**
- * Represents all the entities that can be configured via ZK
+ * 代表所有的配置可以通过ZK的实体
  */
 object ConfigType {
   val Topic = "topics"
@@ -41,6 +41,7 @@ object ConfigType {
   val all = Seq(Topic, Client, User, Broker)
 }
 
+// 配置实体的默认名称
 object ConfigEntityName {
   val Default = "<default>"
 }

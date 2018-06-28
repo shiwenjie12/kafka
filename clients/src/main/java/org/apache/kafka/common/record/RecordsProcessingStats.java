@@ -16,12 +16,15 @@
  */
 package org.apache.kafka.common.record;
 
+//  记录处理状态
 public class RecordsProcessingStats {
 
     public static final RecordsProcessingStats EMPTY = new RecordsProcessingStats(0L, 0, -1);
-
+    // 临时的内存大小
     private final long temporaryMemoryBytes;
+    // 转换的记录数
     private final int numRecordsConverted;
+    // 转换所花费的时间
     private final long conversionTimeNanos;
 
     public RecordsProcessingStats(long temporaryMemoryBytes, int numRecordsConverted, long conversionTimeNanos) {

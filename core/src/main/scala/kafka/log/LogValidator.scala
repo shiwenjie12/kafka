@@ -31,16 +31,14 @@ import scala.collection.JavaConverters._
 private[kafka] object LogValidator extends Logging {
 
   /**
-   * Update the offsets for this message set and do further validation on messages including:
-   * 1. Messages for compacted topics must have keys
-   * 2. When magic value >= 1, inner messages of a compressed message set must have monotonically increasing offsets
-   *    starting from 0.
-   * 3. When magic value >= 1, validate and maybe overwrite timestamps of messages.
-   * 4. Declared count of records in DefaultRecordBatch must match number of valid records contained therein.
+   * 更新此消息集的偏移量，并对消息进行进一步验证，包括：
+   * 1.紧凑主题的消息必须有密钥
+   * 2.当魔术值> = 1时，压缩消息集的内部消息必须从0开始单调增加偏移量。
+   * 3.当魔术值> = 1时，验证并可能覆盖消息的时间戳。
+   * 4. DefaultRecordBatch中声明的记录数必须与其中包含的有效记录数相匹配。
    *
-   * This method will convert messages as necessary to the topic's configured message format version. If no format
-   * conversion or value overwriting is required for messages, this method will perform in-place operations to
-   * avoid expensive re-compression.
+   * 此方法将根据需要将消息转换为主题配置的消息格式版本。
+    * 如果消息不需要格式转换或值覆盖，则此方法将执行就地操作以避免昂贵的重新压缩。
    *
    * Returns a ValidationAndOffsetAssignResult containing the validated message set, maximum timestamp, the offset
    * of the shallow message with the max timestamp and a boolean indicating whether the message sizes may have changed.
@@ -51,15 +49,15 @@ private[kafka] object LogValidator extends Logging {
                                                       now: Long,
                                                       sourceCodec: CompressionCodec,
                                                       targetCodec: CompressionCodec,
-                                                      compactedTopic: Boolean,
-                                                      magic: Byte,
+                                                      compactedTopic: Boolean, // 是否压缩主题
+                                                      magic: Byte, // 服务器的消息magic
                                                       timestampType: TimestampType,
                                                       timestampDiffMaxMs: Long,
                                                       partitionLeaderEpoch: Int,
                                                       isFromClient: Boolean): ValidationAndOffsetAssignResult = {
-    if (sourceCodec == NoCompressionCodec && targetCodec == NoCompressionCodec) {
+    if (sourceCodec == NoCompressionCodec && targetCodec == NoCompressionCodec) { // 都是无压缩版本
       // check the magic value
-      if (!records.hasMatchingMagic(magic))
+      if (!records.hasMatchingMagic(magic)) // 验证magic，生产者不符合服务器，进行转换
         convertAndAssignOffsetsNonCompressed(records, offsetCounter, compactedTopic, time, now, timestampType,
           timestampDiffMaxMs, magic, partitionLeaderEpoch, isFromClient)
       else
@@ -72,6 +70,7 @@ private[kafka] object LogValidator extends Logging {
     }
   }
 
+  // 验证批次
   private def validateBatch(batch: RecordBatch, isFromClient: Boolean, toMagic: Byte): Unit = {
     if (isFromClient) {
       if (batch.magic >= RecordBatch.MAGIC_VALUE_V2) {
@@ -104,6 +103,7 @@ private[kafka] object LogValidator extends Logging {
       throw new UnsupportedForMessageFormatException(s"Idempotent records cannot be used with magic version $toMagic")
   }
 
+  // 验证记录
   private def validateRecord(batch: RecordBatch, record: Record, now: Long, timestampType: TimestampType,
                              timestampDiffMaxMs: Long, compactedTopic: Boolean): Unit = {
     if (!record.hasMagic(batch.magic))
@@ -131,14 +131,15 @@ private[kafka] object LogValidator extends Logging {
                                                    partitionLeaderEpoch: Int,
                                                    isFromClient: Boolean): ValidationAndOffsetAssignResult = {
     val sizeInBytesAfterConversion = AbstractRecords.estimateSizeInBytes(toMagicValue, offsetCounter.value,
-      CompressionType.NONE, records.records)
+      CompressionType.NONE, records.records) // 转换版本之后，根据压缩类型，估计大小
 
     val (producerId, producerEpoch, sequence, isTransactional) = {
       val first = records.batches.asScala.head
       (first.producerId, first.producerEpoch, first.baseSequence, first.isTransactional)
     }
 
-    val newBuffer = ByteBuffer.allocate(sizeInBytesAfterConversion)
+    val newBuffer = ByteBuffer.allocate(sizeInBytesAfterConversion) // 分配估计内存
+    // 构建构造器
     val builder = MemoryRecords.builder(newBuffer, toMagicValue, CompressionType.NONE, timestampType,
       offsetCounter.value, now, producerId, producerEpoch, sequence, isTransactional, partitionLeaderEpoch)
 
@@ -147,11 +148,11 @@ private[kafka] object LogValidator extends Logging {
 
       for (record <- batch.asScala) {
         validateRecord(batch, record, now, timestampType, timestampDiffMaxMs, compactedTopic)
-        builder.appendWithOffset(offsetCounter.getAndIncrement(), record)
+        builder.appendWithOffset(offsetCounter.getAndIncrement(), record) // 添加带有偏移量的记录
       }
     }
 
-    val convertedRecords = builder.build()
+    val convertedRecords = builder.build() // 生成内存记录
 
     val info = builder.info
     val recordsProcessingStats = new RecordsProcessingStats(builder.uncompressedBytesWritten,
@@ -164,6 +165,7 @@ private[kafka] object LogValidator extends Logging {
       recordsProcessingStats = recordsProcessingStats)
   }
 
+  // 主要是用于分配偏移量属性
   private def assignOffsetsNonCompressed(records: MemoryRecords,
                                          offsetCounter: LongRef,
                                          now: Long,
@@ -177,7 +179,7 @@ private[kafka] object LogValidator extends Logging {
     var offsetOfMaxTimestamp = -1L
     val initialOffset = offsetCounter.value
 
-    for (batch <- records.batches.asScala) {
+    for (batch <- records.batches.asScala) { // 设置批次的相关属性
       validateBatch(batch, isFromClient, magic)
 
       var maxBatchTimestamp = RecordBatch.NO_TIMESTAMP
@@ -227,11 +229,11 @@ private[kafka] object LogValidator extends Logging {
   }
 
   /**
-   * We cannot do in place assignment in one of the following situations:
-   * 1. Source and target compression codec are different
-   * 2. When magic value to use is 0 because offsets need to be overwritten
-   * 3. When magic value to use is above 0, but some fields of inner messages need to be overwritten.
-   * 4. Message format conversion is needed.
+   * 在以下情况之一中，我们无法进行地点分配：
+   * 1.源和目标压缩编解码器不同
+   * 2.当使用的魔法值为0时，因为偏移量需要被覆盖
+   * 3.当要使用的魔法值大于0时，内部消息的某些字段需要被覆盖。
+   * 4.需要消息格式转换。
    */
   def validateMessagesAndAssignOffsetsCompressed(records: MemoryRecords,
                                                  offsetCounter: LongRef,
@@ -250,7 +252,7 @@ private[kafka] object LogValidator extends Logging {
       var inPlaceAssignment = sourceCodec == targetCodec && toMagic > RecordBatch.MAGIC_VALUE_V0
 
       var maxTimestamp = RecordBatch.NO_TIMESTAMP
-      val expectedInnerOffset = new LongRef(0)
+      val expectedInnerOffset = new LongRef(0) // 预期的偏移量
       val validatedRecords = new mutable.ArrayBuffer[Record]
 
       var uncompressedSizeInBytes = 0
@@ -287,7 +289,7 @@ private[kafka] object LogValidator extends Logging {
         }
       }
 
-      if (!inPlaceAssignment) {
+      if (!inPlaceAssignment) { // 需要重新分配，解压，再压缩
         val (producerId, producerEpoch, sequence, isTransactional) = {
           // note that we only reassign offsets for requests coming straight from a producer. For records with magic V2,
           // there should be exactly one RecordBatch per request, so the following is all we need to do. For Records
@@ -299,7 +301,7 @@ private[kafka] object LogValidator extends Logging {
           validatedRecords, producerId, producerEpoch, sequence, isTransactional, partitionLeaderEpoch, isFromClient,
           uncompressedSizeInBytes)
       } else {
-        // we can update the batch only and write the compressed payload as is
+        // 我们只能更新批处理并按原样写入压缩的有效内容
         val batch = records.batches.iterator.next()
         val lastOffset = offsetCounter.addAndGet(validatedRecords.size) - 1
 
@@ -339,7 +341,7 @@ private[kafka] object LogValidator extends Logging {
                                            uncompresssedSizeInBytes: Int): ValidationAndOffsetAssignResult = {
     val startNanos = time.nanoseconds
     val estimatedSize = AbstractRecords.estimateSizeInBytes(magic, offsetCounter.value, compressionType,
-      validatedRecords.asJava)
+      validatedRecords.asJava) // 估计大小
     val buffer = ByteBuffer.allocate(estimatedSize)
     val builder = MemoryRecords.builder(buffer, magic, compressionType, timestampType, offsetCounter.value,
       logAppendTime, producerId, producerEpoch, baseSequence, isTransactional, partitionLeaderEpoch)
@@ -368,6 +370,7 @@ private[kafka] object LogValidator extends Logging {
       recordsProcessingStats = recordsProcessingStats)
   }
 
+  // 验证是否压缩key
   private def validateKey(record: Record, compactedTopic: Boolean) {
     if (compactedTopic && !record.hasKey)
       throw new InvalidRecordException("Compacted topic cannot accept message without key.")
@@ -384,10 +387,10 @@ private[kafka] object LogValidator extends Logging {
                                 timestampDiffMaxMs: Long) {
     if (timestampType == TimestampType.CREATE_TIME
       && record.timestamp != RecordBatch.NO_TIMESTAMP
-      && math.abs(record.timestamp - now) > timestampDiffMaxMs)
+      && math.abs(record.timestamp - now) > timestampDiffMaxMs) // 时间戳是否超过范围
       throw new InvalidTimestampException(s"Timestamp ${record.timestamp} of message with offset ${record.offset} is " +
         s"out of range. The timestamp should be within [${now - timestampDiffMaxMs}, ${now + timestampDiffMaxMs}]")
-    if (batch.timestampType == TimestampType.LOG_APPEND_TIME)
+    if (batch.timestampType == TimestampType.LOG_APPEND_TIME) // 生产者的时间戳不应该是日志添加类型的
       throw new InvalidTimestampException(s"Invalid timestamp type in message $record. Producer should not set " +
         s"timestamp type to LogAppendTime.")
   }

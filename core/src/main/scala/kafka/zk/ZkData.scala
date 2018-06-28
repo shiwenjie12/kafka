@@ -40,7 +40,7 @@ import scala.collection.Seq
 import scala.collection.mutable.ArrayBuffer
 
 // This file contains objects for encoding/decoding data stored in ZooKeeper nodes (znodes).
-
+// 控制器节点
 object ControllerZNode {
   def path = "/controller"
   def encode(brokerId: Int, timestamp: Long): Array[Byte] = {
@@ -57,10 +57,14 @@ object ControllerEpochZNode {
   def decode(bytes: Array[Byte]): Int = new String(bytes, UTF_8).toInt
 }
 
+/**
+  * 配置节点
+  */
 object ConfigZNode {
   def path = "/config"
 }
 
+// zk的broker的节点
 object BrokersZNode {
   def path = "/brokers"
 }
@@ -142,7 +146,7 @@ object BrokerIdZNode {
   }
 
   /**
-    * Create a BrokerInfo object from id and JSON bytes.
+    * 从ID和JSON字节创建一个BrokerInfo对象。
     *
     * @param id
     * @param jsonBytes
@@ -208,11 +212,11 @@ object BrokerIdZNode {
             Seq(endPoint)
           }
           else {
-            val securityProtocolMap = brokerInfo.get(ListenerSecurityProtocolMapKey).map(
+            val securityProtocolMap = brokerInfo.get(ListenerSecurityProtocolMapKey).map(// 解析映射关系
               _.to[Map[String, String]].map { case (listenerName, securityProtocol) =>
                 new ListenerName(listenerName) -> SecurityProtocol.forName(securityProtocol)
               })
-            val listeners = brokerInfo(EndpointsKey).to[Seq[String]]
+            val listeners = brokerInfo(EndpointsKey).to[Seq[String]]// 连接串
             listeners.map(EndPoint.createEndPoint(_, securityProtocolMap))
           }
 
@@ -258,6 +262,7 @@ object TopicPartitionZNode {
   def path(partition: TopicPartition) = s"${TopicPartitionsZNode.path(partition.topic)}/${partition.partition}"
 }
 
+// tp状态节点
 object TopicPartitionStateZNode {
   def path(partition: TopicPartition) = s"${TopicPartitionZNode.path(partition)}/state"
   def encode(leaderIsrAndControllerEpoch: LeaderIsrAndControllerEpoch): Array[Byte] = {
@@ -283,11 +288,26 @@ object ConfigEntityTypeZNode {
   def path(entityType: String) = s"${ConfigZNode.path}/$entityType"
 }
 
+/**
+  * 配置实体节点
+  */
 object ConfigEntityZNode {
   def path(entityType: String, entityName: String) = s"${ConfigEntityTypeZNode.path(entityType)}/$entityName"
+
+  /**
+    * 属性的json序列化
+    * @param config
+    * @return
+    */
   def encode(config: Properties): Array[Byte] = {
     Json.encodeAsBytes(Map("version" -> 1, "config" -> config).asJava)
   }
+
+  /**
+    * 将数组反序列化json，在获取属性
+    * @param bytes
+    * @return
+    */
   def decode(bytes: Array[Byte]): Properties = {
     val props = new Properties()
     if (bytes != null) {
@@ -300,10 +320,12 @@ object ConfigEntityZNode {
   }
 }
 
+// /config/changes
 object ConfigEntityChangeNotificationZNode {
   def path = s"${ConfigZNode.path}/changes"
 }
 
+// /config/changes/config_change_
 object ConfigEntityChangeNotificationSequenceZNode {
   val SequenceNumberPrefix = "config_change_"
   def createPath = s"${ConfigEntityChangeNotificationZNode.path}/$SequenceNumberPrefix"
@@ -334,6 +356,7 @@ object IsrChangeNotificationSequenceZNode {
       }
     }
   }.map(_.toSet).getOrElse(Set.empty)
+  // 获取序号
   def sequenceNumber(path: String) = path.substring(path.lastIndexOf(SequenceNumberPrefix) + SequenceNumberPrefix.length)
 }
 
@@ -366,6 +389,7 @@ object DeleteTopicsTopicZNode {
   def path(topic: String) = s"${DeleteTopicsZNode.path}/$topic"
 }
 
+// 重新分配分区的节点
 object ReassignPartitionsZNode {
   def path = s"${AdminZNode.path}/reassign_partitions"
   def encode(reassignment: collection.Map[TopicPartition, Seq[Int]]): Array[Byte] = {
@@ -441,10 +465,12 @@ object AclZNode {
   def path = "/kafka-acl"
 }
 
+// 资源类型节点
 object ResourceTypeZNode {
   def path(resourceType: String) = s"${AclZNode.path}/$resourceType"
 }
 
+// 资源节点
 object ResourceZNode {
   def path(resource: Resource) = s"${AclZNode.path}/${resource.resourceType}/${resource.name}"
   def encode(acls: Set[Acl]): Array[Byte] = {
@@ -469,6 +495,9 @@ object ClusterZNode {
   def path = "/cluster"
 }
 
+/**
+  * 集群Id的json序列化
+  */
 object ClusterIdZNode {
   def path = s"${ClusterZNode.path}/id"
 
@@ -491,6 +520,7 @@ object ProducerIdBlockZNode {
   def path = "/latest_producer_id_block"
 }
 
+// 委托令牌的节点
 object DelegationTokenAuthZNode {
   def path = "/delegation_token"
 }
@@ -519,7 +549,7 @@ object DelegationTokenInfoZNode {
 
 object ZkData {
 
-  // Important: it is necessary to add any new top level Zookeeper path to the Seq
+  // 重要说明：有必要将任何新的顶级Zookeeper路径添加到Seq
   val SecureRootPaths = Seq(AdminZNode.path,
     BrokersZNode.path,
     ClusterZNode.path,
@@ -533,29 +563,38 @@ object ZkData {
     LogDirEventNotificationZNode.path,
     DelegationTokenAuthZNode.path)
 
-  // These are persistent ZK paths that should exist on kafka broker startup.
+  // 这些都是持久化的ZK路径应该存在卡夫卡服务器启动。
   val PersistentZkPaths = Seq(
     "/consumers", // old consumer path
-    BrokerIdsZNode.path,
-    TopicsZNode.path,
-    ConfigEntityChangeNotificationZNode.path,
-    DeleteTopicsZNode.path,
-    BrokerSequenceIdZNode.path,
+    BrokerIdsZNode.path,// 服务器Id
+    TopicsZNode.path,// 主题节点
+    ConfigEntityChangeNotificationZNode.path, //配置节点改变
+    DeleteTopicsZNode.path,// 删除的主题
+    BrokerSequenceIdZNode.path,//
     IsrChangeNotificationZNode.path,
-    ProducerIdBlockZNode.path,
+    ProducerIdBlockZNode.path,// 生产者
     LogDirEventNotificationZNode.path
-  ) ++ ConfigType.all.map(ConfigEntityTypeZNode.path)
+  ) ++ ConfigType.all.map(ConfigEntityTypeZNode.path)// config节点下的实体类型
 
+  /**
+    * 敏感路径集合
+    */
   val SensitiveRootPaths = Seq(
     ConfigEntityTypeZNode.path(ConfigType.User),
     ConfigEntityTypeZNode.path(ConfigType.Broker),
     DelegationTokensZNode.path
   )
 
+  /**
+    * 是否是敏感的路径
+    * @param path
+    * @return 如果是敏感路径，则返回true
+    */
   def sensitivePath(path: String): Boolean = {
     path != null && SensitiveRootPaths.exists(path.startsWith)
   }
 
+  // 创建默认的acl
   def defaultAcls(isSecure: Boolean, path: String): Seq[ACL] = {
     if (isSecure) {
       val acls = new ArrayBuffer[ACL]

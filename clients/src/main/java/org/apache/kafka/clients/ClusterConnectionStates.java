@@ -118,7 +118,7 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * Enter the disconnected state for the given node.
+     * 输入给定节点的断开状态。
      * @param id the connection we have disconnected
      * @param now the current time
      */
@@ -135,11 +135,11 @@ final class ClusterConnectionStates {
      */
     public void checkingApiVersions(String id) {
         NodeConnectionState nodeState = nodeState(id);
-        nodeState.state = ConnectionState.CHECKING_API_VERSIONS;
+        nodeState.state = ConnectionState.CHECKING_API_VERSIONS; // 检查api版本中
     }
 
     /**
-     * Enter the ready state for the given node.
+     * 将给定的节点加入到准备状态
      * @param id the connection identifier
      */
     public void ready(String id) {
@@ -213,7 +213,7 @@ final class ClusterConnectionStates {
     }
 
     /**
-     * Update the node reconnect backoff exponentially.
+     * 以指数方式更新节点重新连接退避。
      * The delay is reconnect.backoff.ms * 2**(failures - 1) * (+/- 20% random jitter)
      * Up to a (pre-jitter) maximum of reconnect.backoff.max.ms
      *

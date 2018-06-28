@@ -38,7 +38,7 @@ import static java.lang.invoke.MethodType.methodType;
 /**
  * Utility methods for MappedByteBuffer implementations.
  *
- * The unmap implementation was inspired by the one in Lucene's MMapDirectory.
+ * unmap的实现受到了Lucene的MMapDirectory中的启发。
  */
 public final class MappedByteBuffers {
 
@@ -69,6 +69,7 @@ public final class MappedByteBuffers {
 
     private MappedByteBuffers() {}
 
+    // 清除内存映射文件
     public static void unmap(String resourceDescription, MappedByteBuffer buffer) throws IOException {
         if (!buffer.isDirect())
             throw new IllegalArgumentException("Unmapping only works with direct buffers");

@@ -25,30 +25,31 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.errors.OffsetOutOfRangeException
 import org.apache.kafka.common.utils.Time
 
+// tp级的备份
 class Replica(val brokerId: Int,
               val topicPartition: TopicPartition,
               time: Time = Time.SYSTEM,
               initialHighWatermarkValue: Long = 0L,
               @volatile var log: Option[Log] = None) extends Logging {
-  // the high watermark offset value, in non-leader replicas only its message offsets are kept
+  // 高位水印偏移值，在非领导者副本中只保留其消息偏移量
   @volatile private[this] var highWatermarkMetadata = new LogOffsetMetadata(initialHighWatermarkValue)
-  // the log end offset value, kept in all replicas;
-  // for local replica it is the log's end offset, for remote replicas its value is only updated by follower fetch
+  // 日志结束偏移值，保存在所有副本中;
+  // 对于本地副本，它是日志的结束偏移量，对于远程副本，其值仅由跟随者提取更新
   @volatile private[this] var logEndOffsetMetadata = LogOffsetMetadata.UnknownOffsetMetadata
-  // the log start offset value, kept in all replicas;
-  // for local replica it is the log's start offset, for remote replicas its value is only updated by follower fetch
+
+  // 日志起始偏移值，保存在所有副本中;
+  // 对于本地副本，它是日志的起始偏移量，对于远程副本，其值仅由跟随者获取进行更新
   @volatile private[this] var _logStartOffset = Log.UnknownLogStartOffset
 
-  // The log end offset value at the time the leader received the last FetchRequest from this follower
-  // This is used to determine the lastCaughtUpTimeMs of the follower
+  // 领导从该追随者接收到最后一次FetchRequest时的日志结束偏移值这用于确定追随者的lastCaughtUpTimeMs
   @volatile private[this] var lastFetchLeaderLogEndOffset = 0L
 
-  // The time when the leader received the last FetchRequest from this follower
-  // This is used to determine the lastCaughtUpTimeMs of the follower
+  // 领导从该追随者接收到最后一个FetchRequest的时间
+  // 这用于确定追随者的lastCaughtUpTimeMs
   @volatile private[this] var lastFetchTimeMs = 0L
 
-  // lastCaughtUpTimeMs is the largest time t such that the offset of most recent FetchRequest from this follower >=
-  // the LEO of leader at time t. This is used to determine the lag of this follower and ISR of this partition.
+  // lastCaughtUpTimeMs是最大时间t，使得来自该跟随者的最近FetchRequest的偏移> =时间t处领导者的LEO。
+  // 这用于确定该分区的跟随者和ISR的滞后。
   @volatile private[this] var _lastCaughtUpTimeMs = 0L
 
   def isLocal: Boolean = log.isDefined
@@ -71,11 +72,12 @@ class Replica(val brokerId: Int,
    * by at most `replicaLagTimeMaxMs`. These semantics allow a follower to be added to the ISR even if the offset of its
    * fetch request is always smaller than the leader's LEO, which can happen if small produce requests are received at
    * high frequency.
+   * 根据LogReadResult更新分区内的信息
    */
   def updateLogReadResult(logReadResult: LogReadResult) {
-    if (logReadResult.info.fetchOffsetMetadata.messageOffset >= logReadResult.leaderLogEndOffset)
+    if (logReadResult.info.fetchOffsetMetadata.messageOffset >= logReadResult.leaderLogEndOffset) // 一直请求到当前副本的结束偏移量
       _lastCaughtUpTimeMs = math.max(_lastCaughtUpTimeMs, logReadResult.fetchTimeMs)
-    else if (logReadResult.info.fetchOffsetMetadata.messageOffset >= lastFetchLeaderLogEndOffset)
+    else if (logReadResult.info.fetchOffsetMetadata.messageOffset >= lastFetchLeaderLogEndOffset) // 相比起上次的fetch偏移量
       _lastCaughtUpTimeMs = math.max(_lastCaughtUpTimeMs, lastFetchTimeMs)
 
     logStartOffset = logReadResult.followerLogStartOffset
@@ -154,10 +156,11 @@ class Replica(val brokerId: Int,
    * the corresponding COMMIT or ABORT marker is written. This implies that the last stable offset will be equal
    * to the high watermark if there are no transactional messages in the log. Note also that the LSO cannot advance
    * beyond the high watermark.
+    * 最新的稳定偏移量
    */
   def lastStableOffset: LogOffsetMetadata = {
     log.map { log =>
-      log.firstUnstableOffset match {
+      log.firstUnstableOffset match { // 第一个不稳定的偏移量
         case Some(offsetMetadata) if offsetMetadata.messageOffset < highWatermark.messageOffset => offsetMetadata
         case _ => highWatermark
       }

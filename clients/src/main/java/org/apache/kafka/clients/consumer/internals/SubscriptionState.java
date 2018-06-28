@@ -446,6 +446,7 @@ public class SubscriptionState {
         return map;
     }
 
+    // 主题分区上的状态
     private static class TopicPartitionState {
         private Long position; // last consumed position
         private Long highWatermark; // the high watermark from last fetch

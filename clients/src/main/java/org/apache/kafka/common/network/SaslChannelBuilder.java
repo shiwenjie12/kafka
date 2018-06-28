@@ -47,7 +47,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.security.auth.Subject;
-
+// sasl通道的构建器
 public class SaslChannelBuilder implements ChannelBuilder, ListenerReconfigurable {
     private static final Logger log = LoggerFactory.getLogger(SaslChannelBuilder.class);
 

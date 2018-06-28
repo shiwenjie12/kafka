@@ -207,11 +207,11 @@ public class Sender implements Runnable {
                 if (!transactionManager.isTransactional()) {
                     // 这是一个幂等生产者，所以确保我们有一个生产者ID。
                     maybeWaitForProducerId();
-                } else if (transactionManager.hasUnresolvedSequences() && !transactionManager.hasFatalError()) {
+                } else if (transactionManager.hasUnresolvedSequences() && !transactionManager.hasFatalError()) { // 将事务置为错误状态
                     transactionManager.transitionToFatalError(new KafkaException("The client hasn't received acknowledgment for " +
                             "some previously sent messages and can no longer retry them. It isn't safe to continue."));
                 } else if (transactionManager.hasInFlightTransactionalRequest() || maybeSendTransactionalRequest(now)) {
-                    // as long as there are outstanding transactional requests, we simply wait for them to return
+                    // 只要有未完成的交易请求，我们只需等待它们返回
                     client.poll(retryBackoffMs, now);
                     return;
                 }
@@ -221,7 +221,7 @@ public class Sender implements Runnable {
                 if (transactionManager.hasFatalError() || !transactionManager.hasProducerId()) {
                     RuntimeException lastError = transactionManager.lastError();
                     if (lastError != null)
-                        maybeAbortBatches(lastError);
+                        maybeAbortBatches(lastError); // 中断收集器
                     client.poll(retryBackoffMs, now);
                     return;
                 } else if (transactionManager.hasAbortableError()) {
@@ -249,7 +249,7 @@ public class Sender implements Runnable {
             // The set of topics with unknown leader contains topics with leader election pending as well as
             // topics which may have expired. Add the topic again to metadata to ensure it is included
             // and request metadata update, since there are messages to send to the topic.
-            for (String topic : result.unknownLeaderTopics)// 向元数据添加未知主题
+            for (String topic : result.unknownLeaderTopics)// 向元数据添加未知领导者主题
                 this.metadata.add(topic);
             this.metadata.requestUpdate();
         }
@@ -285,7 +285,7 @@ public class Sender implements Runnable {
             log.trace("Expired {} batches in accumulator", expiredBatches.size());
         for (ProducerBatch expiredBatch : expiredBatches) {
             failBatch(expiredBatch, -1, NO_TIMESTAMP, expiredBatch.timeoutException(), false);
-            if (transactionManager != null && expiredBatch.inRetry()) {
+            if (transactionManager != null && expiredBatch.inRetry()) { // 已经是重新入队的批次
                 // This ensures that no new batches are drained until the current in flight batches are fully resolved.
                 transactionManager.markSequenceUnresolved(expiredBatch.topicPartition);
             }
@@ -311,9 +311,10 @@ public class Sender implements Runnable {
         return pollTimeout;
     }
 
+    // 可能会发送事务请求
     private boolean maybeSendTransactionalRequest(long now) {
         if (transactionManager.isCompleting() && accumulator.hasIncomplete()) {
-            if (transactionManager.isAborting())
+            if (transactionManager.isAborting()) // 中断正在发送的批次
                 accumulator.abortUndrainedBatches(new KafkaException("Failing batch since transaction was aborted"));
 
             // There may still be requests left which are being retried. Since we do not know whether they had
@@ -334,20 +335,20 @@ public class Sender implements Runnable {
             try {
                 if (nextRequestHandler.needsCoordinator()) {
                     targetNode = transactionManager.coordinator(nextRequestHandler.coordinatorType());
-                    if (targetNode == null) {
+                    if (targetNode == null) { // 寻找协调者
                         transactionManager.lookupCoordinator(nextRequestHandler);
                         break;
                     }
 
-                    if (!NetworkClientUtils.awaitReady(client, targetNode, time, requestTimeout)) {
+                    if (!NetworkClientUtils.awaitReady(client, targetNode, time, requestTimeout)) { // 如果协调者节点不可用，则继续寻找
                         transactionManager.lookupCoordinator(nextRequestHandler);
                         break;
                     }
-                } else {
+                } else { // FindCoordinatorHandler 处理器不需要
                     targetNode = awaitLeastLoadedNodeReady(requestTimeout);
                 }
 
-                if (targetNode != null) {
+                if (targetNode != null) { // 发送响应
                     if (nextRequestHandler.isRetry())
                         time.sleep(nextRequestHandler.retryBackoffMs());
 
@@ -373,7 +374,7 @@ public class Sender implements Runnable {
             metadata.requestUpdate();
         }
 
-        transactionManager.retry(nextRequestHandler);
+        transactionManager.retry(nextRequestHandler);  // 由于需要协调者，所以需要重新入队
         return true;
     }
 
@@ -426,7 +427,7 @@ public class Sender implements Runnable {
             try {
                 Node node = awaitLeastLoadedNodeReady(requestTimeout);
                 if (node != null) {
-                    ClientResponse response = sendAndAwaitInitProducerIdRequest(node);
+                    ClientResponse response = sendAndAwaitInitProducerIdRequest(node);  // 等待设置pid
                     InitProducerIdResponse initProducerIdResponse = (InitProducerIdResponse) response.responseBody();
                     Errors error = initProducerIdResponse.error();
                     if (error == Errors.NONE) {
@@ -452,7 +453,7 @@ public class Sender implements Runnable {
             }
             log.trace("Retry InitProducerIdRequest in {}ms.", retryBackoffMs);
             time.sleep(retryBackoffMs);
-            metadata.requestUpdate();
+            metadata.requestUpdate(); // 请求更新元数据
         }
     }
 

@@ -23,9 +23,9 @@ import java.util.HashMap;
 import java.util.Locale;
 
 /**
- * Represents an operation which an ACL grants or denies permission to perform.
+ * 表示ACL授予或拒绝执行权限的操作。
  *
- * Some operations imply other operations.
+ * Some operations imply（意味着） other operations.
  *
  * ALLOW ALL implies ALLOW everything
  * DENY ALL implies DENY everything

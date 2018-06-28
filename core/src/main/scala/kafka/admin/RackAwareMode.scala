@@ -17,24 +17,23 @@
 package kafka.admin
 
 /**
-  * Mode to control how rack aware replica assignment will be executed
+  * 控制如何执行机架感知副本分配的模式
   */
 object RackAwareMode {
 
   /**
-    * Ignore all rack information in replica assignment. This is an optional mode used in command line.
+    * 忽略复制分配中的所有机架信息。这是命令行中使用的可选模式。.
     */
   case object Disabled extends RackAwareMode
 
   /**
-    * Assume every broker has rack, or none of the brokers has rack. If only partial brokers have rack, fail fast
-    * in replica assignment. This is the default mode in command line tools (TopicCommand and ReassignPartitionsCommand).
+    * 假设每个经纪人都有架子，或者broker没有架子。如果只有部分代理有机架，在副本分配中失败很快。
+    * 这是命令行工具中的默认模式（Popic命令和RealDebug分区命令）。
     */
   case object Enforced extends RackAwareMode
 
   /**
-    * Use rack information if every broker has a rack. Otherwise, fallback to Disabled mode. This is used in auto topic
-    * creation.
+    * 如果每个代理都有机架，则使用机架信息。否则，回落到禁用模式。这用于自动主题创建。
     */
   case object Safe extends RackAwareMode
 }

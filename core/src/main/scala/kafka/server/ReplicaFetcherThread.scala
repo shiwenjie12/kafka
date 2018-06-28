@@ -44,7 +44,7 @@ class ReplicaFetcherThread(name: String,
                            fetcherId: Int,
                            sourceBroker: BrokerEndPoint,
                            brokerConfig: KafkaConfig,
-                           replicaMgr: ReplicaManager,
+                           replicaMgr: ReplicaManager, // 备份管理器
                            metrics: Metrics,
                            time: Time,
                            quota: ReplicationQuotaManager,
@@ -100,7 +100,7 @@ class ReplicaFetcherThread(name: String,
 
     maybeWarnIfOversizedRecords(records, topicPartition)
 
-    if (fetchOffset != replica.logEndOffset.messageOffset)
+    if (fetchOffset != replica.logEndOffset.messageOffset) // 分区的偏移不匹配
       throw new IllegalStateException("Offset mismatch for partition %s: fetched offset = %d, log end offset = %d.".format(
         topicPartition, fetchOffset, replica.logEndOffset.messageOffset))
 
@@ -108,7 +108,7 @@ class ReplicaFetcherThread(name: String,
       trace("Follower has replica log end offset %d for partition %s. Received %d messages and leader hw %d"
         .format(replica.logEndOffset.messageOffset, topicPartition, records.sizeInBytes, partitionData.highWatermark))
 
-    // Append the leader's messages to the log
+    // 将领导者的消息追加到日志中
     partition.appendRecordsToFollower(records)
 
     if (isTraceEnabled)
@@ -116,9 +116,7 @@ class ReplicaFetcherThread(name: String,
         .format(replica.logEndOffset.messageOffset, records.sizeInBytes, topicPartition))
     val followerHighWatermark = replica.logEndOffset.messageOffset.min(partitionData.highWatermark)
     val leaderLogStartOffset = partitionData.logStartOffset
-    // for the follower replica, we do not need to keep
-    // its segment base offset the physical position,
-    // these values will be computed upon making the leader
+    // 对于追随者复制品，我们不需要保持其片段基底偏移物理位置，这些值将在制作领导者时计算
     replica.highWatermark = new LogOffsetMetadata(followerHighWatermark)
     replica.maybeIncrementLogStartOffset(leaderLogStartOffset)
     if (isTraceEnabled)
@@ -160,6 +158,9 @@ class ReplicaFetcherThread(name: String,
       // Prior to truncating the follower's log, ensure that doing so is not disallowed by the configuration for unclean leader election.
       // This situation could only happen if the unclean election configuration for a topic changes while a replica is down. Otherwise,
       // we should never encounter this situation since a non-ISR leader cannot be elected if disallowed by the broker configuration.
+      // 在截断追随者的日志之前，确保这样做不会被配置为不洁的领导者选举所禁止。
+      // 只有在副本关闭期间某个主题的不干净选举配置发生更改时才会发生这种情况。
+      // 否则，我们不应该遇到这种情况，因为如果经纪人配置不允许非ISR领导者被选举，
       val adminZkClient = new AdminZkClient(replicaMgr.zkClient)
       if (!LogConfig.fromProps(brokerConfig.originals, adminZkClient.fetchEntityConfig(
         ConfigType.Topic, topicPartition.topic)).uncleanLeaderElectionEnable) {
@@ -171,7 +172,7 @@ class ReplicaFetcherThread(name: String,
 
       warn(s"Reset fetch offset for partition $topicPartition from ${replica.logEndOffset.messageOffset} to current " +
         s"leader's latest offset $leaderEndOffset")
-      partition.truncateTo(leaderEndOffset, isFuture = false)
+      partition.truncateTo(leaderEndOffset, isFuture = false) // 截取额外分区了
       replicaMgr.replicaAlterLogDirsManager.markPartitionsForTruncation(brokerConfig.brokerId, topicPartition, leaderEndOffset)
       leaderEndOffset
     } else {
@@ -193,7 +194,7 @@ class ReplicaFetcherThread(name: String,
        * If users want to have strong consistency guarantees, appropriate configurations needs to be set for both
        * brokers and producers.
        *
-       * Putting the two cases together, the follower should fetch from the higher one of its replica log end offset
+       * Putting tthe two cases together, the follower should fetch from the higher one of its replica log end offset
        * and the current leader's log start offset.
        *
        */
@@ -201,7 +202,7 @@ class ReplicaFetcherThread(name: String,
       warn(s"Reset fetch offset for partition $topicPartition from ${replica.logEndOffset.messageOffset} to current " +
         s"leader's start offset $leaderStartOffset")
       val offsetToFetch = Math.max(leaderStartOffset, replica.logEndOffset.messageOffset)
-      // Only truncate log when current leader's log start offset is greater than follower's log end offset.
+      // 当前领导者的日志起始偏移量大于跟随者的日志末尾偏移量时，仅截断日志。
       if (leaderStartOffset > replica.logEndOffset.messageOffset) {
         partition.truncateFullyAndStartAt(leaderStartOffset, isFuture = false)
       }
@@ -209,7 +210,7 @@ class ReplicaFetcherThread(name: String,
     }
   }
 
-  // any logic for partitions whose leader has changed
+  // 任何领导者已更改的分区的逻辑
   def handlePartitionsWithErrors(partitions: Iterable[TopicPartition]) {
     if (partitions.nonEmpty)
       delayPartitions(partitions, brokerConfig.replicaFetchBackoffMs.toLong)
@@ -233,6 +234,7 @@ class ReplicaFetcherThread(name: String,
     }
   }
 
+  // 获取指定tp的领导者的offset
   private def earliestOrLatestOffset(topicPartition: TopicPartition, earliestOrLatest: Long): Long = {
     val requestBuilder = if (brokerConfig.interBrokerProtocolVersion >= KAFKA_0_10_1_IV2) {
         val partitions = Map(topicPartition -> (earliestOrLatest: java.lang.Long))
@@ -254,15 +256,17 @@ class ReplicaFetcherThread(name: String,
     }
   }
 
+  // 构建fetch请求
   override def buildFetchRequest(partitionMap: Seq[(TopicPartition, PartitionFetchState)]): ResultWithPartitions[FetchRequest] = {
     val partitionsWithError = mutable.Set[TopicPartition]()
 
-    val builder = fetchSessionHandler.newBuilder()
+    val builder = fetchSessionHandler.newBuilder() // 获取builder
     partitionMap.foreach { case (topicPartition, partitionFetchState) =>
-      // We will not include a replica in the fetch request if it should be throttled.
-      if (partitionFetchState.isReadyForFetch && !shouldFollowerThrottle(quota, topicPartition)) {
+      // 如果应用程序被限制，我们不会在提取请求中包含副本。
+      if (partitionFetchState.isReadyForFetch && // tp是否准备fetch
+        !shouldFollowerThrottle(quota, topicPartition)) { // 判断是的限流
         try {
-          val logStartOffset = replicaMgr.getReplicaOrException(topicPartition).logStartOffset
+          val logStartOffset = replicaMgr.getReplicaOrException(topicPartition).logStartOffset // 当前broker备份的日志开始偏移量
           builder.add(topicPartition, new JFetchRequest.PartitionData(
             partitionFetchState.fetchOffset, logStartOffset, fetchSize))
         } catch {
@@ -274,22 +278,21 @@ class ReplicaFetcherThread(name: String,
       }
     }
 
-    val fetchData = builder.build()
+    val fetchData = builder.build() // 创建fetch数据
     val requestBuilder = JFetchRequest.Builder.
       forReplica(fetchRequestVersion, replicaId, maxWait, minBytes, fetchData.toSend())
         .setMaxBytes(maxBytes)
         .toForget(fetchData.toForget)
-    if (fetchMetadataSupported) {
+    if (fetchMetadataSupported) { // 是否获取元数据
       requestBuilder.metadata(fetchData.metadata())
     }
     ResultWithPartitions(new FetchRequest(fetchData.sessionPartitions(), requestBuilder), partitionsWithError)
   }
 
   /**
-    * - Truncate the log to the leader's offset for each partition's epoch.
-    * - If the leader's offset is greater, we stick with the Log End Offset
-    *   otherwise we truncate to the leaders offset.
-    * - If the leader replied with undefined epoch offset we must use the high watermark
+    * - 将日志截断为每个分区epoch的领导偏移量。
+    * - 如果领导者的偏移量更大，我们坚持使用Log End Offset，否则我们会截断领导者的偏移量。
+    * - 如果领导者回复了未定义的纪元偏移，我们必须使用高水印
     */
   override def maybeTruncate(fetchedEpochs: Map[TopicPartition, EpochEndOffset]): ResultWithPartitions[Map[TopicPartition, Long]] = {
     val fetchOffsets = scala.collection.mutable.HashMap.empty[TopicPartition, Long]
@@ -297,24 +300,24 @@ class ReplicaFetcherThread(name: String,
 
     fetchedEpochs.foreach { case (tp, epochOffset) =>
       try {
-        val replica = replicaMgr.getReplicaOrException(tp)
-        val partition = replicaMgr.getPartition(tp).get
+        val replica = replicaMgr.getReplicaOrException(tp) // 备份
+        val partition = replicaMgr.getPartition(tp).get // 获取分区
 
-        if (epochOffset.hasError) {
+        if (epochOffset.hasError) { // 错误的epoch
           info(s"Retrying leaderEpoch request for partition ${replica.topicPartition} as the leader reported an error: ${epochOffset.error}")
           partitionsWithError += tp
         } else {
           val fetchOffset =
-            if (epochOffset.endOffset == UNDEFINED_EPOCH_OFFSET) {
+            if (epochOffset.endOffset == UNDEFINED_EPOCH_OFFSET) { // 老版本，为向leader发送偏移量请求的
               warn(s"Based on follower's leader epoch, leader replied with an unknown offset in ${replica.topicPartition}. " +
                 s"The initial fetch offset ${partitionStates.stateValue(tp).fetchOffset} will be used for truncation.")
               partitionStates.stateValue(tp).fetchOffset
-            } else if (epochOffset.endOffset >= replica.logEndOffset.messageOffset)
-              logEndOffset(replica, epochOffset)
+            } else if (epochOffset.endOffset >= replica.logEndOffset.messageOffset) // 领导者偏移量大于本地备份偏移量
+              logEndOffset(replica, epochOffset) // 本地副本
             else
-              epochOffset.endOffset
+              epochOffset.endOffset // 领导者偏移量小于本地偏移量
 
-          partition.truncateTo(fetchOffset, isFuture = false)
+          partition.truncateTo(fetchOffset, isFuture = false) // 截取
           replicaMgr.replicaAlterLogDirsManager.markPartitionsForTruncation(brokerConfig.brokerId, tp, fetchOffset)
           fetchOffsets.put(tp, fetchOffset)
         }
@@ -329,24 +332,27 @@ class ReplicaFetcherThread(name: String,
   }
 
   override def buildLeaderEpochRequest(allPartitions: Seq[(TopicPartition, PartitionFetchState)]): ResultWithPartitions[Map[TopicPartition, Int]] = {
+    // 截取的分区及领导者的epoch缓存
     val partitionEpochOpts = allPartitions
       .filter { case (_, state) => state.isTruncatingLog }
       .map { case (tp, _) => tp -> epochCacheOpt(tp) }.toMap
 
+    // 按照epoch是否为空，分开两部分
     val (partitionsWithEpoch, partitionsWithoutEpoch) = partitionEpochOpts.partition { case (tp, epochCacheOpt) => epochCacheOpt.nonEmpty }
 
     debug(s"Build leaderEpoch request $partitionsWithEpoch")
+    // 包含epoch
     val result = partitionsWithEpoch.map { case (tp, epochCacheOpt) => tp -> epochCacheOpt.get.latestEpoch() }
     ResultWithPartitions(result, partitionsWithoutEpoch.keys.toSet)
   }
 
   override def fetchEpochsFromLeader(partitions: Map[TopicPartition, Int]): Map[TopicPartition, EpochEndOffset] = {
     var result: Map[TopicPartition, EpochEndOffset] = null
-    if (shouldSendLeaderEpochRequest) {
+    if (shouldSendLeaderEpochRequest) {// 在0.11版本之后，需要向leader发送请求
       val partitionsAsJava = partitions.map { case (tp, epoch) => tp -> epoch.asInstanceOf[Integer] }.toMap.asJava
       val epochRequest = new OffsetsForLeaderEpochRequest.Builder(partitionsAsJava)
       try {
-        val response = leaderEndpoint.sendRequest(epochRequest)
+        val response = leaderEndpoint.sendRequest(epochRequest) // 从领导者获取tp的偏移量
         result = response.responseBody.asInstanceOf[OffsetsForLeaderEpochResponse].responses.asScala
         debug(s"Receive leaderEpoch response $result")
       } catch {
@@ -361,6 +367,7 @@ class ReplicaFetcherThread(name: String,
     } else {
       // just generate a response with no error but UNDEFINED_OFFSET so that we can fall back to truncating using
       // high watermark in maybeTruncate()
+      // 只需生成一个没有错误但响应UNDEFINED_OFFSET的响应，这样我们就可以回退截断使用maybeTruncate（）中的高水印
       result = partitions.map { case (tp, _) =>
         tp -> new EpochEndOffset(Errors.NONE, UNDEFINED_EPOCH_OFFSET)
       }
@@ -376,8 +383,8 @@ class ReplicaFetcherThread(name: String,
   }
 
   /**
-   *  To avoid ISR thrashing, we only throttle a replica on the follower if it's in the throttled replica list,
-   *  the quota is exceeded and the replica is not in sync.
+    *  为了避免ISR颠簸，我们只在跟随者的节点上复制一个副本，如果它位于受限副本列表中，超出配额并且副本不同步。
+    *  如果为true,则限流
    */
   private def shouldFollowerThrottle(quota: ReplicaQuota, topicPartition: TopicPartition): Boolean = {
     val isReplicaInSync = fetcherLagStats.isReplicaInSync(topicPartition.topic, topicPartition.partition)

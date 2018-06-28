@@ -22,6 +22,10 @@ import JavaConverters._
 
 import com.fasterxml.jackson.databind.node.ArrayNode
 
+/**
+  * 由jackson的ArrayNode包装的   JsonArray，实现了JsonValue接口
+  * @param node
+  */
 class JsonArray private[json] (protected val node: ArrayNode) extends JsonValue {
   def iterator: Iterator[JsonValue] = node.elements.asScala.map(JsonValue(_))
 }

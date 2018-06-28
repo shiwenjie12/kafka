@@ -41,8 +41,8 @@ object PasswordEncoder {
 }
 
 /**
-  * Password encoder and decoder implementation. Encoded passwords are persisted as a CSV map
-  * containing the encoded password in base64 and along with the properties used for encryption.
+  * 密码编码器和解码器的实现。编码的密码被保存为包含在Base64中的编码密码的CSV映射以及用于加密的属性。
+  *
   *
   * @param secret The secret used for encoding and decoding
   * @param keyFactoryAlgorithm  Key factory algorithm if configured. By default, PBKDF2WithHmacSHA512 is
@@ -64,6 +64,7 @@ class PasswordEncoder(secret: Password,
   private val secureRandom = new SecureRandom
   private val cipherParamsEncoder = cipherParamsInstance(cipherAlgorithm)
 
+  // 加密密码
   def encode(password: Password): String = {
     val salt = new Array[Byte](256)
     secureRandom.nextBytes(salt)
@@ -84,6 +85,7 @@ class PasswordEncoder(secret: Password,
     encryptedMap.map { case (k, v) => s"$k:$v" }.mkString(",")
   }
 
+  // 解密密码
   def decode(encodedPassword: String): Password = {
     val params = CoreUtils.parseCsvMap(encodedPassword)
     val keyFactoryAlg = params(KeyFactoryAlgorithmProp)
@@ -133,6 +135,7 @@ class PasswordEncoder(secret: Password,
 
   private[utils] def base64Decode(encoded: String): Array[Byte] = Base64.decoder.decode(encoded)
 
+  // 获取密码参数的实例
   private def cipherParamsInstance(cipherAlgorithm: String): CipherParamsEncoder = {
     val aesPattern = "AES/(.*)/.*".r
     cipherAlgorithm match {
@@ -141,6 +144,7 @@ class PasswordEncoder(secret: Password,
     }
   }
 
+  // 密码参数编码
   private trait CipherParamsEncoder {
     def toMap(cipher: AlgorithmParameters): Map[String, String]
     def toParameterSpec(paramMap: Map[String, String]): AlgorithmParameterSpec

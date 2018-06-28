@@ -28,19 +28,18 @@ import org.apache.kafka.common.utils.{Sanitizer, Time}
 import scala.collection.JavaConverters._
 
 /**
- * Represents the sensors aggregated per client
+ * 表示每个客户端聚集的传感器。
  * @param quotaEntity Quota entity representing <client-id>, <user> or <user, client-id>
- * @param quotaSensor @Sensor that tracks the quota
- * @param throttleTimeSensor @Sensor that tracks the throttle time
+ * @param quotaSensor @跟踪配额的传感器
+ * @param throttleTimeSensor @跟踪节气门时间的传感器
  */
 case class ClientSensors(quotaEntity: QuotaEntity, quotaSensor: Sensor, throttleTimeSensor: Sensor)
 
 /**
- * Configuration settings for quota management
- * @param quotaBytesPerSecondDefault The default bytes per second quota allocated to any client-id if
- *        dynamic defaults or user quotas are not set
- * @param numQuotaSamples The number of samples to retain in memory
- * @param quotaWindowSizeSeconds The time span of each sample
+ * 配额管理的配置设置
+ * @param quotaBytesPerSecondDefault 如果没有设置动态缺省值或用户配额，则分配给任何客户端ID的默认字节每秒配额。
+ * @param numQuotaSamples 内存中保留的样本数
+ * @param quotaWindowSizeSeconds 每个样本的时间跨度
  *
  */
 case class ClientQuotaManagerConfig(quotaBytesPerSecondDefault: Long =
@@ -60,12 +59,14 @@ object ClientQuotaManagerConfig {
   val QuotaRequestPercentDefault = Int.MaxValue.toDouble
   val NanosToPercentagePerSecond = 100.0 / TimeUnit.SECONDS.toNanos(1)
 
+  // 无限制的配额
   val UnlimitedQuota = Quota.upperBound(Long.MaxValue)
+  // 默认的配额id
   val DefaultClientIdQuotaId = QuotaId(None, Some(ConfigEntityName.Default), Some(ConfigEntityName.Default))
   val DefaultUserQuotaId = QuotaId(Some(ConfigEntityName.Default), None, None)
   val DefaultUserClientIdQuotaId = QuotaId(Some(ConfigEntityName.Default), Some(ConfigEntityName.Default), Some(ConfigEntityName.Default))
 }
-
+// 限制条件
 object QuotaTypes {
   val NoQuotas = 0
   val ClientIdQuotaEnabled = 1
@@ -73,13 +74,13 @@ object QuotaTypes {
   val UserClientIdQuotaEnabled = 4
 }
 
+// 配额Id
 case class QuotaId(sanitizedUser: Option[String], clientId: Option[String], sanitizedClientId: Option[String])
-
+// 配额实体
 case class QuotaEntity(quotaId: QuotaId, sanitizedUser: String, clientId: String, sanitizedClientId: String, quota: Quota)
 
 /**
- * Helper class that records per-client metrics. It is also responsible for maintaining Quota usage statistics
- * for all clients.
+  * 每个客户端度量记录的助手类。它还负责维护所有客户的配额使用统计。
  * <p/>
  * Quotas can be set at <user, client-id>, user or client-id levels. For a given client connection,
  * the most specific quota matching the connection will be applied. For example, if both a <user, client-id>
@@ -95,8 +96,7 @@ case class QuotaEntity(quotaId: QuotaId, sanitizedUser: String, clientId: String
  *   <li>/config/clients/<client-id>
  *   <li>/config/clients/<default>
  * </ul>
- * Quota limits including defaults may be updated dynamically. The implementation is optimized for the case
- * where a single level of quotas is configured.
+  * 包括默认值在内的配额限制可以动态更新。对于配置了单一级别配额的情况，实现了优化。
  *
  * @param config @ClientQuotaManagerConfig quota configs
  * @param metrics @Metrics Metrics instance
@@ -108,9 +108,10 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
                          private val quotaType: QuotaType,
                          private val time: Time,
                          threadNamePrefix: String) extends Logging {
+  // 重载的配额
   private val overriddenQuota = new ConcurrentHashMap[QuotaId, Quota]()
   private val staticConfigClientIdQuota = Quota.upperBound(config.quotaBytesPerSecondDefault)
-  @volatile private var quotaTypesEnabled =
+  @volatile private var quotaTypesEnabled = // 启用的配额格式
     if (config.quotaBytesPerSecondDefault == Long.MaxValue) QuotaTypes.NoQuotas
     else QuotaTypes.ClientIdQuotaEnabled
   private val lock = new ReentrantReadWriteLock()
@@ -128,7 +129,7 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
   }
 
   /**
-   * Reaper thread that triggers callbacks on all throttled requests
+   * 触发所有节流请求回调的收割机线程
    * @param delayQueue DelayQueue to dequeue from
    */
   class ThrottledRequestReaper(delayQueue: DelayQueue[ThrottledResponse], prefix: String) extends ShutdownableThread(
@@ -137,7 +138,7 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
     override def doWork(): Unit = {
       val response: ThrottledResponse = delayQueue.poll(1, TimeUnit.SECONDS)
       if (response != null) {
-        // Decrement the size of the delay queue
+        // 在延迟队列大小的减量
         delayQueueSensor.record(-1)
         trace("Response throttled for: " + response.throttleTimeMs + " ms")
         response.execute()
@@ -155,14 +156,14 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
   def quotasEnabled: Boolean = quotaTypesEnabled != QuotaTypes.NoQuotas
 
   /**
-   * Records that a user/clientId changed some metric being throttled (produced/consumed bytes, request processing time etc.)
-   * If quota has been violated, callback is invoked after a delay, otherwise the callback is invoked immediately.
-   * Throttle time calculation may be overridden by sub-classes.
-   * @param sanitizedUser user principal of client
+    * 记录user/clientId 改变一些度量节流（produced/consumed字节，请求处理时间等）。
+    * 如果违反了配额，则在延迟之后调用回调，否则立即调用回调。
+    * 节流时间计算可以由子类重写。
+   * @param sanitizedUser 客户端使用的principal
    * @param clientId clientId that produced/fetched the data
    * @param value amount of data in bytes or request processing time as a percentage
-   * @param callback Callback function. This will be triggered immediately if quota is not violated.
-   *                 If there is a quota violation, this callback will be triggered after a delay
+   * @param callback callback函数。这将触发立即如果配额是不violated。
+    *                 如果有一个配额违反出资的，这callback将被触发后的延时
    * @return Number of milliseconds to delay the response in case of Quota violation.
    *         Zero otherwise
    */
@@ -182,16 +183,16 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
     var throttleTimeMs = 0
     try {
       clientSensors.quotaSensor.record(value)
-      // trigger the callback immediately if quota is not violated
+      // 如果配额未被违反，立即触发回调
       callback(0)
     } catch {
       case _: QuotaViolationException =>
-        // Compute the delay
+        // 计算延迟
         val clientQuotaEntity = clientSensors.quotaEntity
         val clientMetric = metrics.metrics().get(clientRateMetricName(clientQuotaEntity.sanitizedUser, clientQuotaEntity.clientId))
         throttleTimeMs = throttleTime(clientMetric, getQuotaMetricConfig(clientQuotaEntity.quota)).toInt
         clientSensors.throttleTimeSensor.record(throttleTimeMs)
-        // If delayed, add the element to the delayQueue
+        // 将元素添加到延迟队列中
         delayQueue.add(new ThrottledResponse(time, throttleTimeMs, callback))
         delayQueueSensor.record()
         debug("Quota violated for sensor (%s). Delay time: (%d)".format(clientSensors.quotaSensor.name(), throttleTimeMs))
@@ -212,10 +213,11 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
    * Determines the quota-id for the client with the specified user principal
    * and client-id and returns the quota entity that encapsulates the quota-id
    * and the associated quota override or default quota.
-   *
+   * 确定具有指定用户主体和客户机ID的客户机的配额标识，
+    * 并返回封装配额标识和关联配额覆盖或默认配额的配额实体。
    */
   private def quotaEntity(sanitizedUser: String, clientId: String, sanitizedClientId: String) : QuotaEntity = {
-    quotaTypesEnabled match {
+    quotaTypesEnabled match { // 按分类进行创建
       case QuotaTypes.NoQuotas | QuotaTypes.ClientIdQuotaEnabled =>
         val quotaId = QuotaId(None, Some(clientId), Some(sanitizedClientId))
         var quota = overriddenQuota.get(quotaId)
@@ -325,7 +327,7 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
   /**
    * Returns the quota for the client with the specified (non-encoded) user principal and client-id.
    * 
-   * Note: this method is expensive, it is meant to be used by tests only
+   * Note: 这种方法很昂贵，只供测试用。
    */
   def quota(user: String, clientId: String) = {
     quotaEntity(Sanitizer.sanitize(user), clientId, Sanitizer.sanitize(clientId)).quota
@@ -357,11 +359,11 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
   }
 
   /*
-   * This function either returns the sensors for a given client id or creates them if they don't exist
-   * First sensor of the tuple is the quota enforcement sensor. Second one is the throttle time sensor
+   * 这个函数或者为给定的客户端ID返回传感器或者创建它们，如果它们不存在，
+   * 元组的第一个传感器就是配额强制传感器。第二个是节流时间传感器。
    */
   def getOrCreateQuotaSensors(sanitizedUser: String, clientId: String): ClientSensors = {
-    val sanitizedClientId = Sanitizer.sanitize(clientId)
+    val sanitizedClientId = Sanitizer.sanitize(clientId) // 将敏感的id进行净化
     val clientQuotaEntity = quotaEntity(sanitizedUser, clientId, sanitizedClientId)
     // Names of the sensors to access
     ClientSensors(
@@ -373,7 +375,8 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
         Some(getQuotaMetricConfig(clientQuotaEntity.quota)),
         new Rate
       ),
-      sensorAccessor.getOrCreate(getThrottleTimeSensorName(clientQuotaEntity.quotaId),
+      sensorAccessor.getOrCreate(
+        getThrottleTimeSensorName(clientQuotaEntity.quotaId),
         ClientQuotaManagerConfig.InactiveSensorExpirationTimeSeconds,
         throttleMetricName(clientQuotaEntity),
         None,
@@ -404,12 +407,11 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
   }
 
   /**
-   * Overrides quotas for <user>, <client-id> or <user, client-id> or the dynamic defaults
-   * for any of these levels.
+    * 重写<user>、<client-id>或<user, client-id>或这些级别中任何一个的动态默认值。
    * @param sanitizedUser user to override if quota applies to <user> or <user, client-id>
    * @param clientId client to override if quota applies to <client-id> or <user, client-id>
    * @param sanitizedClientId sanitized client ID to override if quota applies to <client-id> or <user, client-id>
-   * @param quota custom quota to apply or None if quota override is being removed
+   * @param quota 如果配额重载则移除，否则应用自定义配额
    */
   def updateQuota(sanitizedUser: Option[String], clientId: Option[String], sanitizedClientId: Option[String], quota: Option[Quota]) {
     /*
@@ -421,13 +423,13 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
      */
     lock.writeLock().lock()
     try {
-      val quotaId = QuotaId(sanitizedUser, clientId, sanitizedClientId)
-      val userInfo = sanitizedUser match {
+      val quotaId = QuotaId(sanitizedUser, clientId, sanitizedClientId) // 配额Id
+      val userInfo = sanitizedUser match { // 用户信息
         case Some(ConfigEntityName.Default) => "default user "
         case Some(user) => "user " + user + " "
         case None => ""
       }
-      val clientIdInfo = clientId match {
+      val clientIdInfo = clientId match { // 客户信息
         case Some(ConfigEntityName.Default) => "default client-id"
         case Some(id) => "client-id " + id
         case None => ""
@@ -435,14 +437,14 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
       quota match {
         case Some(newQuota) =>
           info(s"Changing ${quotaType} quota for ${userInfo}${clientIdInfo} to $newQuota.bound}")
-          overriddenQuota.put(quotaId, newQuota)
-          (sanitizedUser, clientId) match {
+          overriddenQuota.put(quotaId, newQuota)// 重载的配置
+          (sanitizedUser, clientId) match { // 更改配额种类
             case (Some(_), Some(_)) => quotaTypesEnabled |= QuotaTypes.UserClientIdQuotaEnabled
             case (Some(_), None) => quotaTypesEnabled |= QuotaTypes.UserQuotaEnabled
             case (None, Some(_)) => quotaTypesEnabled |= QuotaTypes.ClientIdQuotaEnabled
             case (None, None) =>
           }
-        case None =>
+        case None => // 如果没有配额，则移除指定配额id的配额
           info(s"Removing ${quotaType} quota for ${userInfo}${clientIdInfo}")
           overriddenQuota.remove(quotaId)
       }
@@ -450,13 +452,13 @@ class ClientQuotaManager(private val config: ClientQuotaManagerConfig,
       val quotaMetricName = clientRateMetricName(sanitizedUser.getOrElse(""), clientId.getOrElse(""))
       val allMetrics = metrics.metrics()
 
-      // If multiple-levels of quotas are defined or if this is a default quota update, traverse metrics
-      // to find all affected values. Otherwise, update just the single matching one.
-      val singleUpdate = quotaTypesEnabled match {
+      // 如果定义了多个级别的配额，或者如果这是默认配额更新，则遍历度量以查找所有受影响的值。否则，只更新单一匹配的一个。
+      val singleUpdate = quotaTypesEnabled match { // 自定义才会单更新
         case QuotaTypes.NoQuotas | QuotaTypes.ClientIdQuotaEnabled | QuotaTypes.UserQuotaEnabled | QuotaTypes.UserClientIdQuotaEnabled =>
           !sanitizedUser.filter(_ == ConfigEntityName.Default).isDefined && !clientId.filter(_ == ConfigEntityName.Default).isDefined
         case _ => false
       }
+      // 根据条件获取指定的quotaEntity，然后再更新度量配额
       if (singleUpdate) {
           // Change the underlying metric config if the sensor has been created
           val metric = allMetrics.get(quotaMetricName)

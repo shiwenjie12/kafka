@@ -671,8 +671,7 @@ public final class Utils {
     }
 
     /**
-     * Get the Context ClassLoader on this thread or, if not present, the ClassLoader that
-     * loaded Kafka.
+     * 得到这个线程上下文类加载器，如果不存在，该类加载器加载卡夫卡。
      *
      * This should be used whenever passing a ClassLoader to Class.forName
      */
@@ -685,16 +684,16 @@ public final class Utils {
     }
 
     /**
-     * Attempts to move source to target atomically and falls back to a non-atomic move if it fails.
+     * 尝试以原子方式将源移动到目标，如果失败，则回退到非原子移动。
      *
      * @throws IOException if both atomic and non-atomic moves fail
      */
     public static void atomicMoveWithFallback(Path source, Path target) throws IOException {
         try {
-            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
+            Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);// 原子移动
         } catch (IOException outer) {
             try {
-                Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(source, target, StandardCopyOption.REPLACE_EXISTING);// 替换已存在的
                 log.debug("Non-atomic move of {} to {} succeeded after atomic move failed due to {}", source, target,
                         outer.getMessage());
             } catch (IOException inner) {
@@ -786,8 +785,8 @@ public final class Utils {
      * of the file is reached while there are bytes remaining in the buffer, an EOFException is thrown.
      *
      * @param channel File channel containing the data to read from
-     * @param destinationBuffer The buffer into which bytes are to be transferred
-     * @param position The file position at which the transfer is to begin; it must be non-negative
+     * @param destinationBuffer 要传送字节的目标缓冲区
+     * @param position 转移开始的文件位置; 它必须是非负的
      * @param description A description of what is being read, this will be included in the EOFException if it is thrown
      *
      * @throws IllegalArgumentException If position is negative
@@ -800,7 +799,7 @@ public final class Utils {
         if (position < 0) {
             throw new IllegalArgumentException("The file channel position cannot be negative, but it is " + position);
         }
-        int expectedReadBytes = destinationBuffer.remaining();
+        int expectedReadBytes = destinationBuffer.remaining(); // 期望读取的字节数
         readFully(channel, destinationBuffer, position);
         if (destinationBuffer.hasRemaining()) {
             throw new EOFException(String.format("Failed to read `%s` from file channel `%s`. Expected to read %d bytes, " +
@@ -810,8 +809,7 @@ public final class Utils {
     }
 
     /**
-     * Read data from the channel to the given byte buffer until there are no bytes remaining in the buffer or the end
-     * of the file has been reached.
+     * 从通道读取数据到给定的字节缓冲区，直到缓冲区中没有剩余字节或文件结束。
      *
      * @param channel File channel containing the data to read from
      * @param destinationBuffer The buffer into which bytes are to be transferred

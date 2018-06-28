@@ -30,9 +30,8 @@ import org.apache.kafka.common.record.CompressionType
 import scala.collection.mutable
 
 /*
- * Messages stored for the transaction topic represent the producer id and transactional status of the corresponding
- * transactional id, which have versions for both the key and value fields. Key and value
- * versions are used to evolve the message formats:
+ * 为事务主题存储的消息表示相应事务ID的生产者ID和事务状态，它们都具有键和值字段的版本。
+ * 密钥和价值版本用于演变消息格式：
  *
  * key version 0:               [transactionalId]
  *    -> value version 0:       [producer_id, producer_epoch, expire_timestamp, status, [topic [partition], timestamp]
@@ -126,7 +125,7 @@ object TransactionLog {
   }
 
   /**
-    * Generates the bytes for transaction log message key
+    * 生成事务日志消息密钥的字节
     *
     * @return key bytes
     */
@@ -142,7 +141,7 @@ object TransactionLog {
   }
 
   /**
-    * Generates the payload bytes for transaction log message value
+    * 为事务日志消息值生成有效负载字节
     *
     * @return value payload bytes
     */

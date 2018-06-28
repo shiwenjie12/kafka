@@ -38,6 +38,7 @@ trait BlockingSend {
   def close()
 }
 
+// 备份获取信息的阻塞发送器
 class ReplicaFetcherBlockingSend(sourceBroker: BrokerEndPoint,
                                  brokerConfig: KafkaConfig,
                                  metrics: Metrics,
@@ -46,6 +47,7 @@ class ReplicaFetcherBlockingSend(sourceBroker: BrokerEndPoint,
                                  clientId: String,
                                  logContext: LogContext) extends BlockingSend {
 
+  // 源节点
   private val sourceNode = new Node(sourceBroker.id, sourceBroker.host, sourceBroker.port)
   private val socketTimeout: Int = brokerConfig.replicaSocketTimeoutMs
 
@@ -93,7 +95,7 @@ class ReplicaFetcherBlockingSend(sourceBroker: BrokerEndPoint,
       else {
         val clientRequest = networkClient.newClientRequest(sourceBroker.id.toString, requestBuilder,
           time.milliseconds(), true)
-        NetworkClientUtils.sendAndReceive(networkClient, clientRequest, time)
+        NetworkClientUtils.sendAndReceive(networkClient, clientRequest, time)// 阻塞等待响应
       }
     }
     catch {

@@ -26,6 +26,7 @@ import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 public class Producer extends Thread {
     private final KafkaProducer<Integer, String> producer;
@@ -49,7 +50,7 @@ public class Producer extends Thread {
             String messageStr = "Message_" + messageNo;
             long startTime = System.currentTimeMillis();
             if (isAsync) { // Send asynchronously
-                producer.send(new ProducerRecord<>(topic,
+                Future<RecordMetadata> cc = producer.send(new ProducerRecord<>(topic,
                     messageNo,
                     messageStr), new DemoCallBack(startTime, messageNo, messageStr));
             } else { // Send synchronously

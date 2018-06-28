@@ -19,6 +19,7 @@ package kafka.utils
 import org.apache.kafka.common.utils.{Exit => JExit}
 
 /**
+  * scala对于 Exit.java的包装
   * Internal class that should be used instead of `System.exit()` and `Runtime.getRuntime().halt()` so that tests can
   * easily change the behaviour.
   */

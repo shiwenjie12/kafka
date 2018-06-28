@@ -23,9 +23,9 @@ import org.apache.kafka.common.network.ListenerName
 import org.apache.kafka.common.security.auth.SecurityProtocol
 
 /**
- * A Kafka broker.
- * A broker has an id, a collection of end-points, an optional rack and a listener to security protocol map.
- * Each end-point is (host, port, listenerName).
+  * 卡夫卡经纪人。
+  * 代理商有一个ID，一组端点，一个可选机架和一个安全协议映射的监听器。
+  * 每个端点都是（host，port，listenerName）。
  */
 case class Broker(id: Int, endPoints: Seq[EndPoint], rack: Option[String]) {
 

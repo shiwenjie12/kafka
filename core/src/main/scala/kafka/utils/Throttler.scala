@@ -27,16 +27,18 @@ import scala.math._
 
 /**
  * A class to measure and throttle the rate of some process. The throttler takes a desired rate-per-second
- * (the units of the process don't matter, it could be bytes or a count of some other thing), and will sleep for 
+ * (the units of the process don't matter, it could be bytes or a count of some other thing), and will sleep for
  * an appropriate amount of time when maybeThrottle() is called to attain the desired rate.
- * 
- * @param desiredRatePerSec: The rate we want to hit in units/sec
- * @param checkIntervalMs: The interval at which to check our rate
- * @param throttleDown: Does throttling increase or decrease our rate?
+ * 一个测量和节制某些进程的速率的类。
+  * 节流器每秒需要一个速率（进程的单元不重要，它可以是字节或其他事物的计数），
+  * 并且当maybeThrottle()被调用以达到期望的速率时，它将休眠一段适当的时间。
+ * @param desiredRatePerSec: 我们想以单位/秒命中率
+ * @param checkIntervalMs: 检查我们的速率的间隔
+ * @param throttleDown: 节流会增加还是降低我们的速度？
  * @param time: The time implementation to use
  */
 @threadsafe
-class Throttler(desiredRatePerSec: Double,
+class Throttler(desiredRatePerSec: Double, // 每秒期望的速率
                 checkIntervalMs: Long = 100L,
                 throttleDown: Boolean = true,
                 metricName: String = "throttler",
@@ -47,11 +49,11 @@ class Throttler(desiredRatePerSec: Double,
   private val meter = newMeter(metricName, units, TimeUnit.SECONDS)
   private val checkIntervalNs = TimeUnit.MILLISECONDS.toNanos(checkIntervalMs)
   private var periodStartNs: Long = time.nanoseconds
-  private var observedSoFar: Double = 0.0
+  private var observedSoFar: Double = 0.0 // 到目前为止累加的观察值
   
   def maybeThrottle(observed: Double) {
-    val msPerSec = TimeUnit.SECONDS.toMillis(1)
-    val nsPerSec = TimeUnit.SECONDS.toNanos(1)
+    val msPerSec = TimeUnit.SECONDS.toMillis(1)// 1000
+    val nsPerSec = TimeUnit.SECONDS.toNanos(1)// 1000000000
 
     meter.mark(observed.toLong)
     lock synchronized {
@@ -60,10 +62,10 @@ class Throttler(desiredRatePerSec: Double,
       val elapsedNs = now - periodStartNs
       // if we have completed an interval AND we have observed something, maybe
       // we should take a little nap
-      if (elapsedNs > checkIntervalNs && observedSoFar > 0) {
+      if (elapsedNs > checkIntervalNs && observedSoFar > 0) {// 满足检查的条件
         val rateInSecs = (observedSoFar * nsPerSec) / elapsedNs
         val needAdjustment = !(throttleDown ^ (rateInSecs > desiredRatePerSec))
-        if (needAdjustment) {
+        if (needAdjustment) {// 判断是否需要调整写入速率
           // solve for the amount of time to sleep to make us hit the desired rate
           val desiredRateMs = desiredRatePerSec / msPerSec.toDouble
           val elapsedMs = TimeUnit.NANOSECONDS.toMillis(elapsedNs)
@@ -84,8 +86,10 @@ class Throttler(desiredRatePerSec: Double,
 object Throttler {
   
   def main(args: Array[String]) {
+    val nsPerSec = TimeUnit.SECONDS.toNanos(1)
+    val msPerSec = TimeUnit.SECONDS.toMillis(1)
     val rand = new Random()
-    val throttler = new Throttler(100000, 100, true, time = Time.SYSTEM)
+    val throttler = new Throttler(1000, 100, true, time = Time.SYSTEM)
     val interval = 30000
     var start = System.currentTimeMillis
     var total = 0

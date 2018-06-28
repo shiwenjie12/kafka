@@ -68,17 +68,17 @@ class AdminManager(val config: KafkaConfig,
   }
 
   /**
-    * Create topics and wait until the topics have been completely created.
-    * The callback function will be triggered either when timeout, error or the topics are created.
+    * 创建主题并等到主题完全创建完毕。
+    * 回调函数将在超时，错误或主题创建时触发。
     */
   def createTopics(timeout: Int,
                    validateOnly: Boolean,
                    createInfo: Map[String, TopicDetails],
                    responseCallback: Map[String, ApiError] => Unit) {
 
-    // 1. map over topics creating assignment and calling zookeeper
+    // 1. 映射主题创建任务和调用zookeeper
     val brokers = metadataCache.getAliveBrokers.map { b => kafka.admin.BrokerMetadata(b.id, b.rack) }
-    val metadata = createInfo.map { case (topic, arguments) =>
+    val metadata = createInfo.map { case (topic, arguments) => // 主题及分区参数
       try {
         val configs = new Properties()
         arguments.configs.asScala.foreach { case (key, value) =>
@@ -88,17 +88,17 @@ class AdminManager(val config: KafkaConfig,
 
         val assignments = {
           if ((arguments.numPartitions != NO_NUM_PARTITIONS || arguments.replicationFactor != NO_REPLICATION_FACTOR)
-            && !arguments.replicasAssignments.isEmpty)
+            && !arguments.replicasAssignments.isEmpty) // 无效请求
             throw new InvalidRequestException("Both numPartitions or replicationFactor and replicasAssignments were set. " +
               "Both cannot be used at the same time.")
-          else if (!arguments.replicasAssignments.isEmpty) {
+          else if (!arguments.replicasAssignments.isEmpty) {  // 已经分配好的分区
             // Note: we don't check that replicaAssignment contains unknown brokers - unlike in add-partitions case,
             // this follows the existing logic in TopicCommand
             arguments.replicasAssignments.asScala.map { case (partitionId, replicas) =>
               (partitionId.intValue, replicas.asScala.map(_.intValue))
             }
           } else
-            AdminUtils.assignReplicasToBrokers(brokers, arguments.numPartitions, arguments.replicationFactor)
+            AdminUtils.assignReplicasToBrokers(brokers, arguments.numPartitions, arguments.replicationFactor)  // 进行分配
         }
         trace(s"Assignments for topic $topic are $assignments ")
 

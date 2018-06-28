@@ -23,17 +23,17 @@ import kafka.server.DelayedOperation
 import org.apache.kafka.common.protocol.Errors
 
 /**
-  * Delayed transaction state change operations that are added to the purgatory without timeout (i.e. these operations should never time out)
+  * 在没有超时的情况下添加到炼狱的延迟 事务 状态更改操作（即，这些操作不应该超时）
   */
 private[transaction] class DelayedTxnMarker(txnMetadata: TransactionMetadata,
                                            completionCallback: Errors => Unit,
                                            lock: Lock)
-  extends DelayedOperation(TimeUnit.DAYS.toMillis(100 * 365), Some(lock)) {
+  extends DelayedOperation(TimeUnit.DAYS.toMillis(100 * 365), Some(lock)) {  // 一百年啊
 
   override def tryComplete(): Boolean = {
     txnMetadata.inLock {
       if (txnMetadata.topicPartitions.isEmpty)
-        forceComplete()
+        forceComplete() // 强制完成
       else false
     }
   }

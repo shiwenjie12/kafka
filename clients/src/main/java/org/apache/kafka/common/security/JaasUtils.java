@@ -38,6 +38,7 @@ public final class JaasUtils {
      * @return
      */
     public static boolean isZkSecurityEnabled() {
+        // 因为zookeeper的配置属性是写在System.getProperty 中
         boolean zkSaslEnabled = Boolean.parseBoolean(System.getProperty(ZK_SASL_CLIENT, "true"));
         String zkLoginContextName = System.getProperty(ZK_LOGIN_CONTEXT_NAME_KEY, "Client");
 

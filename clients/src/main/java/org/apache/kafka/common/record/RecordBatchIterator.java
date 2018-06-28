@@ -21,6 +21,10 @@ import org.apache.kafka.common.utils.AbstractIterator;
 
 import java.io.IOException;
 
+/**
+ * 批记录的迭代器
+ * @param <T>
+ */
 class RecordBatchIterator<T extends RecordBatch> extends AbstractIterator<T> {
 
     private final LogInputStream<T> logInputStream;

@@ -41,6 +41,9 @@ import org.apache.kafka.common.security.auth.SecurityProtocol
 import scala.collection.JavaConverters._
 import scala.collection.Map
 
+/**
+  * kafka的默认配合
+  */
 object Defaults {
   /** ********* Zookeeper Configuration ***********/
   val ZkSessionTimeoutMs = 6000
@@ -139,7 +142,7 @@ object Defaults {
   val LeaderImbalanceCheckIntervalSeconds = 300
   val UncleanLeaderElectionEnable = false
   val InterBrokerSecurityProtocol = SecurityProtocol.PLAINTEXT.toString
-  val InterBrokerProtocolVersion = ApiVersion.latestVersion.toString
+  val InterBrokerProtocolVersion = ApiVersion.latestVersion.toString// 当前broker的内部消息协议版本 即最新版本
 
   /** ********* Controlled shutdown configuration ***********/
   val ControlledShutdownMaxRetries = 3
@@ -233,6 +236,9 @@ object Defaults {
   val PasswordEncoderIterations = 4096
 }
 
+/**
+  * Kafka服务器的配置
+  */
 object KafkaConfig {
 
   private val LogConfigPrefix = "log."
@@ -959,9 +965,16 @@ object KafkaConfig {
   }
 
   def configNames() = configDef.names().asScala.toList.sorted
+  // Kafka的默认值,即初始化的值
   private[server] def defaultValues: Map[String, _] = configDef.defaultValues.asScala
+
   private[server] def configKeys: Map[String, ConfigKey] = configDef.configKeys.asScala
 
+  /**
+    * 从属性中构造KafkaConfig
+    * @param props
+    * @return
+    */
   def fromProps(props: Properties): KafkaConfig =
     fromProps(props, true)
 
@@ -982,6 +995,12 @@ object KafkaConfig {
 
 }
 
+/**
+  * kafka 服务器配置
+  * @param props 配置属性
+  * @param doLog 记录产生的配置信息
+  * @param dynamicConfigOverride
+  */
 class KafkaConfig(val props: java.util.Map[_, _], doLog: Boolean, dynamicConfigOverride: Option[DynamicBrokerConfig])
   extends AbstractConfig(KafkaConfig.configDef, props, doLog) {
 
@@ -1187,7 +1206,7 @@ class KafkaConfig(val props: java.util.Map[_, _], doLog: Boolean, dynamicConfigO
   val delegationTokenExpiryTimeMs = getLong(KafkaConfig.DelegationTokenExpiryTimeMsProp)
   val delegationTokenExpiryCheckIntervalMs = getLong(KafkaConfig.DelegationTokenExpiryCheckIntervalMsProp)
 
-  /** ********* Password encryption configuration for dynamic configs *********/
+  /** ********* 动态配置的密码加密配置 *********/
   def passwordEncoderSecret = Option(getPassword(KafkaConfig.PasswordEncoderSecretProp))
   def passwordEncoderOldSecret = Option(getPassword(KafkaConfig.PasswordEncoderOldSecretProp))
   def passwordEncoderCipherAlgorithm = getString(KafkaConfig.PasswordEncoderCipherAlgorithmProp)
@@ -1262,8 +1281,9 @@ class KafkaConfig(val props: java.util.Map[_, _], doLog: Boolean, dynamicConfigO
       listeners
   }
 
+  // 获取broker内部的 ListenerName 和 加密协议
   private def getInterBrokerListenerNameAndSecurityProtocol: (ListenerName, SecurityProtocol) = {
-    Option(getString(KafkaConfig.InterBrokerListenerNameProp)) match {
+    Option(getString(KafkaConfig.InterBrokerListenerNameProp)) match { // 默认为空
       case Some(_) if originals.containsKey(KafkaConfig.InterBrokerSecurityProtocolProp) =>
         throw new ConfigException(s"Only one of ${KafkaConfig.InterBrokerListenerNameProp} and " +
           s"${KafkaConfig.InterBrokerSecurityProtocolProp} should be set.")

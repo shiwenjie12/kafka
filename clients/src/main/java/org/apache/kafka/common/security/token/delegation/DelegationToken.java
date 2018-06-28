@@ -21,6 +21,7 @@ import org.apache.kafka.common.utils.Base64;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+// 委托令牌，包含令牌信息和mac
 public class DelegationToken {
     private TokenInformation tokenInformation;
     private byte[] hmac;

@@ -1,19 +1,19 @@
 /**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+  * Licensed to the Apache Software Foundation (ASF) under one or more
+  * contributor license agreements.  See the NOTICE file distributed with
+  * this work for additional information regarding copyright ownership.
+  * The ASF licenses this file to You under the Apache License, Version 2.0
+  * (the "License"); you may not use this file except in compliance with
+  * the License.  You may obtain a copy of the License at
+  *
+  * http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
 
 package kafka.metrics
 
@@ -29,16 +29,18 @@ import org.apache.kafka.common.utils.Sanitizer
 import scala.collection.immutable
 import scala.collection.JavaConverters._
 
-
+/**
+  * kafka度量的组
+  */
 trait KafkaMetricsGroup extends Logging {
 
   /**
-   * Creates a new MetricName object for gauges, meters, etc. created for this
-   * metrics group.
-   * @param name Descriptive name of the metric.
-   * @param tags Additional attributes which mBean will have.
-   * @return Sanitized metric name object.
-   */
+    * 为这个度量值组创建量规、仪表等一个新的可缓存对象。
+    *
+    * @param name 度量的描述性名称。
+    * @param tags 附加属性的MBean的标签
+    * @return Sanitized metric name object.
+    */
   def metricName(name: String, tags: scala.collection.Map[String, String]): MetricName = {
     val klass = this.getClass
     val pkg = if (klass.getPackage == null) "" else klass.getPackage.getName
@@ -48,6 +50,14 @@ trait KafkaMetricsGroup extends Logging {
   }
 
 
+  /**
+    * 产生明确的度量名称
+    * @param group
+    * @param typeName
+    * @param name
+    * @param tags
+    * @return
+    */
   protected def explicitMetricName(group: String, typeName: String, name: String,
                                    tags: scala.collection.Map[String, String]): MetricName = {
 
@@ -91,9 +101,9 @@ trait KafkaMetricsGroup extends Logging {
 
 object KafkaMetricsGroup extends KafkaMetricsGroup with Logging {
   /**
-   * To make sure all the metrics be de-registered after consumer/producer close, the metric names should be
-   * put into the metric name set.
-   */
+    * To make sure all the metrics be de-registered after consumer/producer close, the metric names should be
+    * put into the metric name set.
+    */
   private val consumerMetricNameList: immutable.List[MetricName] = immutable.List[MetricName](
     // kafka.consumer.ZookeeperConsumerConnector
     new MetricName("kafka.consumer", "ZookeeperConsumerConnector", "FetchQueueSize"),
@@ -125,9 +135,9 @@ object KafkaMetricsGroup extends KafkaMetricsGroup with Logging {
     new MetricName("kafka.consumer", "FetchRequestAndResponseMetrics", "FetchRequestThrottleRateAndTimeMs"),
 
     /**
-     * ProducerRequestStats <-- SyncProducer
-     * metric for SyncProducer in fetchTopicMetaData() needs to be removed when consumer is closed.
-     */
+      * ProducerRequestStats <-- SyncProducer
+      * metric for SyncProducer in fetchTopicMetaData() needs to be removed when consumer is closed.
+      */
     new MetricName("kafka.producer", "ProducerRequestMetrics", "ProducerRequestRateAndTimeMs"),
     new MetricName("kafka.producer", "ProducerRequestMetrics", "ProducerRequestSize")
   )
@@ -162,12 +172,12 @@ object KafkaMetricsGroup extends KafkaMetricsGroup with Logging {
   }
 
   private def toScope(tags: collection.Map[String, String]): Option[String] = {
-    val filteredTags = tags.filter { case (_, tagValue) => tagValue != ""}
+    val filteredTags = tags.filter { case (_, tagValue) => tagValue != "" }
     if (filteredTags.nonEmpty) {
       // convert dot to _ since reporters like Graphite typically use dot to represent hierarchy
       val tagsString = filteredTags
         .toList.sortWith((t1, t2) => t1._1 < t2._1)
-        .map { case (key, value) => "%s.%s".format(key, value.replaceAll("\\.", "_"))}
+        .map { case (key, value) => "%s.%s".format(key, value.replaceAll("\\.", "_")) }
         .mkString(".")
 
       Some(tagsString)

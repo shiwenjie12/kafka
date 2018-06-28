@@ -18,8 +18,7 @@
 package org.apache.kafka.common.config;
 
 /**
- * Keys that can be used to configure a topic.  These keys are useful when creating or reconfiguring a
- * topic using the AdminClient.
+ * 可用于配置主题的键。当使用Admin客户端创建或重新配置主题时，这些键非常有用。
  *
  * The intended pattern is for broker configs to include a `log.` prefix. For example, to set the default broker
  * cleanup policy, one would set log.cleanup.policy instead of cleanup.policy. Unfortunately, there are many cases
@@ -123,6 +122,7 @@ public class TopicConfig {
         "compaction</a> on the topic.";
 
     public static final String UNCLEAN_LEADER_ELECTION_ENABLE_CONFIG = "unclean.leader.election.enable";
+    // 指示是否启用不在ISR集中的副本作为最后选择的领导者，即使这样做可能会导致数据丢失。
     public static final String UNCLEAN_LEADER_ELECTION_ENABLE_DOC = "Indicates whether to enable replicas " +
         "not in the ISR set to be elected as leader as a last resort, even though doing so may result in data " +
         "loss.";

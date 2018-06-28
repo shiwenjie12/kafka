@@ -121,7 +121,7 @@ public class Metrics implements Closeable {
     }
 
     /**
-     * Create a metrics repository with a default config, given metric reporters and the ability to expire eligible sensors
+     * 创建具有默认配置的度量存储库，给定度量指标和合格的传感器的能力
      * @param defaultConfig The default config
      * @param reporters The metrics reporters
      * @param time The time instance to use with the metrics
@@ -137,7 +137,7 @@ public class Metrics implements Closeable {
         for (MetricsReporter reporter : reporters)
             reporter.init(new ArrayList<KafkaMetric>());
 
-        // Create the ThreadPoolExecutor only if expiration of Sensors is enabled.
+        // 仅在启用传感器到期时才创建ThreadPoolExecutor
         if (enableExpiration) {
             this.metricsScheduler = new ScheduledThreadPoolExecutor(1);
             // Creating a daemon thread to not block shutdown

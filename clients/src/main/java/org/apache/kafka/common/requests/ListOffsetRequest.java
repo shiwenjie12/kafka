@@ -41,8 +41,8 @@ import static org.apache.kafka.common.protocol.types.Type.INT64;
 import static org.apache.kafka.common.protocol.types.Type.INT8;
 
 public class ListOffsetRequest extends AbstractRequest {
-    public static final long EARLIEST_TIMESTAMP = -2L;
-    public static final long LATEST_TIMESTAMP = -1L;
+    public static final long EARLIEST_TIMESTAMP = -2L; // 最早的
+    public static final long LATEST_TIMESTAMP = -1L;  // 最新
 
     public static final int CONSUMER_REPLICA_ID = -1;
     public static final int DEBUGGING_REPLICA_ID = -2;
@@ -240,7 +240,7 @@ public class ListOffsetRequest extends AbstractRequest {
                     PartitionData partitionData = new PartitionData(timestamp, maxNumOffsets);
                     offsetData.put(tp, partitionData);
                 } else {
-                    if (partitionTimestamps.put(tp, timestamp) != null)
+                    if (partitionTimestamps.put(tp, timestamp) != null) // 添加重复的分区
                         duplicatePartitions.add(tp);
                 }
             }
@@ -296,6 +296,7 @@ public class ListOffsetRequest extends AbstractRequest {
         return partitionTimestamps;
     }
 
+    // 重复的分区
     public Set<TopicPartition> duplicatePartitions() {
         return duplicatePartitions;
     }

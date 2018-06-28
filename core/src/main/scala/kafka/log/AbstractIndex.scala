@@ -17,7 +17,7 @@
 
 package kafka.log
 
-import java.io.{File, RandomAccessFile}
+import java.io.{File, IOException, RandomAccessFile}
 import java.nio.{ByteBuffer, MappedByteBuffer}
 import java.nio.channels.FileChannel
 import java.nio.file.Files
@@ -31,11 +31,11 @@ import org.apache.kafka.common.utils.{MappedByteBuffers, OperatingSystem, Utils}
 import scala.math.ceil
 
 /**
- * The abstract index class which holds entry format agnostic methods.
+ * 持有索引格式的抽象索引类。
  *
- * @param file The index file
- * @param baseOffset the base offset of the segment that this index is corresponding to.
- * @param maxIndexSize The maximum index size in bytes.
+ * @param file 索引文件
+ * @param baseOffset 该索引对应的段的基偏移量。
+ * @param maxIndexSize 以字节为单位的最大索引大小。
  */
 abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Long,
                                    val maxIndexSize: Int = -1, val writable: Boolean) extends Logging {
@@ -44,6 +44,7 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
   @volatile
   private var _length: Long = _
 
+  // 实体大小，文件内容长度以实体大小倍数
   protected def entrySize: Int
 
   protected val lock = new ReentrantLock
@@ -53,7 +54,7 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
     val newlyCreated = file.createNewFile()
     val raf = if (writable) new RandomAccessFile(file, "rw") else new RandomAccessFile(file, "r")
     try {
-      /* pre-allocate the file if necessary */
+      /* 如果是必须的，则预分配文件大小 */
       if(newlyCreated) {
         if(maxIndexSize < entrySize)
           throw new IllegalArgumentException("Invalid max index size: " + maxIndexSize)
@@ -121,7 +122,7 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
         try {
           val position = mmap.position()
 
-          /* Windows won't let us modify the file length while the file is mmapped :-( */
+          /* 在文件被映射时，Windows不会让我们修改文件长度。 :-( */
           if (OperatingSystem.IS_WINDOWS)
             safeForceUnmap()
           raf.setLength(roundedNewSize)
@@ -165,10 +166,10 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
    */
   def deleteIfExists(): Boolean = {
     inLock(lock) {
-      // On JVM, a memory mapping is typically unmapped by garbage collector.
-      // However, in some cases it can pause application threads(STW) for a long moment reading metadata from a physical disk.
-      // To prevent this, we forcefully cleanup memory mapping within proper execution which never affects API responsiveness.
-      // See https://issues.apache.org/jira/browse/KAFKA-4614 for the details.
+      // See https://issues.apache.org/jira/browse/KAFKA-4614 for the details.s
+      // 在JVM上，内存映射通常是由垃圾回收器映射的。
+      // 然而，在某些情况下，它可以暂停应用线程（STW）很长一段时间从物理磁盘读取元数据。
+      // 为了防止这一点，我们强制清除内存映射在正确的执行，这从来没有影响API响应性。
       safeForceUnmap()
     }
     Files.deleteIfExists(file.toPath)
@@ -234,7 +235,7 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
   }
 
   /**
-   * Forcefully free the buffer's mmap.
+   * 强制释放缓冲区的MMAP。
    */
   protected[log] def forceUnmap() {
     try MappedByteBuffers.unmap(file.getAbsolutePath, mmap)
@@ -283,7 +284,7 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
     indexSlotRangeFor(idx, target, searchEntity)._2
 
   /**
-   * Lookup lower and upper bounds for the given target.
+   * 查找给定目标的下界和上界。
    */
   private def indexSlotRangeFor(idx: ByteBuffer, target: Long, searchEntity: IndexSearchEntity): (Int, Int) = {
     // check if the index is empty
@@ -320,7 +321,7 @@ abstract class AbstractIndex[K, V](@volatile var file: File, val baseOffset: Lon
   }
 
   /**
-   * Round a number to the greatest exact multiple of the given factor less than the given number.
+   * 将数字舍入为给定因子的最大精确倍数，小于给定数字。
    * E.g. roundDownToExactMultiple(67, 8) == 64
    */
   private def roundDownToExactMultiple(number: Int, factor: Int) = factor * (number / factor)

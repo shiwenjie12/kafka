@@ -23,16 +23,18 @@ import org.apache.kafka.common.utils.Time
 
 
 /**
- * Represents a request whose response has been delayed.
+ * 表示响应被延迟的请求。
  * @param time @Time instance to use
- * @param throttleTimeMs delay associated with this request
+ * @param throttleTimeMs 与此请求相关联的延迟
  * @param callback Callback to trigger after delayTimeMs milliseconds
  */
 private[server] class ThrottledResponse(val time: Time, val throttleTimeMs: Int, callback: Int => Unit) extends Delayed {
   val endTime = time.milliseconds + throttleTimeMs
 
+  // 执行回调方法
   def execute() = callback(throttleTimeMs)
 
+  // 返回还需要延迟的时间
   override def getDelay(unit: TimeUnit): Long = {
     unit.convert(endTime - time.milliseconds, TimeUnit.MILLISECONDS)
   }

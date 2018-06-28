@@ -26,7 +26,7 @@ import org.slf4j.LoggerFactory;
 import java.nio.ByteBuffer;
 
 /**
- * Control records specify a schema for the record key which includes a version and type:
+ * 控制记录为包含版本和类型的记录密钥指定模式：
  *
  * Key => Version Type
  *   Version => Int16

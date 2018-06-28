@@ -21,7 +21,7 @@ import org.apache.kafka.common.protocol.Errors;
 import static org.apache.kafka.common.record.RecordBatch.NO_PARTITION_LEADER_EPOCH;
 
 /**
- * The offset, fetched from a leader, for a particular partition.
+ * 从领导者获取的偏移量，用于特定的分区。
  */
 
 public class EpochEndOffset {

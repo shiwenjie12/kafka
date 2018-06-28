@@ -23,7 +23,10 @@ import scala.collection._
 import kafka.message.{CompressionCodec, NoCompressionCodec}
 import scala.collection.JavaConverters._
 
-
+/**
+  * 验证属性的工具类
+  * @param props 配置文件的属性
+  */
 class VerifiableProperties(val props: Properties) extends Logging {
   private val referenceSet = mutable.HashSet[String]()
 

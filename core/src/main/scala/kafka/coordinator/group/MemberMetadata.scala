@@ -30,24 +30,21 @@ case class MemberSummary(memberId: String,
                          assignment: Array[Byte])
 
 /**
- * Member metadata contains the following metadata:
+ * 成员元数据包含以下元数据：
  *
- * Heartbeat metadata:
- * 1. negotiated heartbeat session timeout
- * 2. timestamp of the latest heartbeat
+ * 心跳元数据：
+ * 1.协商心跳会话超时
+ * 2.最新心跳的时间戳
  *
- * Protocol metadata:
- * 1. the list of supported protocols (ordered by preference)
- * 2. the metadata associated with each protocol
+ * 协议元数据：
+ * 1.支持的协议列表（按优先顺序排列）
+ * 2.与每个协议相关的元数据
  *
- * In addition, it also contains the following state information:
+ * 另外，它还包含以下状态信息：
  *
- * 1. Awaiting rebalance callback: when the group is in the prepare-rebalance state,
- *                                 its rebalance callback will be kept in the metadata if the
- *                                 member has sent the join group request
- * 2. Awaiting sync callback: when the group is in the awaiting-sync state, its sync callback
- *                            is kept in metadata until the leader provides the group assignment
- *                            and the group transitions to stable
+ * 1.等待重新平衡回调：当组处于prepare-rebalance状态时，如果成员发送了加入组请求，则其重新平衡回调将保留在元数据中
+ * 2.等待同步回调：当组处于等待同步状态时，其同步回调将保存在元数据中，直到领导者提供组分配并且组转换为稳定
+ *
  */
 @nonthreadsafe
 private[group] class MemberMetadata(val memberId: String,
@@ -68,7 +65,7 @@ private[group] class MemberMetadata(val memberId: String,
   def protocols = supportedProtocols.map(_._1).toSet
 
   /**
-   * Get metadata corresponding to the provided protocol.
+   * 获取与提供的协议相对应的元数据。
    */
   def metadata(protocol: String): Array[Byte] = {
     supportedProtocols.find(_._1 == protocol) match {
@@ -79,7 +76,7 @@ private[group] class MemberMetadata(val memberId: String,
   }
 
   /**
-   * Check if the provided protocol metadata matches the currently stored metadata.
+   * 检查提供的协议元数据是否与当前存储的元数据匹配。
    */
   def matches(protocols: List[(String, Array[Byte])]): Boolean = {
     if (protocols.size != this.supportedProtocols.size)
@@ -103,8 +100,8 @@ private[group] class MemberMetadata(val memberId: String,
   }
 
   /**
-   * Vote for one of the potential group protocols. This takes into account the protocol preference as
-   * indicated by the order of supported protocols and returns the first one also contained in the set
+   * 为其中一个潜在的组协议投票。 这考虑到协议首选项，如支持的协议顺序所示，并返回集合中也包含的第一个协议首选项
+    * candidates 候选人
    */
   def vote(candidates: Set[String]): String = {
     supportedProtocols.find({ case (protocol, _) => candidates.contains(protocol)}) match {

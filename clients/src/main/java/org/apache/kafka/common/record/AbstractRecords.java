@@ -167,7 +167,7 @@ public abstract class AbstractRecords implements Records {
     }
 
     /**
-     * 压缩后的大小
+     * 估计压缩后的大小
      * @param magic
      * @param baseOffset
      * @param compressionType

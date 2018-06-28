@@ -25,8 +25,8 @@ import org.apache.kafka.common.utils.{KafkaThread, Time}
 
 trait Timer {
   /**
-    * Add a new task to this executor. It will be executed after the task's delay
-    * (beginning from the time of submission)
+    * 向执行程序添加一个新任务。它将在任务延迟后执行。
+    *（从提交的时间开始）
     * @param timerTask the task to add
     */
   def add(timerTask: TimerTask): Unit
@@ -50,22 +50,22 @@ trait Timer {
     */
   def shutdown(): Unit
 }
-
+// 系统级的定时器
 @threadsafe
 class SystemTimer(executorName: String,
                   tickMs: Long = 1,
                   wheelSize: Int = 20,
                   startMs: Long = Time.SYSTEM.hiResClockMs) extends Timer {
 
-  // timeout timer
+  // 执行任务的线程池
   private[this] val taskExecutor = Executors.newFixedThreadPool(1, new ThreadFactory() {
     def newThread(runnable: Runnable): Thread =
       KafkaThread.nonDaemon("executor-"+executorName, runnable)
   })
 
   private[this] val delayQueue = new DelayQueue[TimerTaskList]()
-  private[this] val taskCounter = new AtomicInteger(0)
-  private[this] val timingWheel = new TimingWheel(
+  private[this] val taskCounter = new AtomicInteger(0) // 定时器中的任务数
+  private[this] val timingWheel = new TimingWheel( // 时间轮转片
     tickMs = tickMs,
     wheelSize = wheelSize,
     startMs = startMs,
@@ -81,34 +81,36 @@ class SystemTimer(executorName: String,
   def add(timerTask: TimerTask): Unit = {
     readLock.lock()
     try {
+      // 构建包含过期时间的TimerTaskEntry
       addTimerTaskEntry(new TimerTaskEntry(timerTask, timerTask.delayMs + Time.SYSTEM.hiResClockMs))
     } finally {
       readLock.unlock()
     }
   }
 
+  // 添加任务实体
   private def addTimerTaskEntry(timerTaskEntry: TimerTaskEntry): Unit = {
-    if (!timingWheel.add(timerTaskEntry)) {
-      // Already expired or cancelled
+    if (!timingWheel.add(timerTaskEntry)) { // 向时间轮添加任务失败，需要异步马上执行
+      // 早已过期或者取消
       if (!timerTaskEntry.cancelled)
-        taskExecutor.submit(timerTaskEntry.timerTask)
+        taskExecutor.submit(timerTaskEntry.timerTask) //  执行任务
     }
   }
 
+  // 再次插入轮转
   private[this] val reinsert = (timerTaskEntry: TimerTaskEntry) => addTimerTaskEntry(timerTaskEntry)
 
   /*
-   * Advances the clock if there is an expired bucket. If there isn't any expired bucket when called,
-   * waits up to timeoutMs before giving up.
+   * 如果有一个过期的桶，则启动时钟。如果调用时没有任何过期的桶，则在放弃之前等待到时间超时。
    */
   def advanceClock(timeoutMs: Long): Boolean = {
-    var bucket = delayQueue.poll(timeoutMs, TimeUnit.MILLISECONDS)
+    var bucket = delayQueue.poll(timeoutMs, TimeUnit.MILLISECONDS) // 获取延时队列中过期时间最长桶
     if (bucket != null) {
-      writeLock.lock()
+      writeLock.lock()  // 写锁，禁止对时间轮修改
       try {
         while (bucket != null) {
           timingWheel.advanceClock(bucket.getExpiration())
-          bucket.flush(reinsert)
+          bucket.flush(reinsert) // 根据给定方法刷新桶内数据,用于添加到timingWheel，有可能执行任务
           bucket = delayQueue.poll()
         }
       } finally {

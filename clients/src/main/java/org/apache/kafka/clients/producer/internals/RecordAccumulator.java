@@ -220,7 +220,7 @@ public final class RecordAccumulator {
                 FutureRecordMetadata future = Utils.notNull(batch.tryAppend(timestamp, key, value, headers, callback, time.milliseconds()));
 
                 dq.addLast(batch);
-                incomplete.add(batch);
+                incomplete.add(batch);  // 正在处理的批次
 
                 // Don't deallocate this buffer in the finally block as it's being used in the record batch
                 buffer = null;
@@ -437,7 +437,7 @@ public final class RecordAccumulator {
                     // This is a partition for which leader is not known, but messages are available to send.
                     // Note that entries are currently not removed from batches when deque is empty.
                     unknownLeaderTopics.add(part.topic());
-                } else if (!readyNodes.contains(leader) && !muted.contains(part)) {
+                } else if (!readyNodes.contains(leader) && !muted.contains(part)) { // 需要添加到结果中的
                     ProducerBatch batch = deque.peekFirst();
                     if (batch != null) {
                         long waitedTimeMs = batch.waitedTimeMs(nowMs);
@@ -610,7 +610,7 @@ public final class RecordAccumulator {
     }
 
     /**
-     * Deallocate the record batch
+     * 释放记录批次
      */
     public void deallocate(ProducerBatch batch) {
         incomplete.remove(batch);

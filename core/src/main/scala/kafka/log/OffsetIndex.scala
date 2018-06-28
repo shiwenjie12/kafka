@@ -24,10 +24,9 @@ import kafka.utils.CoreUtils.inLock
 import kafka.common.InvalidOffsetException
 
 /**
- * An index that maps offsets to physical file locations for a particular log segment. This index may be sparse:
- * that is it may not hold an entry for all messages in the log.
+  * 将偏移量映射到特定日志段的物理文件位置的索引。该索引可能是稀疏的：也就是说，它可能不为日志中的所有消息保留条目。
  *
- * The index is stored in a file that is pre-allocated to hold a fixed maximum number of 8-byte entries.
+ * 该索引存储在预先分配的文件中，以保存8字节条目的固定最大数量。
  *
  * The index supports lookups against a memory-map of this file. These lookups are done using a simple binary search variant
  * to locate the offset/location pair for the greatest offset less than or equal to the target offset.
@@ -61,7 +60,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
     .format(file.getAbsolutePath, maxEntries, maxIndexSize, _entries, _lastOffset, mmap.position()))
 
   /**
-   * The last entry in the index
+    * 索引中最后一个实体
    */
   private def lastEntry: OffsetPosition = {
     inLock(lock) {
@@ -75,8 +74,8 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   def lastOffset: Long = _lastOffset
 
   /**
-   * Find the largest offset less than or equal to the given targetOffset
-   * and return a pair holding this offset and its corresponding physical file position.
+    * 找到小于或等于给定targetOffset的最大偏移量
+    * 并返回一个包含该偏移量及其相应物理文件位置的对。
    *
    * @param targetOffset The offset to look up.
    * @return The offset found and the corresponding file position for this offset
@@ -114,6 +113,12 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
 
   private def physical(buffer: ByteBuffer, n: Int): Int = buffer.getInt(n * entrySize + 4)
 
+  /**
+    * 实解析实体
+    * @param buffer 此内存映射索引的缓冲区。
+    * @param n 插槽 即  第n个实体
+    * @return the index entry stored in the given slot.
+    */
   override def parseEntry(buffer: ByteBuffer, n: Int): IndexEntry = {
       OffsetPosition(baseOffset + relativeOffset(buffer, n), physical(buffer, n))
   }
@@ -133,7 +138,8 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   }
 
   /**
-   * Append an entry for the given offset/location pair to the index. This entry must have a larger offset than all subsequent entries.
+   * 将给定偏移/位置对的条目追加到索引中。
+    * 该条目必须具有比所有后续条目更大的偏移量。
    */
   def append(offset: Long, position: Int) {
     inLock(lock) {
@@ -157,7 +163,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   override def truncateTo(offset: Long) {
     inLock(lock) {
       val idx = mmap.duplicate
-      val slot = largestLowerBoundSlotFor(idx, offset, IndexSearchType.KEY)
+      val slot = largestLowerBoundSlotFor(idx, offset, IndexSearchType.KEY)// 获取槽点
 
       /* There are 3 cases for choosing the new size
        * 1) if there is no entry in the index <= the offset, delete everything
@@ -176,7 +182,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   }
 
   /**
-   * Truncates index to a known number of entries.
+    * 截取索引待一个已知的实体
    */
   private def truncateToEntries(entries: Int) {
     inLock(lock) {

@@ -21,19 +21,20 @@ import org.apache.kafka.common.security.auth.SecurityProtocol;
 import java.util.Locale;
 import java.util.Objects;
 
+// 节点的监听器
 public final class ListenerName {
 
     private static final String CONFIG_STATIC_PREFIX = "listener.name";
 
     /**
-     * Create an instance with the security protocol name as the value.
+     * 使用安全协议名称作为值创建一个实例。
      */
     public static ListenerName forSecurityProtocol(SecurityProtocol securityProtocol) {
         return new ListenerName(securityProtocol.name);
     }
 
     /**
-     * Create an instance with the provided value converted to uppercase.
+     * 使用提供的值转换为大写形式创建一个实例。
      */
     public static ListenerName normalised(String value) {
         return new ListenerName(value.toUpperCase(Locale.ROOT));

@@ -25,10 +25,12 @@ import org.apache.kafka.common.TopicPartition
 
 import scala.collection._
 
+// 关于偏移量检查点的格式器和版本
 object OffsetCheckpointFile {
   private val WhiteSpacesPattern = Pattern.compile("\\s+")
   private[checkpoints] val CurrentVersion = 0
 
+  // 规定了读取和写入格式
   object Formatter extends CheckpointFileFormatter[(TopicPartition, Long)] {
     override def toLine(entry: (TopicPartition, Long)): String = {
       s"${entry._1.topic} ${entry._1.partition} ${entry._2}"
@@ -50,7 +52,7 @@ trait OffsetCheckpoint {
 }
 
 /**
-  * This class persists a map of (Partition => Offsets) to a file (for a certain replica)
+  * 该类将（分区=>偏移量）的映射保存到文件中（对于特定的副本）
   */
 class OffsetCheckpointFile(val file: File, logDirFailureChannel: LogDirFailureChannel = null) {
   val checkpoint = new CheckpointFile[(TopicPartition, Long)](file, OffsetCheckpointFile.CurrentVersion,

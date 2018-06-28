@@ -21,6 +21,7 @@ import org.apache.kafka.common.security.auth.KafkaPrincipal;
 import java.util.ArrayList;
 import java.util.Collection;
 
+// 令牌信息
 public class TokenInformation {
 
     private KafkaPrincipal owner;

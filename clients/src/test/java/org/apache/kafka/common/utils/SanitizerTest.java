@@ -36,6 +36,7 @@ public class SanitizerTest {
     @Test
     public void testSanitize() throws UnsupportedEncodingException {
         String principal = "CN=Some characters !@#$%&*()_-+=';:,/~";
+        principal = "<default>";
         String sanitizedPrincipal = Sanitizer.sanitize(principal);
         assertTrue(sanitizedPrincipal.replace('%', '_').matches("[a-zA-Z0-9\\._\\-]+"));
         assertEquals(principal, Sanitizer.desanitize(sanitizedPrincipal));

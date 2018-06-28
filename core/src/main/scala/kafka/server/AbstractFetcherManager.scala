@@ -34,7 +34,7 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
   // package private for test
   private[server] val fetcherThreadMap = new mutable.HashMap[BrokerIdAndFetcherId, AbstractFetcherThread]
   private val lock = new Object
-  private var numFetchersPerBroker = numFetchers
+  private var numFetchersPerBroker = numFetchers // 当前broker的feach线程数
   this.logIdent = "[" + name + "] "
 
   newGauge(
@@ -67,11 +67,12 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
   Map("clientId" -> clientId)
   )
 
+  // 重置线程池大小
   def resizeThreadPool(newSize: Int): Unit = {
-    def migratePartitions(newSize: Int): Unit = {
+    def migratePartitions(newSize: Int): Unit = { // 迁移分区
       fetcherThreadMap.foreach { case (id, thread) =>
-        val removedPartitions = thread.partitionsAndOffsets
-        removeFetcherForPartitions(removedPartitions.keySet)
+        val removedPartitions = thread.partitionsAndOffsets // tp/broker/初始化偏移量
+        removeFetcherForPartitions(removedPartitions.keySet) // 移除所有的分区fetcher
         if (id.fetcherId >= newSize)
           thread.shutdown()
         addFetcherForPartitions(removedPartitions)
@@ -80,7 +81,7 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
     lock synchronized {
       val currentSize = numFetchersPerBroker
       info(s"Resizing fetcher thread pool size from $currentSize to $newSize")
-      numFetchersPerBroker = newSize
+      numFetchersPerBroker = newSize // 重新设置每个broker允许运行的线程数
       if (newSize != currentSize) {
         // We could just migrate some partitions explicitly to new threads. But this is currently
         // reassigning all partitions using the new thread size so that hash-based allocation
@@ -98,10 +99,10 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
     }
   }
 
-  // This method is only needed by ReplicaAlterDirManager
+  // 此方法仅由ReplicaAlterDirManager需要
   def markPartitionsForTruncation(brokerId: Int, topicPartition: TopicPartition, truncationOffset: Long) {
     lock synchronized {
-      val fetcherId = getFetcherId(topicPartition.topic, topicPartition.partition)
+      val fetcherId = getFetcherId(topicPartition.topic, topicPartition.partition) // 计算feacherId
       val brokerIdAndFetcherId = BrokerIdAndFetcherId(brokerId, fetcherId)
       fetcherThreadMap.get(brokerIdAndFetcherId).foreach { thread =>
         thread.markPartitionsForTruncation(topicPartition, truncationOffset)
@@ -112,11 +113,14 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
   // to be defined in subclass to create a specific fetcher
   def createFetcherThread(fetcherId: Int, sourceBroker: BrokerEndPoint): AbstractFetcherThread
 
+  // 为分区添加feacher
   def addFetcherForPartitions(partitionAndOffsets: Map[TopicPartition, BrokerAndInitialOffset]) {
     lock synchronized {
+      // 按照broker和fetcher,进行分组
       val partitionsPerFetcher = partitionAndOffsets.groupBy { case(topicPartition, brokerAndInitialFetchOffset) =>
         BrokerAndFetcherId(brokerAndInitialFetchOffset.broker, getFetcherId(topicPartition.topic, topicPartition.partition))}
 
+      // 添加并启动获取线程
       def addAndStartFetcherThread(brokerAndFetcherId: BrokerAndFetcherId, brokerIdAndFetcherId: BrokerIdAndFetcherId) {
         val fetcherThread = createFetcherThread(brokerAndFetcherId.fetcherId, brokerAndFetcherId.broker)
         fetcherThreadMap.put(brokerIdAndFetcherId, fetcherThread)
@@ -127,11 +131,11 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
         val brokerIdAndFetcherId = BrokerIdAndFetcherId(brokerAndFetcherId.broker.id, brokerAndFetcherId.fetcherId)
         fetcherThreadMap.get(brokerIdAndFetcherId) match {
           case Some(f) if f.sourceBroker.host == brokerAndFetcherId.broker.host && f.sourceBroker.port == brokerAndFetcherId.broker.port =>
-            // reuse the fetcher thread
-          case Some(f) =>
+            // 重用fetcher线程
+          case Some(f) =>  // 重启
             f.shutdown()
             addAndStartFetcherThread(brokerAndFetcherId, brokerIdAndFetcherId)
-          case None =>
+          case None => // 新增
             addAndStartFetcherThread(brokerAndFetcherId, brokerIdAndFetcherId)
         }
 
@@ -145,6 +149,7 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
       "[" + topicPartition + ", initOffset " + brokerAndInitialOffset.initOffset + " to broker " + brokerAndInitialOffset.broker + "] "}))
   }
 
+  // 移除关于分区的fetcher的信息
   def removeFetcherForPartitions(partitions: Set[TopicPartition]) {
     lock synchronized {
       for (fetcher <- fetcherThreadMap.values)
@@ -153,11 +158,12 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
     info("Removed fetcher for partitions %s".format(partitions.mkString(",")))
   }
 
+  // 关闭空闲的线程
   def shutdownIdleFetcherThreads() {
     lock synchronized {
       val keysToBeRemoved = new mutable.HashSet[BrokerIdAndFetcherId]
       for ((key, fetcher) <- fetcherThreadMap) {
-        if (fetcher.partitionCount <= 0) {
+        if (fetcher.partitionCount <= 0) { // fetcher线程的分区数
           fetcher.shutdown()
           keysToBeRemoved += key
         }
@@ -166,6 +172,7 @@ abstract class AbstractFetcherManager(protected val name: String, clientId: Stri
     }
   }
 
+  // 关闭所有的feacher线程
   def closeAllFetchers() {
     lock synchronized {
       for ( (_, fetcher) <- fetcherThreadMap) {

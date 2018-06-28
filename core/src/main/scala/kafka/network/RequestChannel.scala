@@ -52,11 +52,12 @@ object RequestChannel extends Logging {
     val sanitizedUser = Sanitizer.sanitize(principal.getName)
   }
 
+  //  维护所有的请求度量map
   class Metrics {
 
     private val metricsMap = mutable.Map[String, RequestMetrics]()
 
-    (ApiKeys.values.toSeq.map(_.name) ++
+    (ApiKeys.values.toSeq.map(_.name) ++ // 所有的api以及消费者和Follower的监控
         Seq(RequestMetrics.consumerFetchMetricName, RequestMetrics.followFetchMetricName)).foreach { name =>
       metricsMap.put(name, new RequestMetrics(name))
     }
@@ -85,7 +86,7 @@ object RequestChannel extends Logging {
     @volatile var temporaryMemoryBytes = 0L
     @volatile var recordNetworkThreadTimeCallback: Option[Long => Unit] = None
 
-    val session = Session(context.principal, context.clientAddress)
+    val session = Session(context.principal, context.clientAddress) // 请求的session
     private val bodyAndSize: RequestAndSize = context.parseRequest(buffer)
 
     def header: RequestHeader = context.header
@@ -115,6 +116,7 @@ object RequestChannel extends Logging {
       math.max(apiLocalCompleteTimeNanos - requestDequeueTimeNanos, 0L)
     }
 
+    // 更新请求的度量
     def updateRequestMetrics(networkThreadTimeNanos: Long, response: Response) {
       val endTimeNanos = Time.SYSTEM.nanoseconds
       // In some corner cases, apiLocalCompleteTimeNanos may not be set when the request completes if the remote
@@ -179,7 +181,7 @@ object RequestChannel extends Logging {
       // the total time spent on authentication, which may be significant for SASL/SSL.
       recordNetworkThreadTimeCallback.foreach(record => record(networkThreadTimeNanos))
 
-      if (isRequestLoggingEnabled) {
+      if (isRequestLoggingEnabled) { // 记录日志信息
         val detailsEnabled = requestLogger.underlying.isTraceEnabled
         val responseString =
           if (response.responseSend.isDefined)
@@ -237,16 +239,20 @@ object RequestChannel extends Logging {
       s"Response(request=$request, responseSend=$responseSend, responseAction=$responseAction), responseAsString=$responseAsString"
   }
 
+  // 响应的处理状态
   sealed trait ResponseAction
   case object SendAction extends ResponseAction
   case object NoOpAction extends ResponseAction
   case object CloseConnectionAction extends ResponseAction
 }
 
+// 队列请求通道
 class RequestChannel(val queueSize: Int) extends KafkaMetricsGroup {
   import RequestChannel._
   val metrics = new RequestChannel.Metrics
+  // 请求队列
   private val requestQueue = new ArrayBlockingQueue[BaseRequest](queueSize)
+  // 请求的处理器
   private val processors = new ConcurrentHashMap[Int, Processor]()
 
   newGauge(RequestQueueSizeMetric, new Gauge[Int] {
@@ -259,6 +265,7 @@ class RequestChannel(val queueSize: Int) extends KafkaMetricsGroup {
     }
   })
 
+  // 添加处理器
   def addProcessor(processor: Processor): Unit = {
     if (processors.putIfAbsent(processor.id, processor) != null)
       warn(s"Unexpected processor with processorId ${processor.id}")
@@ -276,14 +283,14 @@ class RequestChannel(val queueSize: Int) extends KafkaMetricsGroup {
     removeMetric(ResponseQueueSizeMetric, Map(ProcessorMetricTag -> processorId.toString))
   }
 
-  /** Send a request to be handled, potentially blocking until there is room in the queue for the request */
+  /** 发送一个待处理的请求，可能阻塞，直到请求队列中有空间 */
   def sendRequest(request: RequestChannel.Request) {
     requestQueue.put(request)
   }
 
-  /** Send a response back to the socket server to be sent over the network */
+  /** 将响应发送回套接字服务器以通过网络发送 */
   def sendResponse(response: RequestChannel.Response) {
-    if (isTraceEnabled) {
+    if (isTraceEnabled) { // 记录跟踪信息
       val requestHeader = response.request.header
       val message = response.responseAction match {
         case SendAction =>
@@ -296,10 +303,9 @@ class RequestChannel(val queueSize: Int) extends KafkaMetricsGroup {
       trace(message)
     }
 
-    val processor = processors.get(response.processor)
-    // The processor may be null if it was shutdown. In this case, the connections
-    // are closed, so the response is dropped.
-    if (processor != null) {
+    val processor = processors.get(response.processor) // 获取处理器
+    // 如果关闭，处理器可能为空。在这种情况下，连接被关闭，因此响应被丢弃。
+    if (processor != null) {// 将响应进入对应处理器的队列
       processor.enqueueResponse(response)
     }
   }
@@ -312,6 +318,7 @@ class RequestChannel(val queueSize: Int) extends KafkaMetricsGroup {
   def receiveRequest(): RequestChannel.BaseRequest =
     requestQueue.take()
 
+  // 更新Error的度量
   def updateErrorMetrics(apiKey: ApiKeys, errors: collection.Map[Errors, Integer]) {
     errors.foreach { case (error, count) =>
       metrics(apiKey.name).markErrorMeter(error, count)
@@ -327,10 +334,12 @@ class RequestChannel(val queueSize: Int) extends KafkaMetricsGroup {
     metrics.close()
   }
 
+  // 发送关闭请求
   def sendShutdownRequest(): Unit = requestQueue.put(ShutdownRequest)
 
 }
 
+// 请求级的度量
 object RequestMetrics {
   val consumerFetchMetricName = ApiKeys.FETCH.name + "Consumer"
   val followFetchMetricName = ApiKeys.FETCH.name + "Follower"
@@ -349,27 +358,28 @@ object RequestMetrics {
   val ErrorsPerSec = "ErrorsPerSec"
 }
 
+// 关于请求的度量
 class RequestMetrics(name: String) extends KafkaMetricsGroup {
   import RequestMetrics._
 
   val tags = Map("request" -> name)
   val requestRate = newMeter(RequestsPerSec, "requests", TimeUnit.SECONDS, tags)
-  // time a request spent in a request queue
+  // 请求队列中的请求时间
   val requestQueueTimeHist = newHistogram(RequestQueueTimeMs, biased = true, tags)
-  // time a request takes to be processed at the local broker
+  // 请求在本地经纪人处理的时间
   val localTimeHist = newHistogram(LocalTimeMs, biased = true, tags)
-  // time a request takes to wait on remote brokers (currently only relevant to fetch and produce requests)
+  // 请求在远程代理上等待的时间（当前仅与获取和生成请求相关）
   val remoteTimeHist = newHistogram(RemoteTimeMs, biased = true, tags)
-  // time a request is throttled
+  // 请求节流的时间
   val throttleTimeHist = newHistogram(ThrottleTimeMs, biased = true, tags)
-  // time a response spent in a response queue
+  // 响应队列中的响应时间
   val responseQueueTimeHist = newHistogram(ResponseQueueTimeMs, biased = true, tags)
-  // time to send the response to the requester
+  // 向请求者发送响应的时间
   val responseSendTimeHist = newHistogram(ResponseSendTimeMs, biased = true, tags)
   val totalTimeHist = newHistogram(TotalTimeMs, biased = true, tags)
-  // request size in bytes
+  // 请求字节大小
   val requestBytesHist = newHistogram(RequestBytes, biased = true, tags)
-  // time for message conversions (only relevant to fetch and produce requests)
+  // 消息转换的时间（仅与获取和生成请求相关）
   val messageConversionsTimeHist =
     if (name == ApiKeys.FETCH.name || name == ApiKeys.PRODUCE.name)
       Some(newHistogram(MessageConversionsTimeMs, biased = true, tags))
@@ -422,7 +432,7 @@ class RequestMetrics(name: String) extends KafkaMetricsGroup {
     removeMetric(RequestQueueTimeMs, tags)
     removeMetric(LocalTimeMs, tags)
     removeMetric(RemoteTimeMs, tags)
-    removeMetric(RequestsPerSec, tags)
+    removeMetric(RequestsPerSec, tags)// ?
     removeMetric(ThrottleTimeMs, tags)
     removeMetric(ResponseQueueTimeMs, tags)
     removeMetric(TotalTimeMs, tags)

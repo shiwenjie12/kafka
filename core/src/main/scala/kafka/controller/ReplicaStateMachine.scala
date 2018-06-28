@@ -28,22 +28,16 @@ import org.apache.zookeeper.KeeperException.Code
 import scala.collection.mutable
 
 /**
- * This class represents the state machine for replicas. It defines the states that a replica can be in, and
- * transitions to move the replica to another legal state. The different states that a replica can be in are -
- * 1. NewReplica        : The controller can create new replicas during partition reassignment. In this state, a
- *                        replica can only get become follower state change request.  Valid previous
- *                        state is NonExistentReplica
- * 2. OnlineReplica     : Once a replica is started and part of the assigned replicas for its partition, it is in this
- *                        state. In this state, it can get either become leader or become follower state change requests.
- *                        Valid previous state are NewReplica, OnlineReplica or OfflineReplica
- * 3. OfflineReplica    : If a replica dies, it moves to this state. This happens when the broker hosting the replica
- *                        is down. Valid previous state are NewReplica, OnlineReplica
- * 4. ReplicaDeletionStarted: If replica deletion starts, it is moved to this state. Valid previous state is OfflineReplica
- * 5. ReplicaDeletionSuccessful: If replica responds with no error code in response to a delete replica request, it is
- *                        moved to this state. Valid previous state is ReplicaDeletionStarted
- * 6. ReplicaDeletionIneligible: If replica deletion fails, it is moved to this state. Valid previous state is ReplicaDeletionStarted
- * 7. NonExistentReplica: If a replica is deleted successfully, it is moved to this state. Valid previous state is
- *                        ReplicaDeletionSuccessful
+ * 这个类表示副本的状态机。它定义了副本可以在的状态，并且
+ * 转换将副本移动到另一合法状态。复制品可以处于的不同状态是 -
+ * 1. NewReplica：控制器可以在分区重新分配期间创建新的副本。在这种状态下，复制品只能成为追随者状态变更请求。有效的先前状态是NonExistentReplica
+ * 2. OnlineReplica：一旦副本启动并且其分区的一部分分配副本处于这种状态。在这种状态下，它可以成为领导或成为追随者状态改变请求。有效的以前状态是NewReplica，OnlineReplica或OfflineReplica
+ * 3. OfflineReplica：如果一个副本死亡，它将移动到这个状态。托管副本的代理发生故障时会发生这种情况。有效的先前状态是NewReplica，OnlineReplica
+ * 4. ReplicaDeletionStarted：如果副本删除开始，它将移至此状态。有效的以前状态是OfflineReplica
+ * 5. ReplicaDeletionSuccessful：如果副本响应删除副本请求而没有错误代码响应，则它将移至此状态。有效的先前状态是ReplicaDeletionStarted
+ * 6. ReplicaDeletionIdentigible：如果副本删除失败，它将移至此状态。有效的先前状态是ReplicaDeletionStarted
+ * 7. NonExistentReplica：如果一个副本被成功删除，它将被移动到这个状态。以前的有效状态是ReplicaDeletionSuccessfulca
+ *                       
  */
 class ReplicaStateMachine(config: KafkaConfig,
                           stateChangeLogger: StateChangeLogger,
@@ -422,7 +416,7 @@ case object ReplicaDeletionSuccessful extends ReplicaState {
   val state: Byte = 5
   val validPreviousStates: Set[ReplicaState] = Set(ReplicaDeletionStarted)
 }
-
+// 不符合删除条件的
 case object ReplicaDeletionIneligible extends ReplicaState {
   val state: Byte = 6
   val validPreviousStates: Set[ReplicaState] = Set(ReplicaDeletionStarted)

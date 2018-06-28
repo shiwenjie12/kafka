@@ -30,6 +30,9 @@ import java.util.concurrent.TimeUnit
 import kafka.utils.{Logging, VerifiableProperties}
 import org.apache.kafka.common.utils.Utils
 
+/**
+  * 利用yammer.metrics实现的监控
+  */
 private trait KafkaCSVMetricsReporterMBean extends KafkaMetricsReporterMBean
 
 private class KafkaCSVMetricsReporter extends KafkaMetricsReporter

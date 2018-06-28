@@ -126,7 +126,7 @@ public enum CompressionType {
     }
 
     /**
-     * Wrap bufferStream with an OutputStream that will compress data with this CompressionType.
+     * 使用OutputStream封装bufferStream，该压缩包将使用此CompressionType压缩数据。
      *
      * Note: Unlike {@link #wrapForInput}, {@link #wrapForOutput} cannot take {@#link ByteBuffer}s directly.
      * Currently, {@link MemoryRecordsBuilder#writeDefaultBatchHeader()} and {@link MemoryRecordsBuilder#writeLegacyCompressedWrapperHeader()}
@@ -136,7 +136,7 @@ public enum CompressionType {
     public abstract OutputStream wrapForOutput(ByteBufferOutputStream bufferStream, byte messageVersion);
 
     /**
-     * Wrap buffer with an InputStream that will decompress data with this CompressionType.
+     * 用一个InputStream封装缓冲区，用这个CompressionType解压缩数据.
      *
      * @param decompressionBufferSupplier The supplier of ByteBuffer(s) used for decompression if supported.
      *                                    For small record batches, allocating a potentially large buffer (64 KB for LZ4)

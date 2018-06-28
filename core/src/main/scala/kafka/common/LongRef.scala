@@ -18,10 +18,9 @@
 package kafka.common
 
 /**
-  * A mutable cell that holds a value of type `Long`. One should generally prefer using value-based programming (i.e.
-  * passing and returning `Long` values), but this class can be useful in some scenarios.
-  *
-  * Unlike `AtomicLong`, this class is not thread-safe and there are no atomicity guarantees.
+  * 一个可变单元格，其中包含“Long”类型的值。
+  * 一般应该更喜欢使用基于值的编程（即传递和返回“Long”值），但是这个类在某些场景中可能很有用。
+  * 与AtomicLong不同，这个类不是线程安全的，并且没有原子性保证。
   */
 class LongRef(var value: Long) {
 

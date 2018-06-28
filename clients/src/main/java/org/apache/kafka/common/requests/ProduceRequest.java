@@ -188,7 +188,9 @@ public class ProduceRequest extends AbstractRequest {
     // put in the purgatory (due to client throttling, it can take a while before the response is sent).
     // Care should be taken in methods that use this field.
     private volatile Map<TopicPartition, MemoryRecords> partitionRecords;
+    // 事务生产者
     private boolean transactional = false;
+    // 幂等生产者
     private boolean idempotent = false;
 
     private ProduceRequest(short version, short acks, int timeout, Map<TopicPartition, MemoryRecords> partitionRecords, String transactionalId) {
@@ -374,6 +376,7 @@ public class ProduceRequest extends AbstractRequest {
         return partitionRecords;
     }
 
+    // 用于垃圾回收
     public void clearPartitionRecords() {
         partitionRecords = null;
     }

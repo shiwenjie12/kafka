@@ -23,10 +23,11 @@ import java.util.Properties
 import kafka.utils._
 import org.apache.kafka.common.utils.Utils
 
+// Broker的元数据，只存在id
 case class BrokerMetadata(brokerId: Int)
 
 /**
-  * This class saves broker's metadata to a file
+  * 该类将broker的元数据保存到文件中。
   */
 class BrokerMetadataCheckpoint(val file: File) extends Logging {
   private val lock = new Object()
@@ -34,15 +35,15 @@ class BrokerMetadataCheckpoint(val file: File) extends Logging {
   def write(brokerMetadata: BrokerMetadata) = {
     lock synchronized {
       try {
-        val brokerMetaProps = new Properties()
+        val brokerMetaProps = new Properties()// 设置写入属性
         brokerMetaProps.setProperty("version", 0.toString)
         brokerMetaProps.setProperty("broker.id", brokerMetadata.brokerId.toString)
-        val temp = new File(file.getAbsolutePath + ".tmp")
+        val temp = new File(file.getAbsolutePath + ".tmp")// tmp文件
         val fileOutputStream = new FileOutputStream(temp)
         try {
           brokerMetaProps.store(fileOutputStream, "")
           fileOutputStream.flush()
-          fileOutputStream.getFD().sync()
+          fileOutputStream.getFD().sync()// 直接写入，刷新
         } finally {
           Utils.closeQuietly(fileOutputStream, temp.getName)
         }
@@ -62,7 +63,7 @@ class BrokerMetadataCheckpoint(val file: File) extends Logging {
       try {
         val brokerMetaProps = new VerifiableProperties(Utils.loadProps(file.getAbsolutePath()))
         val version = brokerMetaProps.getIntInRange("version", (0, Int.MaxValue))
-        version match {
+        version match {// 可能为了后期扩展
           case 0 =>
             val brokerId = brokerMetaProps.getIntInRange("broker.id", (0, Int.MaxValue))
             return Some(BrokerMetadata(brokerId))

@@ -199,7 +199,7 @@ public enum ApiKeys {
         ApiKeys[] idToType = new ApiKeys[maxKey + 1];
         for (ApiKeys key : ApiKeys.values())
             idToType[key.id] = key;
-        ID_TO_TYPE = idToType;
+        ID_TO_TYPE = idToType; // 包含所有的keyid
         MAX_API_KEY = maxKey;
     }
 

@@ -23,9 +23,7 @@ import org.apache.kafka.common.security.authenticator.CredentialCache;
 import org.apache.kafka.common.utils.Base64;
 
 /**
- * SCRAM Credential persistence utility functions. Implements format conversion used
- * for the credential store implemented in Kafka. Credentials are persisted as a comma-separated
- * String of key-value pairs:
+ * SCRAMP凭证持久性效用函数。实现用于卡夫卡实现的凭据存储的格式转换。凭据作为逗号分隔的键值对字符串持久化：
  * <pre>
  *   salt=<i>salt</i>,stored_key=<i>stored_key</i>,server_key=<i>server_key</i>,iterations=<i>iterations</i>
  * </pre>
@@ -39,6 +37,7 @@ public final class ScramCredentialUtils {
 
     private ScramCredentialUtils() {}
 
+    // ScramCredential 转字符串
     public static String credentialToString(ScramCredential credential) {
         return String.format("%s=%s,%s=%s,%s=%s,%s=%d",
                SALT,
@@ -51,6 +50,8 @@ public final class ScramCredentialUtils {
                credential.iterations());
     }
 
+    // 字符串转ScramCredential
+    // ScramCredentialUtils.credentialToString(formatter.generateCredential("password", 2048));
     public static ScramCredential credentialFromString(String str) {
         Properties props = toProps(str);
         if (props.size() != 4 || !props.containsKey(SALT) || !props.containsKey(STORED_KEY) ||
@@ -64,6 +65,7 @@ public final class ScramCredentialUtils {
         return new ScramCredential(salt, storedKey, serverKey, iterations);
     }
 
+    //
     private static Properties toProps(String str) {
         Properties props = new Properties();
         String[] tokens = str.split(",");

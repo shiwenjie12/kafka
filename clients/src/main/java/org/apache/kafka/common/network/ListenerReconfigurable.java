@@ -19,7 +19,7 @@ package org.apache.kafka.common.network;
 import org.apache.kafka.common.Reconfigurable;
 
 /**
- * Interface for reconfigurable entities associated with a listener.
+ * 与侦听器相关联的可重构实体的接口。
  */
 public interface ListenerReconfigurable extends Reconfigurable {
 

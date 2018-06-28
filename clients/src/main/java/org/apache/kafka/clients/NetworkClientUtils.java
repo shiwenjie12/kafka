@@ -39,21 +39,20 @@ public final class NetworkClientUtils {
      * to tell whether the latter completed a new connection.
      */
     public static boolean isReady(KafkaClient client, Node node, long currentTime) {
-        client.poll(0, currentTime);
+        client.poll(0, currentTime); // 马上进行处理
         return client.isReady(node, currentTime);
     }
 
     /**
-     * Invokes `client.poll` to discard pending disconnects, followed by `client.ready` and 0 or more `client.poll`
-     * invocations until the connection to `node` is ready, the timeoutMs expires or the connection fails.
+     * 调用`client.poll`来放弃挂起的断开连接，后面跟着`client.ready`和0个或多个`client.poll调用，
+     * 直到连接到`node`准备就绪，timeoutMs过期或连接失败。
      *
      * It returns `true` if the call completes normally or `false` if the timeoutMs expires. If the connection fails,
      * an `IOException` is thrown instead. Note that if the `NetworkClient` has been configured with a positive
      * connection timeoutMs, it is possible for this method to raise an `IOException` for a previous connection which
      * has recently disconnected. If authentication to the node fails, an `AuthenticationException` is thrown.
      *
-     * This method is useful for implementing blocking behaviour on top of the non-blocking `NetworkClient`, use it with
-     * care.
+     * 这个方法对于在非阻塞的`NetworkClient`之上实现阻塞行为很有用，请小心使用它。
      */
     public static boolean awaitReady(KafkaClient client, Node node, Time time, long timeoutMs) throws IOException {
         if (timeoutMs < 0) {
@@ -62,17 +61,18 @@ public final class NetworkClientUtils {
         long startTime = time.milliseconds();
         long expiryTime = startTime + timeoutMs;
 
-        if (isReady(client, node, startTime) ||  client.ready(node, startTime))
+        if (isReady(client, node, startTime) // 判断是否已经准备好
+                ||  client.ready(node, startTime)) // 如果没有准备好，则进行准备
             return true;
 
-        long attemptStartTime = time.milliseconds();
+        long attemptStartTime = time.milliseconds(); // 开始尝试时间
         while (!client.isReady(node, attemptStartTime) && attemptStartTime < expiryTime) {
-            if (client.connectionFailed(node)) {
+            if (client.connectionFailed(node)) { // 连接失败
                 throw new IOException("Connection to " + node + " failed.");
             }
             long pollTimeout = expiryTime - attemptStartTime;
             client.poll(pollTimeout, attemptStartTime);
-            if (client.authenticationException(node) != null)
+            if (client.authenticationException(node) != null) // 授权失败
                 throw client.authenticationException(node);
             attemptStartTime = time.milliseconds();
         }
@@ -80,8 +80,7 @@ public final class NetworkClientUtils {
     }
 
     /**
-     * Invokes `client.send` followed by 1 or more `client.poll` invocations until a response is received or a
-     * disconnection happens (which can happen for a number of reasons including a request timeout).
+     * 调用`client.send`，然后执行1个或多个`client.poll`调用，直到收到响应或发生断开（这可能发生在许多原因中，包括请求超时）。
      *
      * In case of a disconnection, an `IOException` is thrown.
      *
@@ -90,7 +89,7 @@ public final class NetworkClientUtils {
      */
     public static ClientResponse sendAndReceive(KafkaClient client, ClientRequest request, Time time) throws IOException {
         client.send(request, time.milliseconds());
-        while (true) {
+        while (true) {// 根据correlationId获取响应
             List<ClientResponse> responses = client.poll(Long.MAX_VALUE, time.milliseconds());
             for (ClientResponse response : responses) {
                 if (response.requestHeader().correlationId() == request.correlationId()) {

@@ -42,6 +42,7 @@ object ApiVersion {
   // This implicit is necessary due to: https://issues.scala-lang.org/browse/SI-8541
   implicit def orderingByVersion[A <: ApiVersion]: Ordering[A] = Ordering.by(_.id)
 
+  // 当前kafka服务器版本映射
   private val versionNameMap = Map(
     "0.8.0" -> KAFKA_0_8_0,
     "0.8.1" -> KAFKA_0_8_1,

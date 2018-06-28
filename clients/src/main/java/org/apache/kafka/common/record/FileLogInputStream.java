@@ -35,7 +35,7 @@ import static org.apache.kafka.common.record.Records.OFFSET_OFFSET;
 import static org.apache.kafka.common.record.Records.SIZE_OFFSET;
 
 /**
- * A log input stream which is backed by a {@link FileChannel}.
+ * 利用{@link FileChannel}实现的日志输入流
  */
 public class FileLogInputStream implements LogInputStream<FileLogInputStream.FileChannelRecordBatch> {
     private int position;
@@ -63,11 +63,11 @@ public class FileLogInputStream implements LogInputStream<FileLogInputStream.Fil
             return null;
 
         logHeaderBuffer.rewind();
-        Utils.readFullyOrFail(channel, logHeaderBuffer, position, "log header");
+        Utils.readFullyOrFail(channel, logHeaderBuffer, position, "log header");// 读取头信息
 
         logHeaderBuffer.rewind();
         long offset = logHeaderBuffer.getLong(OFFSET_OFFSET);
-        int size = logHeaderBuffer.getInt(SIZE_OFFSET);
+        int size = logHeaderBuffer.getInt(SIZE_OFFSET);// 本批次的大小
 
         // V0 has the smallest overhead, stricter checking is done later
         if (size < LegacyRecord.RECORD_OVERHEAD_V0)
@@ -79,6 +79,7 @@ public class FileLogInputStream implements LogInputStream<FileLogInputStream.Fil
         byte magic = logHeaderBuffer.get(MAGIC_OFFSET);
         final FileChannelRecordBatch batch;
 
+        // 按照版本信息，读取 记录批次
         if (magic < RecordBatch.MAGIC_VALUE_V2)
             batch = new LegacyFileChannelRecordBatch(offset, magic, channel, position, size);
         else
@@ -204,6 +205,7 @@ public class FileLogInputStream implements LogInputStream<FileLogInputStream.Fil
             return batchHeader;
         }
 
+        // 加载指定的大小的RecordBatch
         private RecordBatch loadBatchWithSize(int size, String description) {
             try {
                 ByteBuffer buffer = ByteBuffer.allocate(size);

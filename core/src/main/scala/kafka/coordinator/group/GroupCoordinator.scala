@@ -1,19 +1,19 @@
 /**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+  * Licensed to the Apache Software Foundation (ASF) under one or more
+  * contributor license agreements.  See the NOTICE file distributed with
+  * this work for additional information regarding copyright ownership.
+  * The ASF licenses this file to You under the Apache License, Version 2.0
+  * (the "License"); you may not use this file except in compliance with
+  * the License.  You may obtain a copy of the License at
+  *
+  * http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
 package kafka.coordinator.group
 
 import java.util.Properties
@@ -36,17 +36,17 @@ import scala.collection.{Map, Seq, immutable}
 import scala.math.max
 
 /**
- * GroupCoordinator handles general group membership and offset management.
- *
- * Each Kafka server instantiates a coordinator which is responsible for a set of
- * groups. Groups are assigned to coordinators based on their group names.
- * <p>
- * <b>Delayed operation locking notes:</b>
- * Delayed operations in GroupCoordinator use `group` as the delayed operation
- * lock. ReplicaManager.appendRecords may be invoked while holding the group lock
- * used by its callback.  The delayed callback may acquire the group lock
- * since the delayed operation is completed only if the group lock can be acquired.
- */
+  * GroupCoordinator处理一般组成员资格和偏移量管理。
+  *
+  * 每个Kafka服务器实例化一个负责一组协调器的协调器
+  * 组。 组根据其组名分配给协调员。
+  * <P>
+  * <b>延迟操作锁定说明：</ b>
+  * GroupCoordinator中的延迟操作使用`group`作为延迟操作
+  * 锁。 可以在保持组锁的情况下调用ReplicaManager.appendRecords
+  * 由其回调使用。 延迟回调可能会获取组锁
+  * 因为只有在可以获取组锁的情况下才能完成延迟的操作。
+  */
 class GroupCoordinator(val brokerId: Int,
                        val groupConfig: GroupConfig,
                        val offsetConfig: OffsetConfig,
@@ -54,6 +54,7 @@ class GroupCoordinator(val brokerId: Int,
                        val heartbeatPurgatory: DelayedOperationPurgatory[DelayedHeartbeat],
                        val joinPurgatory: DelayedOperationPurgatory[DelayedJoin],
                        time: Time) extends Logging {
+
   import GroupCoordinator._
 
   type JoinCallback = JoinGroupResult => Unit
@@ -72,25 +73,25 @@ class GroupCoordinator(val brokerId: Int,
   }
 
   /**
-   * NOTE: If a group lock and metadataLock are simultaneously needed,
-   * be sure to acquire the group lock before metadataLock to prevent deadlock
-   */
+    * NOTE: If a group lock and metadataLock are simultaneously needed,
+    * be sure to acquire the group lock before metadataLock to prevent deadlock
+    */
 
   /**
-   * Startup logic executed at the same time when the server starts up.
-   */
+    * 启动逻辑在服务器启动的同时执行。
+    */
   def startup(enableMetadataExpiration: Boolean = true) {
     info("Starting up.")
     if (enableMetadataExpiration)
-      groupManager.enableMetadataExpiration()
+      groupManager.enableMetadataExpiration() // 元数据过期
     isActive.set(true)
     info("Startup complete.")
   }
 
   /**
-   * Shutdown logic executed at the same time when server shuts down.
-   * Ordering of actions should be reversed from the startup process.
-   */
+    * Shutdown logic executed at the same time when server shuts down.
+    * Ordering of actions should be reversed from the startup process.
+    */
   def shutdown() {
     info("Shutting down.")
     isActive.set(false)
@@ -118,7 +119,7 @@ class GroupCoordinator(val brokerId: Int,
     } else if (isCoordinatorLoadInProgress(groupId)) {
       responseCallback(joinError(memberId, Errors.COORDINATOR_LOAD_IN_PROGRESS))
     } else if (sessionTimeoutMs < groupConfig.groupMinSessionTimeoutMs ||
-               sessionTimeoutMs > groupConfig.groupMaxSessionTimeoutMs) {
+      sessionTimeoutMs > groupConfig.groupMaxSessionTimeoutMs) {
       responseCallback(joinError(memberId, Errors.INVALID_SESSION_TIMEOUT))
     } else {
       // only try to create the group if the group is not unknown AND
@@ -624,6 +625,7 @@ class GroupCoordinator(val brokerId: Int,
     }
   }
 
+  // 处理分区迁移
   def handleGroupImmigration(offsetTopicPartitionId: Int) {
     groupManager.loadGroupsForPartition(offsetTopicPartitionId, onGroupLoaded)
   }
@@ -674,8 +676,8 @@ class GroupCoordinator(val brokerId: Int,
   }
 
   /**
-   * Complete existing DelayedHeartbeats for the given member and schedule the next one
-   */
+    * Complete existing DelayedHeartbeats for the given member and schedule the next one
+    */
   private def completeAndScheduleNextHeartbeatExpiration(group: GroupMetadata, member: MemberMetadata) {
     // complete current heartbeat expectation
     member.latestHeartbeat = time.milliseconds()
@@ -776,6 +778,7 @@ class GroupCoordinator(val brokerId: Int,
     // TODO: add metrics for restabilize timeouts
   }
 
+  // 完成加入
   def onCompleteJoin(group: GroupMetadata) {
     group.inLock {
       // remove any members who haven't joined the group yet
@@ -880,6 +883,7 @@ object GroupCoordinator {
     apply(config, zkClient, replicaManager, heartbeatPurgatory, joinPurgatory, time)
   }
 
+  // 偏移量配置
   private[group] def offsetConfig(config: KafkaConfig) = OffsetConfig(
     maxMetadataSize = config.offsetMetadataMaxSize,
     loadBufferSize = config.offsetsLoadBufferSize,
@@ -915,6 +919,7 @@ case class GroupConfig(groupMinSessionTimeoutMs: Int,
                        groupMaxSessionTimeoutMs: Int,
                        groupInitialRebalanceDelayMs: Int)
 
+// 加入group的结果
 case class JoinGroupResult(members: Map[String, Array[Byte]],
                            memberId: String,
                            generationId: Int,

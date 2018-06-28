@@ -45,6 +45,9 @@ import static org.apache.kafka.common.protocol.types.Type.INT8;
 import static org.apache.kafka.common.requests.FetchMetadata.FINAL_EPOCH;
 import static org.apache.kafka.common.requests.FetchMetadata.INVALID_SESSION_ID;
 
+/**
+ * 获取请求
+ */
 public class FetchRequest extends AbstractRequest {
     public static final int CONSUMER_REPLICA_ID = -1;
     private static final String REPLICA_ID_KEY_NAME = "replica_id";
@@ -190,9 +193,8 @@ public class FetchRequest extends AbstractRequest {
     private final int maxBytes;
     private final IsolationLevel isolationLevel;
 
-    // Note: the iteration order of this map is significant, since it determines the order
-    // in which partitions appear in the message.  For this reason, this map should have a
-    // deterministic iteration order, like LinkedHashMap or TreeMap (but unlike HashMap).
+    // 注意：此映射的迭代顺序非常重要，因为它决定了分区在消息中的显示顺序。
+    // 出于这个原因，这个映射应该有一个明确的迭代顺序，比如LinkedHashMap或者TreeMap（但不像HashMap）。
     private final Map<TopicPartition, PartitionData> fetchData;
 
     private final List<TopicPartition> toForget;
@@ -264,11 +266,13 @@ public class FetchRequest extends AbstractRequest {
         private FetchMetadata metadata = FetchMetadata.LEGACY;
         private List<TopicPartition> toForget = Collections.<TopicPartition>emptyList();
 
+        // 用于消费者的构建器
         public static Builder forConsumer(int maxWait, int minBytes, Map<TopicPartition, PartitionData> fetchData) {
             return new Builder(ApiKeys.FETCH.oldestVersion(), ApiKeys.FETCH.latestVersion(),
                 CONSUMER_REPLICA_ID, maxWait, minBytes, fetchData);
         }
 
+        // 用于副本的构建器
         public static Builder forReplica(short allowedVersion, int replicaId, int maxWait, int minBytes,
                                          Map<TopicPartition, PartitionData> fetchData) {
             return new Builder(allowedVersion, allowedVersion, replicaId, maxWait, minBytes, fetchData);

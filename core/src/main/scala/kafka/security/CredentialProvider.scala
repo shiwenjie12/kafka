@@ -25,18 +25,20 @@ import org.apache.kafka.common.config.ConfigDef
 import org.apache.kafka.common.config.ConfigDef._
 import org.apache.kafka.common.security.token.delegation.DelegationTokenCache
 
+// 凭证的供应器
 class CredentialProvider(scramMechanisms: Collection[String], val tokenCache: DelegationTokenCache) {
 
   val credentialCache = new CredentialCache
   ScramCredentialUtils.createCache(credentialCache, scramMechanisms)
 
+  // 更新凭据
   def updateCredentials(username: String, config: Properties) {
-    for (mechanism <- ScramMechanism.values()) {
+    for (mechanism <- ScramMechanism.values()) { // 机制 SHA-256、SHA-512
       val cache = credentialCache.cache(mechanism.mechanismName, classOf[ScramCredential])
-      if (cache != null) {
+      if (cache != null) { // 获取机制缓存对象
         config.getProperty(mechanism.mechanismName) match {
           case null => cache.remove(username)
-          case c => cache.put(username, ScramCredentialUtils.credentialFromString(c))
+          case c => cache.put(username, ScramCredentialUtils.credentialFromString(c)) // 更新缓存中的username的属性
         }
       }
     }

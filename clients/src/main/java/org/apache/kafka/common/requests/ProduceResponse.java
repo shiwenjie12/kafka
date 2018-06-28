@@ -159,7 +159,7 @@ public class ProduceResponse extends AbstractResponse {
     /**
      * Constructor for the latest version
      * @param responses Produced data grouped by topic-partition
-     * @param throttleTime Time in milliseconds the response was throttled
+     * @param throttleTime 时间以毫秒为单位，响应被抑制
      */
     public ProduceResponse(Map<TopicPartition, PartitionResponse> responses, int throttleTime) {
         this.responses = responses;

@@ -67,14 +67,13 @@ public class FileRecords extends AbstractRecords implements Closeable {
         this.size = new AtomicInteger();
 
         if (isSlice) {
-            // don't check the file size if this is just a slice view
+            // 如果这只是一个切片视图，请不要检查文件大小
             size.set(end - start);
         } else {
-            int limit = Math.min((int) channel.size(), end);
+            int limit = Math.min((int) channel.size(), end); // 文件大小
             size.set(limit - start);
 
-            // if this is not a slice, update the file pointer to the end of the file
-            // set the file position to the last byte in the file
+            // 如果这不是分片，则将文件指针更新为文件末尾，将文件位置设置为文件中的最后一个字节
             channel.position(limit);
         }
 
@@ -144,7 +143,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
     }
 
     /**
-     * Append log batches to the buffer
+     * 将日志批处理附加到缓冲区
      * @param records The records to append
      * @return the number of bytes written to the underlying file
      */
@@ -293,7 +292,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
     }
 
     /**
-     * Search forward for the first message that meets the following requirements:
+     * 向前搜索符合以下要求的第一条消息：
      * - Message's timestamp is greater than or equals to the targetTimestamp.
      * - Message's position in the log file is greater than or equals to the startingPosition.
      * - Message's offset is greater than or equals to the startingOffset.
@@ -371,7 +370,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
                                    boolean fileAlreadyExists,
                                    int initFileSize,
                                    boolean preallocate) throws IOException {
-        FileChannel channel = openChannel(file, mutable, fileAlreadyExists, initFileSize, preallocate);
+        FileChannel channel = openChannel(file, mutable, fileAlreadyExists, initFileSize, preallocate);// 文件通道
         int end = (!fileAlreadyExists && preallocate) ? 0 : Integer.MAX_VALUE;
         return new FileRecords(file, channel, 0, end, false);
     }
@@ -392,9 +391,9 @@ public class FileRecords extends AbstractRecords implements Closeable {
     }
 
     /**
-     * Open a channel for the given file
-     * For windows NTFS and some old LINUX file system, set preallocate to true and initFileSize
-     * with one value (for example 512 * 1025 *1024 ) can improve the kafka produce performance.
+     * 打开给定文件的通道
+     * 对于Windows NTFS和一些旧的Linux文件系统，将预分配设置为true和INITFILE
+     * 用一个值（例如512×1025×1024）可以提高卡夫卡生产性能。
      * @param file File path
      * @param mutable mutable
      * @param fileAlreadyExists File already exists or not

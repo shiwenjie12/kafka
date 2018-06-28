@@ -22,10 +22,10 @@ import org.apache.kafka.common.MetricName
 import org.apache.kafka.common.metrics.{MeasurableStat, MetricConfig, Metrics, Sensor}
 
 /**
-  * Class which centralises the logic for creating/accessing sensors.
-  * The quota can be updated by wrapping it in the passed MetricConfig
+  * 类集中了用于创建/访问传感器的逻辑。
+  * 可以通过在传递的度量配置中包装配额来更新配额。
   *
-  * The later arguments are passed as methods as they are only called when the sensor is instantiated.
+  * 后面的参数被传递为它们只在实例化传感器时调用的方法。
   */
 class SensorAccess(lock: ReadWriteLock, metrics: Metrics) {
 
@@ -33,20 +33,22 @@ class SensorAccess(lock: ReadWriteLock, metrics: Metrics) {
                   metricName: => MetricName, config: => Option[MetricConfig], measure: => MeasurableStat): Sensor = {
     var sensor: Sensor = null
 
-    /* Acquire the read lock to fetch the sensor. It is safe to call getSensor from multiple threads.
-     * The read lock allows a thread to create a sensor in isolation. The thread creating the sensor
-     * will acquire the write lock and prevent the sensors from being read while they are being created.
-     * It should be sufficient to simply check if the sensor is null without acquiring a read lock but the
-     * sensor being present doesn't mean that it is fully initialized i.e. all the Metrics may not have been added.
-     * This read lock waits until the writer thread has released its lock i.e. fully initialized the sensor
-     * at which point it is safe to read
-     */
+    /**
+      * 获取读取锁以获取传感器。从多个线程调用getSensor是安全的。
+      * 读锁允许线程单独创建一个传感器。创建传感器的线程
+      * 将获取写入锁，并防止传感器在创建它们时被读取。
+      * 只需检查传感器是否为空，而不需要读取读锁，就足够了。
+      * 存在的传感器并不意味着它被完全初始化，也就是说，所有的度量可能都没有被添加。
+      * 这个读锁等待，直到写入线程已经释放它的锁，即完全初始化传感器。
+      * 在这一点上阅读是安全的。
+      */
     lock.readLock().lock()
     try sensor = metrics.getSensor(sensorName)
     finally lock.readLock().unlock()
 
-    /* If the sensor is null, try to create it else return the existing sensor
-     * The sensor can be null, hence the null checks
+    /*
+     * 如果传感器为NULL，尝试创建它，否则返回现有传感器。
+     * 传感器可以为NULL，因此空校验。
      */
     if (sensor == null) {
       /* Acquire a write lock because the sensor may not have been created and we only want one thread to create it.

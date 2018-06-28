@@ -75,12 +75,10 @@ object TransactionCoordinator {
 }
 
 /**
- * Transaction coordinator handles message transactions sent by producers and communicate with brokers
- * to update ongoing transaction's status.
- *
- * Each Kafka server instantiates a transaction coordinator which is responsible for a set of
- * producers. Producers with specific transactional ids are assigned to their corresponding coordinators;
- * Producers with no specific transactional id may talk to a random broker as their coordinators.
+ * 事务协调员处理由生产者发送的消息交易并与经纪人通信以更新持续交易的状态。
+  *
+ * 每个Kafka服务器实例化一个负责一组生产者的事务协调器。
+  * 具有特定交易ID的生产者被分配给其相应的协调员; 没有具体交易编号的制片人可能会与随机经纪人作为他们的协调员。
  */
 class TransactionCoordinator(brokerId: Int,
                              txnConfig: TransactionConfig,
@@ -102,27 +100,26 @@ class TransactionCoordinator(brokerId: Int,
   /* Active flag of the coordinator */
   private val isActive = new AtomicBoolean(false)
 
+  // 初始化生产者id
   def handleInitProducerId(transactionalId: String,
                            transactionTimeoutMs: Int,
                            responseCallback: InitProducerIdCallback): Unit = {
 
-    if (transactionalId == null) {
-      // if the transactional id is null, then always blindly accept the request
-      // and return a new producerId from the producerId manager
+    if (transactionalId == null) { // 走不到这里面的逻辑
+      // 如果事务标识为空，则始终盲目接受请求并从producerId管理器返回新的producerId
       val producerId = producerIdManager.generateProducerId()
       responseCallback(InitProducerIdResult(producerId, producerEpoch = 0, Errors.NONE))
     } else if (transactionalId.isEmpty) {
-      // if transactional id is empty then return error as invalid request. This is
-      // to make TransactionCoordinator's behavior consistent with producer client
+      // 如果事务标识为空，则返回错误作为无效请求。 这是为了使TransactionCoordinator的行为与生产者客户端一致
       responseCallback(initTransactionError(Errors.INVALID_REQUEST))
     } else if (!txnManager.validateTransactionTimeoutMs(transactionTimeoutMs)) {
-      // check transactionTimeoutMs is not larger than the broker configured maximum allowed value
+      // 请检查transactionTimeoutMs是否不大于代理配置的最大允许值
       responseCallback(initTransactionError(Errors.INVALID_TRANSACTION_TIMEOUT))
     } else {
       val coordinatorEpochAndMetadata = txnManager.getTransactionState(transactionalId).right.flatMap {
-        case None =>
-          val producerId = producerIdManager.generateProducerId()
-          val createdMetadata = new TransactionMetadata(transactionalId = transactionalId,
+        case None => // 构造新的事务元数据
+          val producerId = producerIdManager.generateProducerId() // 生产者id
+          val createdMetadata = new TransactionMetadata(transactionalId = transactionalId, // 创建事务元素
             producerId = producerId,
             producerEpoch = RecordBatch.NO_PRODUCER_EPOCH,
             txnTimeoutMs = transactionTimeoutMs,
@@ -150,21 +147,22 @@ class TransactionCoordinator(brokerId: Int,
 
         case Right((coordinatorEpoch, newMetadata)) =>
           if (newMetadata.txnState == PrepareEpochFence) {
-            // abort the ongoing transaction and then return CONCURRENT_TRANSACTIONS to let client wait and retry
+            // 中止正在进行的事务，然后返回CONCURRENT_TRANSACTIONS以让客户端等待并重试
             def sendRetriableErrorCallback(error: Errors): Unit = {
               if (error != Errors.NONE) {
                 responseCallback(initTransactionError(error))
               } else {
-                responseCallback(initTransactionError(Errors.CONCURRENT_TRANSACTIONS))
+                responseCallback(initTransactionError(Errors.CONCURRENT_TRANSACTIONS)) // 中断之前的事务
               }
             }
 
-            handleEndTransaction(transactionalId,
+            handleEndTransaction(transactionalId, // 中断当前事务
               newMetadata.producerId,
               newMetadata.producerEpoch,
               TransactionResult.ABORT,
               sendRetriableErrorCallback)
           } else {
+            // 发送pid的回调
             def sendPidResponseCallback(error: Errors): Unit = {
               if (error == Errors.NONE) {
                 info(s"Initialized transactionalId $transactionalId with producerId ${newMetadata.producerId} and producer " +
@@ -177,28 +175,29 @@ class TransactionCoordinator(brokerId: Int,
               }
             }
 
-            txnManager.appendTransactionToLog(transactionalId, coordinatorEpoch, newMetadata, sendPidResponseCallback)
+            txnManager.appendTransactionToLog(transactionalId, coordinatorEpoch, newMetadata, sendPidResponseCallback) // 初始化生产者id
           }
       }
     }
   }
 
+  // 预初始化
   private def prepareInitProduceIdTransit(transactionalId: String,
                                           transactionTimeoutMs: Int,
                                           coordinatorEpoch: Int,
                                           txnMetadata: TransactionMetadata): ApiResult[(Int, TxnTransitMetadata)] = {
-    if (txnMetadata.pendingTransitionInProgress) {
+    if (txnMetadata.pendingTransitionInProgress) { // 有正在进行的事务
       // return a retriable exception to let the client backoff and retry
       Left(Errors.CONCURRENT_TRANSACTIONS)
     } else {
-      // caller should have synchronized on txnMetadata already
+      // 调用者应该已经在txnMetadata上同步了
       txnMetadata.state match {
         case PrepareAbort | PrepareCommit =>
           // reply to client and let it backoff and retry
           Left(Errors.CONCURRENT_TRANSACTIONS)
 
-        case CompleteAbort | CompleteCommit | Empty =>
-          val transitMetadata = if (txnMetadata.isProducerEpochExhausted) {
+        case CompleteAbort | CompleteCommit | Empty => // 进行初始化
+          val transitMetadata = if (txnMetadata.isProducerEpochExhausted) { // epoch枯竭
             val newProducerId = producerIdManager.generateProducerId()
             txnMetadata.prepareProducerIdRotation(newProducerId, transactionTimeoutMs, time.milliseconds())
           } else {
@@ -208,12 +207,11 @@ class TransactionCoordinator(brokerId: Int,
           Right(coordinatorEpoch, transitMetadata)
 
         case Ongoing =>
-          // indicate to abort the current ongoing txn first. Note that this epoch is never returned to the
-          // user. We will abort the ongoing transaction and return CONCURRENT_TRANSACTIONS to the client.
-          // This forces the client to retry, which will ensure that the epoch is bumped a second time. In
-          // particular, if fencing the current producer exhausts the available epochs for the current producerId,
-          // then when the client retries, we will generate a new producerId.
-          Right(coordinatorEpoch, txnMetadata.prepareFenceProducerEpoch())
+          // 表示首先中止当前正在进行的txn。 请注意，这个epoch永远不会返回给用户。
+          // 我们将中止正在进行的交易并将CONCURRENT_TRANSACTIONS退还给客户。
+          // 这迫使客户重试，这将确保该时代第二次被碰撞。
+          // 特别是，如果屏蔽当前生产者耗尽当前producerId的可用时期，那么当客户重试时，我们将生成新的producerId。
+          Right(coordinatorEpoch, txnMetadata.prepareFenceProducerEpoch()) // 终止当前epoch
 
         case Dead | PrepareEpochFence =>
           val errorMsg = s"Found transactionalId $transactionalId with state ${txnMetadata.state}. " +
@@ -243,7 +241,7 @@ class TransactionCoordinator(brokerId: Int,
           val coordinatorEpoch = epochAndMetadata.coordinatorEpoch
           val txnMetadata = epochAndMetadata.transactionMetadata
 
-          // generate the new transaction metadata with added partitions
+          // 使用添加的分区生成新的事务元数据
           txnMetadata.inLock {
             if (txnMetadata.producerId != producerId) {
               Left(Errors.INVALID_PRODUCER_ID_MAPPING)
@@ -255,7 +253,7 @@ class TransactionCoordinator(brokerId: Int,
             } else if (txnMetadata.state == PrepareCommit || txnMetadata.state == PrepareAbort) {
               Left(Errors.CONCURRENT_TRANSACTIONS)
             } else if (txnMetadata.state == Ongoing && partitions.subsetOf(txnMetadata.topicPartitions)) {
-              // this is an optimization: if the partitions are already in the metadata reply OK immediately
+              // 这是一个优化：如果分区已经在元数据中，立即回复确定
               Left(Errors.NONE)
             } else {
               Right(coordinatorEpoch, txnMetadata.prepareAddPartitions(partitions.toSet, time.milliseconds()))
@@ -269,7 +267,7 @@ class TransactionCoordinator(brokerId: Int,
           responseCallback(err)
 
         case Right((coordinatorEpoch, newMetadata)) =>
-          txnManager.appendTransactionToLog(transactionalId, coordinatorEpoch, newMetadata, responseCallback)
+          txnManager.appendTransactionToLog(transactionalId, coordinatorEpoch, newMetadata, responseCallback) // 添加分区到事务中
       }
     }
   }
@@ -291,6 +289,7 @@ class TransactionCoordinator(brokerId: Int,
     Left(Errors.INVALID_TXN_STATE)
   }
 
+  // 处理结束事务
   def handleEndTransaction(transactionalId: String,
                            producerId: Long,
                            producerEpoch: Short,
@@ -316,19 +315,18 @@ class TransactionCoordinator(brokerId: Int,
               Left(Errors.CONCURRENT_TRANSACTIONS)
             else txnMetadata.state match {
               case Ongoing =>
-                val nextState = if (txnMarkerResult == TransactionResult.COMMIT)
+                val nextState = if (txnMarkerResult == TransactionResult.COMMIT) // 接下来的状态
                   PrepareCommit
                 else
                   PrepareAbort
 
                 if (nextState == PrepareAbort && txnMetadata.pendingState.contains(PrepareEpochFence)) {
-                  // We should clear the pending state to make way for the transition to PrepareAbort and also bump
-                  // the epoch in the transaction metadata we are about to append.
+                  // 我们应该清除待处理状态，以便让过渡到PrepareAbort，并且冲刷我们将要追加的事务元数据中的时代。
                   txnMetadata.pendingState = None
                   txnMetadata.producerEpoch = producerEpoch
                 }
 
-                Right(coordinatorEpoch, txnMetadata.prepareAbortOrCommit(nextState, time.milliseconds()))
+                Right(coordinatorEpoch, txnMetadata.prepareAbortOrCommit(nextState, time.milliseconds()))  // 开始处理
               case CompleteCommit =>
                 if (txnMarkerResult == TransactionResult.COMMIT)
                   Left(Errors.NONE)
@@ -389,12 +387,12 @@ class TransactionCoordinator(brokerId: Int,
                       else txnMetadata.state match {
                         case Empty| Ongoing | CompleteCommit | CompleteAbort =>
                           logInvalidStateTransitionAndReturnError(transactionalId, txnMetadata.state, txnMarkerResult)
-                        case PrepareCommit =>
+                        case PrepareCommit =>  // 预完成提交
                           if (txnMarkerResult != TransactionResult.COMMIT)
                             logInvalidStateTransitionAndReturnError(transactionalId, txnMetadata.state, txnMarkerResult)
                           else
                             Right(txnMetadata, txnMetadata.prepareComplete(time.milliseconds()))
-                        case PrepareAbort =>
+                        case PrepareAbort =>   // 预完成中断
                           if (txnMarkerResult != TransactionResult.ABORT)
                             logInvalidStateTransitionAndReturnError(transactionalId, txnMetadata.state, txnMarkerResult)
                           else
@@ -414,16 +412,15 @@ class TransactionCoordinator(brokerId: Int,
                   }
               }
 
-              preSendResult match {
+              preSendResult match { // 预完成和完成
                 case Left(err) =>
                   info(s"Aborting sending of transaction markers after appended $txnMarkerResult to transaction log and returning $err error to client for $transactionalId's EndTransaction request")
                   responseCallback(err)
 
                 case Right((txnMetadata, newPreSendMetadata)) =>
-                  // we can respond to the client immediately and continue to write the txn markers if
-                  // the log append was successful
+                  // 我们可以立即响应客户端，如果日志追加成功，则继续写入txn标记
                   responseCallback(Errors.NONE)
-
+                  // 请求事务请求完成需要向其他broker发送事务marker请求
                   txnMarkerChannelManager.addTxnMarkersToSend(transactionalId, coordinatorEpoch, txnMarkerResult, txnMetadata, newPreSendMetadata)
               }
             } else {
@@ -434,7 +431,7 @@ class TransactionCoordinator(brokerId: Int,
             }
           }
 
-          txnManager.appendTransactionToLog(transactionalId, coordinatorEpoch, newMetadata, sendTxnMarkersCallback)
+          txnManager.appendTransactionToLog(transactionalId, coordinatorEpoch, newMetadata, sendTxnMarkersCallback) // 完成事务
       }
     }
   }
@@ -443,6 +440,7 @@ class TransactionCoordinator(brokerId: Int,
 
   def partitionFor(transactionalId: String): Int = txnManager.partitionFor(transactionalId)
 
+  // 中断超时异常
   private def abortTimedOutTransactions(): Unit = {
     txnManager.timedOutTransactions().foreach { txnIdAndPidEpoch =>
       txnManager.getTransactionState(txnIdAndPidEpoch.transactionalId).right.flatMap {
@@ -463,10 +461,10 @@ class TransactionCoordinator(brokerId: Int,
             } else if (txnMetadata.pendingTransitionInProgress) {
               Left(Errors.CONCURRENT_TRANSACTIONS)
             } else {
-              Right(txnMetadata.prepareFenceProducerEpoch())
+              Right(txnMetadata.prepareFenceProducerEpoch()) // 改变状态  PrepareEpochFence
             }
           }
-          transitMetadata match {
+          transitMetadata match {  // 处理超时的异常
             case Right(txnTransitMetadata) =>
               handleEndTransaction(txnMetadata.transactionalId,
                 txnTransitMetadata.producerId,
@@ -491,13 +489,13 @@ class TransactionCoordinator(brokerId: Int,
   }
 
   /**
-   * Startup logic executed at the same time when the server starts up.
+   * 启动逻辑在服务器启动的同时执行。
    */
   def startup(enableTransactionalIdExpiration: Boolean = true) {
     info("Starting up.")
     scheduler.startup()
     scheduler.schedule("transaction-abort",
-      abortTimedOutTransactions,
+      abortTimedOutTransactions, // 中断超时事务
       txnConfig.abortTimedOutTransactionsIntervalMs,
       txnConfig.abortTimedOutTransactionsIntervalMs
     )

@@ -46,8 +46,7 @@ public class Sanitizer {
     private static final Pattern MBEAN_PATTERN = Pattern.compile("[\\w-%\\. \t]*");
 
     /**
-     * Sanitize `name` for safe use as JMX metric name as well as ZooKeeper node name
-     * using URL-encoding.
+     * 使用URL编码将“名称”安全地用作JMX度量名以及zookeeper节点名称。
      */
     public static String sanitize(String name) {
         String encoded = "";

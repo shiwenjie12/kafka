@@ -17,4 +17,5 @@
 
 package kafka.log
 
+// 损坏索引的异常
 class CorruptIndexException(message: String) extends RuntimeException(message)

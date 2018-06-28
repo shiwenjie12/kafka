@@ -18,16 +18,19 @@ package org.apache.kafka.common.security.authenticator;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+// 凭证缓存
 public class CredentialCache {
 
     private final ConcurrentHashMap<String, Cache<? extends Object>> cacheMap = new ConcurrentHashMap<>();
 
+    // 创建缓存凭据
     public <C> Cache<C> createCache(String mechanism, Class<C> credentialClass) {
         Cache<C> cache = new Cache<C>(credentialClass);
         Cache<C> oldCache = (Cache<C>) cacheMap.putIfAbsent(mechanism, cache);
         return oldCache == null ? cache : oldCache;
     }
 
+    // 获取缓存凭据缓存
     @SuppressWarnings("unchecked")
     public <C> Cache<C> cache(String mechanism, Class<C> credentialClass) {
         Cache<?> cache = cacheMap.get(mechanism);
@@ -39,6 +42,7 @@ public class CredentialCache {
             return null;
     }
 
+    // 缓存对象，包括凭据类和信息
     public static class Cache<C> {
         private final Class<C> credentialClass;
         private final ConcurrentHashMap<String, C> credentials;

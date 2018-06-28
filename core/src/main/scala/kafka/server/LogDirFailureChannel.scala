@@ -24,7 +24,7 @@ import java.util.concurrent.{ArrayBlockingQueue, ConcurrentHashMap}
 import kafka.utils.Logging
 
 /*
- * LogDirFailureChannel allows an external thread to block waiting for new offline log dirs.
+ * LogDirFailureChannel 通道允许外部线程阻止等待新的脱机日志目录。
  *
  * There should be a single instance of LogDirFailureChannel accessible by any class that does disk-IO operation.
  * If IOException is encountered while accessing a log directory, the corresponding class can add the log directory name
@@ -42,17 +42,18 @@ class LogDirFailureChannel(logDirNum: Int) extends Logging {
   /*
    * If the given logDir is not already offline, add it to the
    * set of offline log dirs and enqueue it to the logDirFailureEvent queue
+   * 添加脱机日志
    */
   def maybeAddOfflineLogDir(logDir: String, msg: => String, e: IOException): Unit = {
     error(msg, e)
-    if (offlineLogDirs.putIfAbsent(logDir, logDir) == null) {
+    if (offlineLogDirs.putIfAbsent(logDir, logDir) == null) { // 保证添加的唯一性
       offlineLogDirQueue.add(logDir)
     }
   }
 
   /*
-   * Get the next offline log dir from logDirFailureEvent queue.
-   * The method will wait if necessary until a new offline log directory becomes available
+   * 从logDirFailureEvent队列获取下一个脱机日志目录。
+   * 如果需要的话，该方法将等待，直到新的脱机日志目录可用。
    */
   def takeNextOfflineLogDir(): String = offlineLogDirQueue.take()
 

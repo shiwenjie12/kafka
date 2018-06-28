@@ -24,6 +24,7 @@ import org.apache.kafka.common.utils.Time
 
 import scala.math._
 
+// 环形结构
 @threadsafe
 private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
 
@@ -34,6 +35,7 @@ private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
   root.next = root
   root.prev = root
 
+  // 过期时间
   private[this] val expiration = new AtomicLong(-1L)
 
   // Set the bucket's expiration time
@@ -74,6 +76,7 @@ private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
         timerTaskEntry.synchronized {
           if (timerTaskEntry.list == null) {
             // put the timer task entry to the end of the list. (root.prev points to the tail entry)
+            // 添加到列头
             val tail = root.prev
             timerTaskEntry.next = root
             timerTaskEntry.prev = tail
@@ -88,7 +91,7 @@ private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
     }
   }
 
-  // Remove the specified timer task entry from this list
+  // 从list中移除特殊的时间的任务实体
   def remove(timerTaskEntry: TimerTaskEntry): Unit = {
     synchronized {
       timerTaskEntry.synchronized {
@@ -104,7 +107,7 @@ private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
     }
   }
 
-  // Remove all task entries and apply the supplied function to each of them
+  // 删除所有任务条目并将提供的功能应用于其中的每个条目
   def flush(f: (TimerTaskEntry)=>Unit): Unit = {
     synchronized {
       var head = root.next
@@ -117,10 +120,12 @@ private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
     }
   }
 
+  // 返回与此对象相关的剩余延迟时间，以给定的时间单位表示
   def getDelay(unit: TimeUnit): Long = {
     unit.convert(max(getExpiration - Time.SYSTEM.hiResClockMs, 0), TimeUnit.MILLISECONDS)
   }
 
+  // 按照过期时间进行比较 用于优先级队列
   def compareTo(d: Delayed): Int = {
 
     val other = d.asInstanceOf[TimerTaskList]
@@ -132,8 +137,10 @@ private[timer] class TimerTaskList(taskCounter: AtomicInteger) extends Delayed {
 
 }
 
+// 定时任务器中存储的实体 {@see timerTask 要执行的定时任务}
 private[timer] class TimerTaskEntry(val timerTask: TimerTask, val expirationMs: Long) extends Ordered[TimerTaskEntry] {
 
+  // 相关实体节点
   @volatile
   var list: TimerTaskList = null
   var next: TimerTaskEntry = null
@@ -143,15 +150,15 @@ private[timer] class TimerTaskEntry(val timerTask: TimerTask, val expirationMs: 
   // setTimerTaskEntry will remove it.
   if (timerTask != null) timerTask.setTimerTaskEntry(this)
 
+  // 是否已经取消
   def cancelled: Boolean = {
     timerTask.getTimerTaskEntry != this
   }
 
   def remove(): Unit = {
     var currentList = list
-    // If remove is called when another thread is moving the entry from a task entry list to another,
-    // this may fail to remove the entry due to the change of value of list. Thus, we retry until the list becomes null.
-    // In a rare case, this thread sees null and exits the loop, but the other thread insert the entry to another list later.
+    // 如果另一个线程将条目从任务条目列表移动到另一个线程时调用remove，则由于列表值的更改可能无法删除条目。
+    // 因此，我们重试直到列表变为null。在极少数情况下，此线程会看到null并退出循环，但其他线程稍后会将该条目插入另一个列表。
     while (currentList != null) {
       currentList.remove(this)
       currentList = list

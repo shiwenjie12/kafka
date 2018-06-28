@@ -52,35 +52,33 @@ private[transaction] case object Ongoing extends TransactionState { val byte: By
 private[transaction] case object PrepareCommit extends TransactionState { val byte: Byte = 2}
 
 /**
- * Group is preparing to abort
+ * 集团正在准备中止
  *
  * transition: received acks from all partitions => CompleteAbort
  */
 private[transaction] case object PrepareAbort extends TransactionState { val byte: Byte = 3 }
 
 /**
- * Group has completed commit
- *
- * Will soon be removed from the ongoing transaction cache
+ * 组已完成提交
+ * 将很快从正在进行的事务缓存中删除
  */
 private[transaction] case object CompleteCommit extends TransactionState { val byte: Byte = 4 }
 
 /**
- * Group has completed abort
+ * 小组已完成中止
  *
- * Will soon be removed from the ongoing transaction cache
+ * 将很快从正在进行的事务缓存中删除
  */
 private[transaction] case object CompleteAbort extends TransactionState { val byte: Byte = 5 }
 
 /**
-  * TransactionalId has expired and is about to be removed from the transaction cache
+  * TransactionalId已过期，即将从事务高速缓存中删除
   */
 private[transaction] case object Dead extends TransactionState { val byte: Byte = 6 }
 
 /**
-  * We are in the middle of bumping the epoch and fencing out older producers.
+  * 我们正在冲击这个epoch，并围绕着老的生产者。
   */
-
 private[transaction] case object PrepareEpochFence extends TransactionState { val byte: Byte = 7}
 
 private[transaction] object TransactionMetadata {
@@ -122,7 +120,7 @@ private[transaction] object TransactionMetadata {
     )
 }
 
-// this is a immutable object representing the target transition of the transaction metadata
+// 这是表示事务元数据的目标转换的不可变对象
 private[transaction] case class TxnTransitMetadata(producerId: Long,
                                                    producerEpoch: Short,
                                                    txnTimeoutMs: Int,
@@ -143,7 +141,7 @@ private[transaction] case class TxnTransitMetadata(producerId: Long,
 }
 
 /**
-  *
+  * 事务的元数据组成
   * @param producerId            producer id
   * @param producerEpoch         current epoch of the producer
   * @param txnTimeoutMs          timeout to be used to abort long running transactions
@@ -162,9 +160,7 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
                                                @volatile var txnStartTimestamp: Long = -1,
                                                @volatile var txnLastUpdateTimestamp: Long) extends Logging {
 
-  // pending state is used to indicate the state that this transaction is going to
-  // transit to, and for blocking future attempts to transit it again if it is not legal;
-  // initialized as the same as the current state
+  // 挂起状态用于指示此事务将要转移到的状态，并且用于阻止未来尝试再次转移它，如果它不合法的话;将其初始化为与当前状态相同
   var pendingState: Option[TransactionState] = None
 
   private[transaction] val lock = new ReentrantLock
@@ -193,7 +189,7 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
     if (producerEpoch == Short.MaxValue)
       throw new IllegalStateException(s"Cannot fence producer with epoch equal to Short.MaxValue since this would overflow")
 
-    prepareTransitionTo(PrepareEpochFence, producerId, (producerEpoch + 1).toShort, txnTimeoutMs, topicPartitions.toSet,
+    prepareTransitionTo(PrepareEpochFence, producerId, (producerEpoch + 1).toShort /** 增加生产者epoch */, txnTimeoutMs, topicPartitions.toSet,
       txnStartTimestamp, txnLastUpdateTimestamp)
   }
 
@@ -213,34 +209,38 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
   }
 
   def prepareAddPartitions(addedTopicPartitions: immutable.Set[TopicPartition], updateTimestamp: Long): TxnTransitMetadata = {
-    val newTxnStartTimestamp = state match {
+    val newTxnStartTimestamp = state match {  // 新的事务时间
       case Empty | CompleteAbort | CompleteCommit => updateTimestamp
       case _ => txnStartTimestamp
     }
 
+    // 添加新的分区
     prepareTransitionTo(Ongoing, producerId, producerEpoch, txnTimeoutMs, (topicPartitions ++ addedTopicPartitions).toSet,
       newTxnStartTimestamp, updateTimestamp)
   }
 
+  // 过渡（预）中断或者完成
   def prepareAbortOrCommit(newState: TransactionState, updateTimestamp: Long): TxnTransitMetadata = {
     prepareTransitionTo(newState, producerId, producerEpoch, txnTimeoutMs, topicPartitions.toSet, txnStartTimestamp,
       updateTimestamp)
   }
 
+  // 向事务完成过渡
   def prepareComplete(updateTimestamp: Long): TxnTransitMetadata = {
     val newState = if (state == PrepareCommit) CompleteCommit else CompleteAbort
     prepareTransitionTo(newState, producerId, producerEpoch, txnTimeoutMs, Set.empty[TopicPartition], txnStartTimestamp,
       updateTimestamp)
   }
 
+  // 转换为死亡状态
   def prepareDead(): TxnTransitMetadata = {
     prepareTransitionTo(Dead, producerId, producerEpoch, txnTimeoutMs, Set.empty[TopicPartition], txnStartTimestamp,
       txnLastUpdateTimestamp)
   }
 
   /**
-   * Check if the epochs have been exhausted for the current producerId. We do not allow the client to use an
-   * epoch equal to Short.MaxValue to ensure that the coordinator will always be able to fence an existing producer.
+    * 检查当前producerId是否耗尽了这些纪元。
+    * 我们不允许客户端使用与Short.MaxValue相等的历元，以确保协调员始终能够对现有生产者进行篱笆划分。
    */
   def isProducerEpochExhausted: Boolean = producerEpoch >= Short.MaxValue - 1
 
@@ -251,6 +251,7 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
     }
   }
 
+  // 事务转换的预处理
   private def prepareTransitionTo(newState: TransactionState,
                                   newProducerId: Long,
                                   newEpoch: Short,
@@ -268,7 +269,7 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
     if (newEpoch < 0)
       throw new IllegalArgumentException(s"Illegal new producer epoch $newEpoch")
 
-    // check that the new state transition is valid and update the pending state if necessary
+    // 检查新的状态转换是否有效，并在必要时更新暂挂状态
     if (TransactionMetadata.validPreviousStates(newState).contains(state)) {
       val transitMetadata = TxnTransitMetadata(newProducerId, newEpoch, newTxnTimeoutMs, newState,
         newTopicPartitions, newTxnStartTimestamp, updateTimestamp)
@@ -282,18 +283,17 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
   }
 
   def completeTransitionTo(transitMetadata: TxnTransitMetadata): Unit = {
-    // metadata transition is valid only if all the following conditions are met:
+    // 只有满足以下所有条件，元数据转换才有效：
     //
-    // 1. the new state is already indicated in the pending state.
-    // 2. the epoch should be either the same value, the old value + 1, or 0 if we have a new producerId.
-    // 3. the last update time is no smaller than the old value.
-    // 4. the old partitions set is a subset of the new partitions set.
+    // 1.新状态已经显示在待处理状态。
+    // 2.时期应该是相同的值，旧的值+1，或者如果我们有一个新的producerId，则为0。
+    // 3.最后更新时间不小于旧值。
+    // 4.旧分区集是新分区集的一个子集。
     //
-    // plus, we should only try to update the metadata after the corresponding log entry has been successfully
-    // written and replicated (see TransactionStateManager#appendTransactionToLog)
+    // 另外，我们应该只尝试在相应日志条目成功后更新元数据
+    // 写和复制（请参阅TransactionStateManager＃appendTransactionToLog）
     //
-    // if valid, transition is done via overwriting the whole object to ensure synchronization
-
+    // 如果有效，则通过覆盖整个对象来完成转换以确保同步
     val toState = pendingState.getOrElse {
       fatal(s"$this's transition to $transitMetadata failed since pendingState is not defined: this should not happen")
 
@@ -301,14 +301,14 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
         "completing transaction state transition while it does not have a pending state")
     }
 
-    if (toState != transitMetadata.txnState) {
+    if (toState != transitMetadata.txnState) { // 不符合预期，抛出异常
       throwStateTransitionFailure(transitMetadata)
     } else {
       toState match {
         case Empty => // from initPid
           if ((producerEpoch != transitMetadata.producerEpoch && !validProducerEpochBump(transitMetadata)) ||
             transitMetadata.topicPartitions.nonEmpty ||
-            transitMetadata.txnStartTimestamp != -1) {
+            transitMetadata.txnStartTimestamp != -1) { // 不符合要求
 
             throwStateTransitionFailure(transitMetadata)
           } else {
@@ -357,7 +357,7 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
           throwStateTransitionFailure(transitMetadata)
 
 
-        case Dead =>
+        case Dead => // 事务清除
           // The transactionalId was being expired. The completion of the operation should result in removal of the
           // the metadata from the cache, so we should never realistically transition to the dead state.
           throw new IllegalStateException(s"TransactionalId $transactionalId is trying to complete a transition to " +
@@ -367,6 +367,7 @@ private[transaction] class TransactionMetadata(val transactionalId: String,
 
       debug(s"TransactionalId $transactionalId complete transition from $state to $transitMetadata")
       txnLastUpdateTimestamp = transitMetadata.txnLastUpdateTimestamp
+      // 将过渡状态进行转换
       pendingState = None
       state = toState
     }

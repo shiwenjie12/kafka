@@ -35,7 +35,7 @@ import static org.apache.kafka.common.protocol.types.Type.BOOLEAN;
 import static org.apache.kafka.common.protocol.types.Type.STRING;
 
 /**
- * 元数据请求
+ * 元数据请求q
  */
 public class MetadataRequest extends AbstractRequest {
 

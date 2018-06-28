@@ -23,6 +23,9 @@ import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.TrustManagerFactory;
 import java.util.Set;
 
+/**
+ * 加密的ssl配置
+ */
 public class SslConfigs {
     /*
      * NOTE: DO NOT CHANGE EITHER CONFIG NAMES AS THESE ARE PART OF THE PUBLIC API AND CHANGE WILL BREAK USER CODE.
@@ -138,6 +141,7 @@ public class SslConfigs {
                 .define(SslConfigs.SSL_SECURE_RANDOM_IMPLEMENTATION_CONFIG, ConfigDef.Type.STRING, null, ConfigDef.Importance.LOW, SslConfigs.SSL_SECURE_RANDOM_IMPLEMENTATION_DOC);
     }
 
+    // 可重构的配置
     public static final Set<String> RECONFIGURABLE_CONFIGS = Utils.mkSet(SslConfigs.SSL_KEYSTORE_TYPE_CONFIG,
             SslConfigs.SSL_KEYSTORE_LOCATION_CONFIG,
             SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG,

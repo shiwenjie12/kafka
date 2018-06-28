@@ -65,8 +65,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   private[kafka] def currentZooKeeper: ZooKeeper = zooKeeperClient.currentZooKeeper
 
   /**
-   * Create a sequential persistent path. That is, the znode will not be automatically deleted upon client's disconnect
-   * and a monotonically increasing number will be appended to its name.
+   * 创建一个顺序持久路径。 也就是说，znode不会在客户端断开连接时自动删除，并且单调增加的数字将被添加到其名称后面。
    *
    * @param path the path to create (with the monotonically increasing number appended)
    * @param data the znode data
@@ -79,6 +78,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
     createResponse.name
   }
 
+  // 向zk注册broker信息
   def registerBrokerInZk(brokerInfo: BrokerInfo): Unit = {
     val path = brokerInfo.path
     checkedEphemeralCreate(path, brokerInfo.toJsonBytes)
@@ -119,7 +119,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Creates topic partition state znodes for the given partitions.
+   * 为给定分区创建主题分区状态znodes。
    * @param leaderIsrAndControllerEpochs the partition states of each partition whose state we wish to set.
    * @return sequence of CreateResponse whose contexts are the partitions they are associated with.
    */
@@ -157,7 +157,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Update the partition states of multiple partitions in zookeeper.
+   * 更新zookeeper中多个分区的分区状态。
    * @param leaderAndIsrs The partition states to update.
    * @param controllerEpoch The current controller epoch.
    * @return UpdateLeaderAndIsrResult instance containing per partition results.
@@ -182,7 +182,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
         case Code.OK =>
           val updatedLeaderAndIsr = leaderAndIsrs(partition).withZkVersion(setDataResponse.stat.getVersion)
           successfulUpdates.put(partition, updatedLeaderAndIsr)
-        case Code.BADVERSION => updatesToRetry += partition
+        case Code.BADVERSION => updatesToRetry += partition  // 版本不一致表示可以重新尝试
         case _ => failed.put(partition, setDataResponse.resultException.get)
       }
     }
@@ -190,9 +190,9 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Get log configs that merge local configs with topic-level configs in zookeeper.
-   * @param topics The topics to get log configs for.
-   * @param config The local configs.
+   * 获取日志配置，将本地配置与ZooKeeper中的主题级配置合并。
+   * @param topics 用于配置和的主题
+   * @param config 本地配置.
    * @return A tuple of two values:
    *         1. The successfully gathered log configs
    *         2. Exceptions corresponding to failed log config lookups.
@@ -201,7 +201,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   (Map[String, LogConfig], Map[String, Exception]) = {
     val logConfigs = mutable.Map.empty[String, LogConfig]
     val failed = mutable.Map.empty[String, Exception]
-    val configResponses = try {
+    val configResponses = try {// 主题下的配置
       getTopicConfigs(topics)
     } catch {
       case e: Exception =>
@@ -212,9 +212,9 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
       val topic = configResponse.ctx.get.asInstanceOf[String]
       configResponse.resultCode match {
         case Code.OK =>
-          val overrides = ConfigEntityZNode.decode(configResponse.data)
+          val overrides = ConfigEntityZNode.decode(configResponse.data) // 主题下的属性
           val logConfig = LogConfig.fromProps(config, overrides)
-          logConfigs.put(topic, logConfig)
+          logConfigs.put(topic, logConfig) // 主题下的所有属性，包括主题属性和卡夫卡属性
         case Code.NONODE =>
           val logConfig = LogConfig.fromProps(config, new Properties)
           logConfigs.put(topic, logConfig)
@@ -225,7 +225,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Get entity configs for a given entity name
+   * 为给定实体名称获取实体配置
    * @param rootEntityType entity type
    * @param sanitizedEntityName entity name
    * @return The successfully gathered log configs
@@ -243,8 +243,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Sets or creates the entity znode path with the given configs depending
-   * on whether it already exists or not.
+   * 根据它是否已经存在，设置或创建具有给定配置的实体znode路径。
    * @param rootEntityType entity type
    * @param sanitizedEntityName entity name
    * @throws KeeperException if there is an error while setting or creating the znode
@@ -280,7 +279,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Creates config change notification
+    * 创建配置唤醒
    * @param sanitizedEntityPath  sanitizedEntityPath path to write
    * @throws KeeperException if there is an error while setting or creating the znode
    */
@@ -292,7 +291,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Gets all brokers in the cluster.
+   * 获取集群中所有的broker
    * @return sequence of brokers in the cluster.
    */
   def getAllBrokersInCluster: Seq[Broker] = {
@@ -332,7 +331,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
     getChildren(BrokerIdsZNode.path).map(_.toInt).sorted
 
   /**
-   * Gets all topics in the cluster.
+   * 获取集群下所有的主题
    * @return sequence of topics in the cluster.
    */
   def getAllTopicsInCluster: Seq[String] = {
@@ -442,9 +441,9 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Gets the assignments for the given topics.
+   * 获取给定主题的分配。
    * @param topics the topics whose partitions we wish to get the assignments for.
-   * @return the replica assignment for each partition from the given topics.
+   * @return 来自给定主题的每个分区的副本分配。
    */
   def getReplicaAssignmentForTopics(topics: Set[String]): Map[TopicPartition, Seq[Int]] = {
     val getDataRequests = topics.map(topic => GetDataRequest(TopicZNode.path(topic), ctx = Some(topic)))
@@ -579,12 +578,12 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Conditional update the persistent path data, return (true, newVersion) if it succeeds, otherwise (the path doesn't
-   * exist, the current version is not the expected version, etc.) return (false, ZkVersion.NoVersion)
-   *
-   * When there is a ConnectionLossException during the conditional update, ZookeeperClient will retry the update and may fail
-   * since the previous update may have succeeded (but the stored zkVersion no longer matches the expected one).
-   * In this case, we will run the optionalChecker to further check if the previous write did indeed succeeded.
+   * 条件更新持久路径数据，如果成功则返回（true，newVersion），否则（路径不存在，当前版本不是预期版本等）
+    * return（false，ZkVersion.NoVersion）
+    *
+    * 当条件更新期间出现ConnectionLossException异常时，ZookeeperClient将重试更新并可能失败，
+    * 因为上一次更新可能已成功（但存储的zkVersion不再匹配预期的更新）。
+    * 在这种情况下，我们将运行optionalChecker以进一步 检查前面的写入是否确实成功。
    */
   def conditionalUpdatePath(path: String, data: Array[Byte], expectVersion: Int,
                             optionalChecker: Option[(KafkaZkClient, String, Array[Byte]) => (Boolean,Int)] = None): (Boolean, Int) = {
@@ -730,7 +729,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Gets topic partition states for the given partitions.
+   * 获取给定分区的主题分区状态。
    * @param partitions the partitions for which we want to get states.
    * @return map containing LeaderIsrAndControllerEpoch of each partition for we were able to lookup the partition state.
    */
@@ -789,7 +788,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Gets the isr change notifications as strings. These strings are the znode names and not the absolute znode path.
+   * 以字符串形式获取isr更改通知。 这些字符串是znode名称，而不是绝对的znode路径。
    * @return sequence of znode names and not the absolute znode path.
    */
   def getAllIsrChangeNotifications: Seq[String] = {
@@ -889,7 +888,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Deletes the controller znode.
+   * 删除控制器节点
    */
   def deleteController(): Unit = {
     val deleteRequest = DeleteRequest(ControllerZNode.path, ZkVersion.NoVersion)
@@ -932,16 +931,17 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   //Acl management methods
 
   /**
-   * Creates the required zk nodes for Acl storage
+   * 为Acl存储创建所需的zk节点
    */
   def createAclPaths(): Unit = {
-    createRecursive(AclZNode.path, throwIfPathExists = false)
-    createRecursive(AclChangeNotificationZNode.path, throwIfPathExists = false)
+    createRecursive(AclZNode.path, throwIfPathExists = false)  //  /kafka-acl
+    createRecursive(AclChangeNotificationZNode.path, throwIfPathExists = false)  //  /kafka-acl-changes
+    //  /kafka-acl/Topic等等
     ResourceType.values.foreach(resource => createRecursive(ResourceTypeZNode.path(resource.name), throwIfPathExists = false))
   }
 
   /**
-   * Gets VersionedAcls for a given Resource
+   * 获取给定资源的VersionedAcls
    * @param resource Resource to get VersionedAcls for
    * @return  VersionedAcls
    */
@@ -956,19 +956,19 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Sets or creates the resource znode path with the given acls and expected zk version depending
-   * on whether it already exists or not.
+    * 使用给定的acls和预期的zk版本设置或创建资源znode路径，具体取决于它是否已经存在。
    * @param resource
    * @param aclsSet
    * @param expectedVersion
    * @return true if the update was successful and the new version
    */
   def conditionalSetOrCreateAclsForResource(resource: Resource, aclsSet: Set[Acl], expectedVersion: Int): (Boolean, Int) = {
+    // 设置
     def set(aclData: Array[Byte],  expectedVersion: Int): SetDataResponse = {
       val setDataRequest = SetDataRequest(ResourceZNode.path(resource), aclData, expectedVersion)
       retryRequestUntilConnected(setDataRequest)
     }
-
+    // 创建
     def create(aclData: Array[Byte]): CreateResponse = {
       val path = ResourceZNode.path(resource)
       val createRequest = CreateRequest(path, aclData, acls(path), CreateMode.PERSISTENT)
@@ -1011,6 +1011,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
     debug(s"Added $logDirEventNotificationPath for broker $brokerId")
   }
 
+  // 传播ISR的改变
   def propagateIsrChanges(isrChangeSet: collection.Set[TopicPartition]): Unit = {
     val isrChangeNotificationPath: String = createSequentialPersistentPath(IsrChangeNotificationSequenceZNode.path(),
       IsrChangeNotificationSequenceZNode.encode(isrChangeSet))
@@ -1083,9 +1084,9 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Conditional delete the resource node
+   * 有条件地删除资源节点
    * @param resource
-   * @param expectedVersion
+   * @param expectedVersion  期待版本
    * @return return true if it succeeds, false otherwise (the current version is not the expected version)
    */
   def conditionalDelete(resource: Resource, expectedVersion: Int): Boolean = {
@@ -1108,7 +1109,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Creates the required zk nodes for Delegation Token storage
+   * 为委托令牌存储创建所需的zk节点
    */
   def createDelegationTokenPaths(): Unit = {
     createRecursive(DelegationTokenChangeNotificationZNode.path, throwIfPathExists = false)
@@ -1157,7 +1158,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * Gets the Delegation Token Info
+   * 获取委托令牌信息
    * @return optional TokenInfo that is Some if the token znode exists and can be parsed and None otherwise.
    */
   def getDelegationTokenInfo(delegationTokenId: String): Option[TokenInformation] = {
@@ -1180,9 +1181,8 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   * This registers a ZNodeChangeHandler and attempts to register a watcher with an ExistsRequest, which allows data
-   * watcher registrations on paths which might not even exist.
-   *
+   * 注册ZNodeChangeHandler和尝试与ExistsRequest登记一个watcher，
+    * 它允许数据监视器注册路径，甚至可能不存在
    * @param zNodeChangeHandler
    * @return `true` if the path exists or `false` if it does not
    * @throws KeeperException if an error is returned by ZooKeeper
@@ -1230,7 +1230,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   *
+   * 注册节点状态改变的处理器
    * @param stateChangeHandler
    */
   def registerStateChangeHandler(stateChangeHandler: StateChangeHandler): Unit = {
@@ -1238,7 +1238,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-   *
+   * 注销节点状态改变的处理器
    * @param name
    */
   def unregisterStateChangeHandler(name: String): Unit = {
@@ -1299,7 +1299,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-    * Create the cluster Id. If the cluster id already exists, return the current cluster id.
+    * 创建群集ID。如果群集ID已经存在，返回当前群集ID。
     * @return  cluster id
     */
   def createOrGetClusterId(proposedClusterId: String): String = {
@@ -1313,8 +1313,8 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-    * Generate a broker id by updating the broker sequence id path in ZK and return the version of the path.
-    * The version is incremented by one on every update starting from 1.
+    * 生成一个代理的ID在ZK更新broker序列路径和返回路径的版本。
+    * 该版本增加了1都更新从1开始。
     * @return sequence number as the broker id
     */
   def generateBrokerSequenceId(): Int = {
@@ -1331,14 +1331,14 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
   }
 
   /**
-    * Pre-create top level paths in ZK if needed.
+    * 创建顶级路径
     */
   def createTopLevelPaths(): Unit = {
     ZkData.PersistentZkPaths.foreach(makeSurePersistentPathExists(_))
   }
 
   /**
-    * Make sure a persistent path exists in ZK.
+    * 确保持久化的路径存在
     * @param path
     */
   def makeSurePersistentPathExists(path: String): Unit = {
@@ -1387,14 +1387,22 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
     }
   }
 
+  /**
+    * 递归创建路径
+    * @param path
+    * @param data
+    * @param throwIfPathExists
+    */
   private[zk] def createRecursive(path: String, data: Array[Byte] = null, throwIfPathExists: Boolean = true) = {
 
+    // 父路径的地址
     def parentPath(path: String): String = {
       val indexOfLastSlash = path.lastIndexOf("/")
       if (indexOfLastSlash == -1) throw new IllegalArgumentException(s"Invalid path ${path}")
       path.substring(0, indexOfLastSlash)
     }
 
+    // 递归创建内部实现
     def createRecursive0(path: String): Unit = {
       val createRequest = CreateRequest(path, null, acls(path), CreateMode.PERSISTENT)
       var createResponse = retryRequestUntilConnected(createRequest)
@@ -1409,21 +1417,23 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
       }
     }
 
+    // 创建自定义的createRequest，包含响应
     val createRequest = CreateRequest(path, data, acls(path), CreateMode.PERSISTENT)
     var createResponse = retryRequestUntilConnected(createRequest)
 
-    if (throwIfPathExists && createResponse.resultCode == Code.NODEEXISTS) {
+    if (throwIfPathExists && createResponse.resultCode == Code.NODEEXISTS) {// throwIfPathExists为true，节点已存在，抛出异常
       createResponse.maybeThrow
-    } else if (createResponse.resultCode == Code.NONODE) {
+    } else if (createResponse.resultCode == Code.NONODE) {// 如果节点未存在，则递归创建节点
       createRecursive0(parentPath(path))
       createResponse = retryRequestUntilConnected(createRequest)
       if (throwIfPathExists || createResponse.resultCode != Code.NODEEXISTS)
         createResponse.maybeThrow
-    } else if (createResponse.resultCode != Code.NODEEXISTS)
+    } else if (createResponse.resultCode != Code.NODEEXISTS)// 其他异常，直接抛出
       createResponse.maybeThrow
 
   }
 
+  // 创建主题分区
   private def createTopicPartition(partitions: Seq[TopicPartition]): Seq[CreateResponse] = {
     val createRequests = partitions.map { partition =>
       val path = TopicPartitionZNode.path(partition)
@@ -1432,6 +1442,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
     retryRequestsUntilConnected(createRequests)
   }
 
+  // 创建主题
   private def createTopicPartitions(topics: Seq[String]): Seq[CreateResponse] = {
     val createRequests = topics.map { topic =>
       val path = TopicPartitionsZNode.path(topic)
@@ -1449,10 +1460,22 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
 
   private def acls(path: String): Seq[ACL] = ZkData.defaultAcls(isSecure, path)
 
+  /**
+    * 重试请求直到连接成功（单个请求）
+    * @param request
+    * @tparam Req
+    * @return
+    */
   private def retryRequestUntilConnected[Req <: AsyncRequest](request: Req): Req#Response = {
     retryRequestsUntilConnected(Seq(request)).head
   }
 
+  /**
+    * 重试请求直到连接成功（请求 seq）
+    * @param requests
+    * @tparam Req
+    * @return
+    */
   private def retryRequestsUntilConnected[Req <: AsyncRequest](requests: Seq[Req]): Seq[Req#Response] = {
     val remainingRequests = ArrayBuffer(requests: _*)
     val responses = new ArrayBuffer[Req#Response]
@@ -1462,7 +1485,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
       batchResponses.foreach(response => latencyMetric.update(response.metadata.responseTimeMs))
 
       // Only execute slow path if we find a response with CONNECTIONLOSS
-      if (batchResponses.exists(_.resultCode == Code.CONNECTIONLOSS)) {
+      if (batchResponses.exists(_.resultCode == Code.CONNECTIONLOSS)) {// 如果存在存在连接丢失的记
         val requestResponsePairs = remainingRequests.zip(batchResponses)
 
         remainingRequests.clear()
@@ -1473,7 +1496,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
             responses += response
         }
 
-        if (remainingRequests.nonEmpty)
+        if (remainingRequests.nonEmpty)// 在将剩余需要发送的请求之前，等待zk连接完成
           zooKeeperClient.waitUntilConnected()
       } else {
         remainingRequests.clear()
@@ -1483,6 +1506,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
     responses
   }
 
+  // 检查暂时性节点的创建
   def checkedEphemeralCreate(path: String, data: Array[Byte]): Unit = {
     val checkedEphemeral = new CheckedEphemeral(path, data)
     info(s"Creating $path (is it secure? $isSecure)")
@@ -1505,6 +1529,7 @@ class KafkaZkClient private (zooKeeperClient: ZooKeeperClient, isSecure: Boolean
       }
     }
 
+    // 如果节点存在，则验证是否是当前session创建的
     private def getAfterNodeExists(): Code = {
       val getDataRequest = GetDataRequest(path)
       val getDataResponse = retryRequestUntilConnected(getDataRequest)
@@ -1539,7 +1564,7 @@ object KafkaZkClient {
                                       failedPartitions: Map[TopicPartition, Exception])
 
   /**
-   * Create an instance of this class with the provided parameters.
+   * 使用所提供的参数创建这个类的实例。.
    *
    * The metric group and type are preserved by default for compatibility with previous versions.
    */

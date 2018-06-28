@@ -34,6 +34,7 @@ object LeaderEpochFile {
   def newFile(dir: File): File = new File(dir, LeaderEpochCheckpointFilename)
 }
 
+// 包含leader-epoch-checkpoint 文件的格式器
 object LeaderEpochCheckpointFile {
   private val WhiteSpacesPattern = Pattern.compile("\\s+")
   private val CurrentVersion = 0

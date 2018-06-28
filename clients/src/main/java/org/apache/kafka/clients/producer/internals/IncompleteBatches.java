@@ -21,8 +21,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /*
- * A thread-safe helper class to hold batches that haven't been acknowledged yet (including those
- * which have and have not been sent).
+ * 一个线程安全的助手类，用于保存尚未被确认的批次（包括那些已经发送和尚未发送的批次）。
  */
 class IncompleteBatches {
     private final Set<ProducerBatch> incomplete;

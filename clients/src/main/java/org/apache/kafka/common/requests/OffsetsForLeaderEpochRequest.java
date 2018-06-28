@@ -35,6 +35,7 @@ import static org.apache.kafka.common.protocol.CommonFields.PARTITION_ID;
 import static org.apache.kafka.common.protocol.CommonFields.TOPIC_NAME;
 import static org.apache.kafka.common.protocol.types.Type.INT32;
 
+// 根据领导者epoch,获取偏移量
 public class OffsetsForLeaderEpochRequest extends AbstractRequest {
     private static final String TOPICS_KEY_NAME = "topics";
     private static final String PARTITIONS_KEY_NAME = "partitions";
@@ -54,6 +55,7 @@ public class OffsetsForLeaderEpochRequest extends AbstractRequest {
         return new Schema[]{OFFSET_FOR_LEADER_EPOCH_REQUEST_V0};
     }
 
+    // tp对应的领导者的epoch
     private Map<TopicPartition, Integer> epochsByPartition;
 
     public Map<TopicPartition, Integer> epochsByTopicPartition() {

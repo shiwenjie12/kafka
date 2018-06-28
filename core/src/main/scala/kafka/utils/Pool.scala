@@ -23,6 +23,7 @@ import collection.mutable
 import collection.JavaConverters._
 import kafka.common.KafkaException
 
+// 利用ConcurrentHashMap 实现的 池，并实现了迭代器的接口
 class Pool[K,V](valueFactory: Option[K => V] = None) extends Iterable[(K, V)] {
 
   private val pool: ConcurrentMap[K, V] = new ConcurrentHashMap[K, V]
@@ -37,6 +38,7 @@ class Pool[K,V](valueFactory: Option[K => V] = None) extends Iterable[(K, V)] {
    * value, then create the value using the pool's value factory and return the
    * value associated with the key. The user should declare the factory method
    * as lazy if its side-effects need to be avoided.
+    * 利用工厂，将给定的键，产生值，然后插入到池中
    *
    * @param key The key to lookup.
    * @return The final value associated with the key.

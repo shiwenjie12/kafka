@@ -190,7 +190,7 @@ public final class Sensor {
     }
 
     /**
-     * Check if we have violated our quota for any metric that has a configured quota
+     * 检查我们是否违反了任何配置配额的指标的配额
      */
     public void checkQuotas() {
         checkQuotas(time.milliseconds());
@@ -200,10 +200,10 @@ public final class Sensor {
         for (KafkaMetric metric : this.metrics) {
             MetricConfig config = metric.config();
             if (config != null) {
-                Quota quota = config.quota();
+                Quota quota = config.quota(); // 获取配额
                 if (quota != null) {
-                    double value = metric.measurableValue(timeMs);
-                    if (!quota.acceptable(value)) {
+                    double value = metric.measurableValue(timeMs); // 获取特定时间下的测量值
+                    if (!quota.acceptable(value)) {// 判断是否符合范围
                         throw new QuotaViolationException(metric.metricName(), value,
                             quota.bound());
                     }

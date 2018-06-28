@@ -53,8 +53,7 @@ case class FetchMetadata(fetchMinBytes: Int,
     "partitionStatus: " + fetchPartitionStatus + "]"
 }
 /**
- * A delayed fetch operation that can be created by the replica manager and watched
- * in the fetch operation purgatory
+  * 延迟获取操作，可由副本管理器创建并在提取操作中进行监视
  */
 class DelayedFetch(delayMs: Long,
                    fetchMetadata: FetchMetadata,
@@ -65,15 +64,15 @@ class DelayedFetch(delayMs: Long,
   extends DelayedOperation(delayMs) {
 
   /**
-   * The operation can be completed if:
+   * 在以下情况下可以完成操作：
    *
-   * Case A: This broker is no longer the leader for some partitions it tries to fetch
-   * Case B: This broker does not know of some partitions it tries to fetch
-   * Case C: The fetch offset locates not on the last segment of the log
-   * Case D: The accumulated bytes from all the fetching partitions exceeds the minimum bytes
-   * Case E: The partition is in an offline log directory on this broker
+   * 案例A：这个broker不再是它试图获取某些分区的领导者
+   * 案例B：此代理不知道它尝试获取的某些分区
+   * 情况C：提取偏移量不在日志的最后一段
+   * 情况D：来自所有读取分区的累计字节超过最小字节数s
+   * 情况E：该分区位于该代理上的脱机日志目录中
    *
-   * Upon completion, should return whatever data is available for each valid partition
+   * 完成后，应返回每个有效分区的可用数据
    */
   override def tryComplete() : Boolean = {
     var accumulatedSize = 0
@@ -92,23 +91,21 @@ class DelayedFetch(delayMs: Long,
               else
                 replica.logEndOffset
 
-            // Go directly to the check for Case D if the message offsets are the same. If the log segment
-            // has just rolled, then the high watermark offset will remain the same but be on the old segment,
-            // which would incorrectly be seen as an instance of Case C.
+            // 如果消息偏移量相同，则直接检查案例D. 如果日志段刚刚滚动，则高水印偏移量将保持不变，
+            // 但位于旧段上，这会错误地视为情况C的一个实例。
             if (endOffset.messageOffset != fetchOffset.messageOffset) {
               if (endOffset.onOlderSegment(fetchOffset)) {
-                // Case C, this can happen when the new fetch operation is on a truncated leader
+                // Case C, 当新的提取操作位于截断的领导者上时，可能会发生这种情况
                 debug("Satisfying fetch %s since it is fetching later segments of partition %s.".format(fetchMetadata, topicPartition))
                 return forceComplete()
               } else if (fetchOffset.onOlderSegment(endOffset)) {
-                // Case C, this can happen when the fetch operation is falling behind the current segment
-                // or the partition has just rolled a new segment
+                // Case C, 当提取操作落在当前分段的后面或分区刚刚推出新分段时，可能会发生这种情况
                 debug("Satisfying fetch %s immediately since it is fetching older segments.".format(fetchMetadata))
-                // We will not force complete the fetch request if a replica should be throttled.
+                // 如果副本应该被限制，我们不会强制完成获取请求。
                 if (!replicaManager.shouldLeaderThrottle(quota, topicPartition, fetchMetadata.replicaId))
                   return forceComplete()
               } else if (fetchOffset.messageOffset < endOffset.messageOffset) {
-                // we take the partition fetch size as upper bound when accumulating the bytes (skip if a throttled partition)
+                // 当累积字节时我们将分区读取大小作为上限（如果是一个受限分区，则跳过）
                 val bytesAvailable = math.min(endOffset.positionDiff(fetchOffset), fetchStatus.fetchInfo.maxBytes)
                 if (quota.isThrottled(topicPartition))
                   accumulatedThrottledSize += bytesAvailable

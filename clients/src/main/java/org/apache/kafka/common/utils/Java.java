@@ -18,6 +18,9 @@ package org.apache.kafka.common.utils;
 
 import java.util.StringTokenizer;
 
+/**
+ * 用于判断java的运行环境
+ */
 public final class Java {
 
     private Java() { }

@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+// 干扰机制
 public enum ScramMechanism {
 
     SCRAM_SHA_256("SHA-256", "HmacSHA256", 4096),
@@ -67,6 +68,7 @@ public enum ScramMechanism {
         return MECHANISMS_MAP.get(mechanismName);
     }
 
+    // 机制名称集合
     public static Collection<String> mechanismNames() {
         return MECHANISMS_MAP.keySet();
     }

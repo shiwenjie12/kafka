@@ -80,7 +80,7 @@ object DelegationTokenManager {
   }
 
   /**
-   * Compute HMAC of the identifier using the secret key
+   * 使用秘密密钥来计算标识符的HMAC
    * @param tokenId the bytes of the identifier
    * @param secretKey  the secret key
    * @return  String of the generated hmac
@@ -167,7 +167,7 @@ class DelegationTokenManager(val config: KafkaConfig,
   type ExpireResponseCallback = (Errors, Long) => Unit
   type DescribeResponseCallback = (Errors, List[DelegationToken]) => Unit
 
-  val secretKey = {
+  val secretKey = { // 创建密钥
     val keyBytes =  if (config.tokenAuthEnabled) config.delegationTokenMasterKey.value.getBytes(StandardCharsets.UTF_8) else null
     if (keyBytes == null || keyBytes.length == 0) null
     else
@@ -195,6 +195,7 @@ class DelegationTokenManager(val config: KafkaConfig,
     }
   }
 
+  // 从zk中加载令牌缓存
   private def loadCache() {
     lock.synchronized {
       val tokens = zkClient.getChildren(DelegationTokensZNode.path)
@@ -215,7 +216,7 @@ class DelegationTokenManager(val config: KafkaConfig,
   private def getTokenFromZk(tokenId: String): Option[DelegationToken] = {
     zkClient.getDelegationTokenInfo(tokenId) match {
       case Some(tokenInformation) => {
-        val hmac = createHmac(tokenId, secretKey)
+        val hmac = createHmac(tokenId, secretKey)  // 计算hmac
         Some(new DelegationToken(tokenInformation, hmac))
       }
       case None =>
@@ -233,6 +234,7 @@ class DelegationTokenManager(val config: KafkaConfig,
     tokenCache.updateCache(token, scramCredentialMap.asJava)
   }
   /**
+    * 准备Scram凭证
    * @param hmacString
    */
   private def prepareScramCredentials(hmacString: String) : Map[String, ScramCredential] = {
@@ -264,18 +266,20 @@ class DelegationTokenManager(val config: KafkaConfig,
       responseCallback(CreateTokenResult(-1, -1, -1, "", Array[Byte](), Errors.DELEGATION_TOKEN_AUTH_DISABLED))
     } else {
       lock.synchronized {
-        val tokenId = CoreUtils.generateUuidAsBase64
+        val tokenId = CoreUtils.generateUuidAsBase64 // 创建tokenID
 
-        val issueTimeStamp = time.milliseconds
+        val issueTimeStamp = time.milliseconds // 请求时间
         val maxLifeTime = if (maxLifeTimeMs <= 0) tokenMaxLifetime else Math.min(maxLifeTimeMs, tokenMaxLifetime)
         val maxLifeTimeStamp = issueTimeStamp + maxLifeTime
         val expiryTimeStamp = Math.min(maxLifeTimeStamp, issueTimeStamp + defaultTokenRenewTime)
 
+        // token信息
         val tokenInfo = new TokenInformation(tokenId, owner, renewers.asJava, issueTimeStamp, maxLifeTimeStamp, expiryTimeStamp)
 
+        // 使用密钥计算tokenhmac
         val hmac = createHmac(tokenId, secretKey)
         val token = new DelegationToken(tokenInfo, hmac)
-        updateToken(token)
+        updateToken(token) // 更新token (缓存、zk)以及唤醒
         info(s"Created a delegation token : $tokenId for owner : $owner")
         responseCallback(CreateTokenResult(issueTimeStamp, expiryTimeStamp, maxLifeTimeStamp, tokenId, hmac, Errors.NONE))
       }
@@ -325,6 +329,7 @@ class DelegationTokenManager(val config: KafkaConfig,
   }
 
   /**
+    * 更新token (缓存、zk)以及唤醒
    * @param token
    */
   private def updateToken(token: DelegationToken): Unit = {
@@ -428,7 +433,7 @@ class DelegationTokenManager(val config: KafkaConfig,
   }
 
   /**
-   *
+   * 移除相关tokenid的token
    * @param tokenId
    */
   private def removeToken(tokenId: String): Unit = {
@@ -446,7 +451,7 @@ class DelegationTokenManager(val config: KafkaConfig,
   }
 
   /**
-   *
+   * 进行过期token处理
    * @return
    */
   def expireTokens(): Unit = {
@@ -473,6 +478,7 @@ class DelegationTokenManager(val config: KafkaConfig,
     getAllTokenInformation().filter(filterToken).map(token => getToken(token))
   }
 
+  // 令牌改变的处理器
   object TokenChangedNotificationHandler extends NotificationHandler {
     override def processNotification(tokenIdBytes: Array[Byte]) {
       lock.synchronized {

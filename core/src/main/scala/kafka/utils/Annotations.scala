@@ -22,17 +22,16 @@ import scala.annotation.StaticAnnotation
 /* Some helpful annotations */
 
 /**
- * Indicates that the annotated class is meant to be threadsafe. For an abstract class it is a part of the interface that an implementation
- * must respect
+ * 表示带注释的类应该是线程安全的。 对于抽象类来说，它是实现必须尊重的接口的一部分
  */
 class threadsafe extends StaticAnnotation
 
 /**
- * Indicates that the annotated class is not threadsafe
+ * 指示注释的类不是线程安全的
  */
 class nonthreadsafe extends StaticAnnotation
 
 /**
- * Indicates that the annotated class is immutable
+ * 指示注释类是不可变的
  */
 class immutable extends StaticAnnotation

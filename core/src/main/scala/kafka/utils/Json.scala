@@ -23,7 +23,7 @@ import kafka.utils.json.JsonValue
 import scala.collection._
 
 /**
- * Provides methods for parsing JSON with Jackson and encoding to JSON with a simple and naive custom implementation.
+ * 提供用jackson解析JSON的方法，并用简单而天真的自定义实现对JSON进行编码。
  */
 object Json {
 

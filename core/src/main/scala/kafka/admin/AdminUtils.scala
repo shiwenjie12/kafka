@@ -67,15 +67,15 @@ object AdminUtils extends Logging with AdminUtilities {
   val EntityConfigChangeZnodePrefix = "config_change_"
 
   /**
-   * There are 3 goals of replica assignment:
+   * 副本分配有3个目标：
    *
-   * 1. Spread the replicas evenly among brokers.
-   * 2. For partitions assigned to a particular broker, their other replicas are spread over the other brokers.
-   * 3. If all brokers have rack information, assign the replicas for each partition to different racks if possible
+   * 1。把复制品均匀地散布在经纪人中间。
+   * 2。对于分配给特定代理的分区，它们的其他副本被分散在其他代理上。
+   * 3。如果所有代理都有机架信息，如果可能的话，将每个分区的副本分配给不同的机架。
    *
-   * To achieve this goal for replica assignment without considering racks, we:
-   * 1. Assign the first replica of each partition by round-robin, starting from a random position in the broker list.
-   * 2. Assign the remaining replicas of each partition with an increasing shift.
+   * 为了实现这一目标，不考虑机架的副本分配，我们：
+   * 1。从代理列表中的随机位置开始，以循环方式分配每个分区的第一个副本。
+   * 2。用渐增的移位分配每个分区的其余副本。
    *
    * Here is an example of assigning
    * broker-0  broker-1  broker-2  broker-3  broker-4
@@ -137,34 +137,36 @@ object AdminUtils extends Logging with AdminUtilities {
       throw new InvalidReplicationFactorException("Replication factor must be larger than 0.")
     if (replicationFactor > brokerMetadatas.size)
       throw new InvalidReplicationFactorException(s"Replication factor: $replicationFactor larger than available brokers: ${brokerMetadatas.size}.")
-    if (brokerMetadatas.forall(_.rack.isEmpty))
+    if (brokerMetadatas.forall(_.rack.isEmpty)) // rack有为空的
       assignReplicasToBrokersRackUnaware(nPartitions, replicationFactor, brokerMetadatas.map(_.id), fixedStartIndex,
         startPartitionId)
-    else {
+    else { // rack都不为空的
       if (brokerMetadatas.exists(_.rack.isEmpty))
         throw new AdminOperationException("Not all brokers have rack information for replica rack aware assignment.")
       assignReplicasToBrokersRackAware(nPartitions, replicationFactor, brokerMetadatas, fixedStartIndex,
-        startPartitionId)
+        startPartitionId)  // 这个比较难
     }
   }
 
-  private def assignReplicasToBrokersRackUnaware(nPartitions: Int,
-                                                 replicationFactor: Int,
+  private def assignReplicasToBrokersRackUnaware(nPartitions: Int, // 这次要分配的分区数目
+                                                 replicationFactor: Int, // 副本因子
                                                  brokerList: Seq[Int],
                                                  fixedStartIndex: Int,
                                                  startPartitionId: Int): Map[Int, Seq[Int]] = {
     val ret = mutable.Map[Int, Seq[Int]]()
     val brokerArray = brokerList.toArray
-    val startIndex = if (fixedStartIndex >= 0) fixedStartIndex else rand.nextInt(brokerArray.length)
-    var currentPartitionId = math.max(0, startPartitionId)
+    val startIndex = if (fixedStartIndex >= 0) fixedStartIndex else rand.nextInt(brokerArray.length) // 起始索引
+    var currentPartitionId = math.max(0, startPartitionId) // 当前要分配的分区id
     var nextReplicaShift = if (fixedStartIndex >= 0) fixedStartIndex else rand.nextInt(brokerArray.length)
     for (_ <- 0 until nPartitions) {
       if (currentPartitionId > 0 && (currentPartitionId % brokerArray.length == 0))
-        nextReplicaShift += 1
-      val firstReplicaIndex = (currentPartitionId + startIndex) % brokerArray.length
-      val replicaBuffer = mutable.ArrayBuffer(brokerArray(firstReplicaIndex))
+        nextReplicaShift += 1 // 新的一轮副本分配
+
+      val firstReplicaIndex = (currentPartitionId + startIndex) % brokerArray.length // 第一个副本索引
+      val replicaBuffer = mutable.ArrayBuffer(brokerArray(firstReplicaIndex))  // 当前分区包含的副本的brokerID
       for (j <- 0 until replicationFactor - 1)
         replicaBuffer += brokerArray(replicaIndex(firstReplicaIndex, nextReplicaShift, j, brokerArray.length))
+
       ret.put(currentPartitionId, replicaBuffer)
       currentPartitionId += 1
     }
@@ -180,7 +182,7 @@ object AdminUtils extends Logging with AdminUtilities {
       id -> rack
     }.toMap
     val numRacks = brokerRackMap.values.toSet.size
-    val arrangedBrokerList = getRackAlternatedBrokerList(brokerRackMap)
+    val arrangedBrokerList = getRackAlternatedBrokerList(brokerRackMap) // 排列的broker列表
     val numBrokers = arrangedBrokerList.size
     val ret = mutable.Map[Int, Seq[Int]]()
     val startIndex = if (fixedStartIndex >= 0) fixedStartIndex else rand.nextInt(arrangedBrokerList.size)
@@ -236,7 +238,7 @@ object AdminUtils extends Logging with AdminUtilities {
     * distributed to all racks.
     */
   private[admin] def getRackAlternatedBrokerList(brokerRackMap: Map[Int, String]): IndexedSeq[Int] = {
-    val brokersIteratorByRack = getInverseMap(brokerRackMap).map { case (rack, brokers) =>
+    val brokersIteratorByRack = getInverseMap(brokerRackMap).map { case (rack, brokers) => // 按照rack划分broker
       (rack, brokers.toIterator)
     }
     val racks = brokersIteratorByRack.keys.toArray.sorted
@@ -696,6 +698,7 @@ object AdminUtils extends Logging with AdminUtilities {
       .map(entityPath => (entityPath, fetchEntityConfig(zkUtils, rootEntityType, entityPath))).toMap
   }
 
+  // 计算副本索引
   private def replicaIndex(firstReplicaIndex: Int, secondReplicaShift: Int, replicaIndex: Int, nBrokers: Int): Int = {
     val shift = 1 + (secondReplicaShift + replicaIndex) % (nBrokers - 1)
     (firstReplicaIndex + shift) % nBrokers

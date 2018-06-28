@@ -50,6 +50,7 @@ object SimpleAclAuthorizer {
   case class VersionedAcls(acls: Set[Acl], zkVersion: Int)
 }
 
+// 简单的访问控制列表验证器
 class SimpleAclAuthorizer extends Authorizer with Logging {
   private val authorizerLogger = Logger("kafka.authorizer.logger")
   private var superUsers = Set.empty[KafkaPrincipal]
@@ -57,6 +58,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
   private var zkClient: KafkaZkClient = null
   private var aclChangeListener: ZkNodeChangeNotificationListener = null
 
+  // acl的缓存
   private val aclCache = new scala.collection.mutable.HashMap[Resource, VersionedAcls]
   private val lock = new ReentrantReadWriteLock()
 
@@ -68,13 +70,14 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
   private val retryBackoffJitterMs = 50
 
   /**
-   * Guaranteed to be called before any authorize call is made.
+   * 保证在进行任何授权调用之前被调用。
    */
   override def configure(javaConfigs: util.Map[String, _]) {
     val configs = javaConfigs.asScala
     val props = new java.util.Properties()
     configs.foreach { case (key, value) => props.put(key, value.toString) }
 
+    // 获取超管身份
     superUsers = configs.get(SimpleAclAuthorizer.SuperUsersProp).collect {
       case str: String if str.nonEmpty => str.split(";").map(s => SecurityUtils.parseKafkaPrincipal(s.trim)).toSet
     }.getOrElse(Set.empty[KafkaPrincipal])
@@ -93,10 +96,11 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     val time = Time.SYSTEM
     zkClient = KafkaZkClient(zkUrl, kafkaConfig.zkEnableSecureAcls, zkSessionTimeOutMs, zkConnectionTimeoutMs,
       zkMaxInFlightRequests, time, "kafka.security", "SimpleAclAuthorizer")
-    zkClient.createAclPaths()
+    zkClient.createAclPaths() // 创建acl资源路径
 
     loadCache()
 
+    // 保证了acl的及时更新
     aclChangeListener = new ZkNodeChangeNotificationListener(zkClient, AclChangeNotificationZNode.path, AclChangeNotificationSequenceZNode.SequenceNumberPrefix, AclChangedNotificationHandler)
     aclChangeListener.init()
   }
@@ -104,9 +108,10 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
   override def authorize(session: Session, operation: Operation, resource: Resource): Boolean = {
     val principal = session.principal
     val host = session.clientAddress.getHostAddress
+    // 当前资源和此资源类型的  acl
     val acls = getAcls(resource) ++ getAcls(new Resource(resource.resourceType, Resource.WildCardResource))
 
-    // Check if there is any Deny acl match that would disallow this operation.
+    // 检查是否存在拒绝此操作的任何拒绝ACL匹配。
     val denyMatch = aclMatch(operation, resource, principal, host, Deny, acls)
 
     // Check if there are any Allow ACLs which would allow this operation.
@@ -121,11 +126,11 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
 
     //we allow an operation if a user is a super user or if no acls are found and user has configured to allow all users
     //when no acls are found or if no deny acls are found and at least one allow acls matches.
-    val authorized = isSuperUser(operation, resource, principal, host) ||
-      isEmptyAclAndAuthorized(operation, resource, principal, host, acls) ||
+    val authorized = isSuperUser(operation, resource, principal, host) ||  // 是否是超级用户
+      isEmptyAclAndAuthorized(operation, resource, principal, host, acls) ||  // 空acl是否是授权的
       (!denyMatch && allowMatch)
 
-    logAuditMessage(principal, authorized, operation, resource, host)
+    logAuditMessage(principal, authorized, operation, resource, host) // 打印信息
     authorized
   }
 
@@ -143,6 +148,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     } else false
   }
 
+  // 是否有匹配的acl
   private def aclMatch(operations: Operation, resource: Resource, principal: KafkaPrincipal, host: String, permissionType: PermissionType, acls: Set[Acl]): Boolean = {
     acls.find { acl =>
       acl.permissionType == permissionType &&
@@ -211,11 +217,11 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
 
   private def loadCache()  {
     inWriteLock(lock) {
-      val resourceTypes = zkClient.getResourceTypes()
+      val resourceTypes = zkClient.getResourceTypes() // 从zk获取所有资源类型
       for (rType <- resourceTypes) {
         val resourceType = ResourceType.fromString(rType)
         val resourceNames = zkClient.getResourceNames(resourceType.name)
-        for (resourceName <- resourceNames) {
+        for (resourceName <- resourceNames) { //  资源类型下的资源名称
           val versionedAcls = getAclsFromZk(Resource(resourceType, resourceName))
           updateCache(new Resource(resourceType, resourceName), versionedAcls)
         }
@@ -223,6 +229,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     }
   }
 
+  // 记录最终审计信息
   private def logAuditMessage(principal: KafkaPrincipal, authorized: Boolean, operation: Operation, resource: Resource, host: String) {
     def logMessage: String = {
       val authResult = if (authorized) "Allowed" else "Denied"
@@ -234,9 +241,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
   }
 
   /**
-    * Safely updates the resources ACLs by ensuring reads and writes respect the expected zookeeper version.
-    * Continues to retry until it successfully updates zookeeper.
-    *
+    * 通过确保读取和写入尊重期望的zookeeper版本，安全地更新资源ACL。 继续重试，直到成功更新zookeeper。
     * Returns a boolean indicating if the content of the ACLs was actually changed.
     *
     * @param resource the resource to change ACLs for
@@ -244,7 +249,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     * @return boolean indicating if a change was made
     */
   private def updateResourceAcls(resource: Resource)(getNewAcls: Set[Acl] => Set[Acl]): Boolean = {
-    var currentVersionedAcls =
+    var currentVersionedAcls = // 当前版本的资源acl
       if (aclCache.contains(resource))
         getAclsFromCache(resource)
       else
@@ -253,7 +258,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     var writeComplete = false
     var retries = 0
     while (!writeComplete && retries <= maxUpdateRetries) {
-      val newAcls = getNewAcls(currentVersionedAcls.acls)
+      val newAcls = getNewAcls(currentVersionedAcls.acls) // 更新之后的acl
       val (updateSucceeded, updateVersion) =
         if (newAcls.nonEmpty) {
           zkClient.conditionalSetOrCreateAclsForResource(resource, newAcls, currentVersionedAcls.zkVersion)
@@ -279,7 +284,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     if (newVersionedAcls.acls != currentVersionedAcls.acls) {
       debug(s"Updated ACLs for $resource to ${newVersionedAcls.acls} with version ${newVersionedAcls.zkVersion}")
       updateCache(resource, newVersionedAcls)
-      updateAclChangedFlag(resource)
+      updateAclChangedFlag(resource)  // 更新acl标识，用于唤醒watcher
       true
     } else {
       debug(s"Updated ACLs for $resource, no change was made")
@@ -296,6 +301,7 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     zkClient.getVersionedAclsForResource(resource)
   }
 
+  // 更新acl的缓存
   private def updateCache(resource: Resource, versionedAcls: VersionedAcls) {
     if (versionedAcls.acls.nonEmpty) {
       aclCache.put(resource, versionedAcls)
@@ -312,10 +318,11 @@ class SimpleAclAuthorizer extends Authorizer with Logging {
     retryBackoffMs + Random.nextInt(retryBackoffJitterMs)
   }
 
+  // acl改变的唤醒器
   object AclChangedNotificationHandler extends NotificationHandler {
     override def processNotification(notificationMessage: Array[Byte]) {
       val resource: Resource = Resource.fromString(new String(notificationMessage, StandardCharsets.UTF_8))
-      inWriteLock(lock) {
+      inWriteLock(lock) { // 更新资源的acl
         val versionedAcls = getAclsFromZk(resource)
         updateCache(resource, versionedAcls)
       }

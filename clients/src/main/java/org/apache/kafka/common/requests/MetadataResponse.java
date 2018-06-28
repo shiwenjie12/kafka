@@ -46,6 +46,7 @@ import static org.apache.kafka.common.protocol.types.Type.INT32;
 import static org.apache.kafka.common.protocol.types.Type.NULLABLE_STRING;
 import static org.apache.kafka.common.protocol.types.Type.STRING;
 
+// 集群元数据的响应
 public class MetadataResponse extends AbstractResponse {
     private static final String BROKERS_KEY_NAME = "brokers";
     private static final String TOPIC_METADATA_KEY_NAME = "topic_metadata";
@@ -282,7 +283,7 @@ public class MetadataResponse extends AbstractResponse {
     }
 
     /**
-     * Get a map of the topics which had metadata errors
+     * 获取有元数据错误的主题的map
      * @return the map
      */
     public Map<String, Errors> errors() {
@@ -319,6 +320,7 @@ public class MetadataResponse extends AbstractResponse {
      * and topics with any partition whose error indicates invalid metadata.
      * This includes all non-existent topics specified in the metadata request
      * and any topic returned with one or more partitions whose leader is not known.
+     * 无效的主题，包含组主题级的错误和分区级的错误
      */
     public Set<String> unavailableTopics() {
         Set<String> invalidMetadataTopics = new HashSet<>();

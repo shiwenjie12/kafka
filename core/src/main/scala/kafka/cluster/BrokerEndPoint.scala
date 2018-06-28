@@ -21,14 +21,13 @@ import java.nio.ByteBuffer
 import kafka.api.ApiUtils._
 import kafka.common.KafkaException
 import org.apache.kafka.common.utils.Utils._
-
+// broker的终结点 包含brokerid
 object BrokerEndPoint {
 
   private val uriParseExp = """\[?([0-9a-zA-Z\-%._:]*)\]?:([0-9]+)""".r
 
   /**
-   * BrokerEndPoint URI is host:port or [ipv6_host]:port
-   * Note that unlike EndPoint (or listener) this URI has no security information.
+    * 解析host:port or [ipv6_host]:port的url
    */
   def parseHostPort(connectionString: String): Option[(String, Int)] = {
     connectionString match {

@@ -361,7 +361,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             this.metrics = new Metrics(metricConfig, reporters, time);
             ProducerMetrics metricsRegistry = new ProducerMetrics(this.metrics);
             this.partitioner = config.getConfiguredInstance(ProducerConfig.PARTITIONER_CLASS_CONFIG, Partitioner.class);// 主题分区计算器
-            long retryBackoffMs = config.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);// 尝试次数
+            long retryBackoffMs = config.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);// 尝试间隔时间
             if (keySerializer == null) {// 获取默认的序列化类
                 this.keySerializer = ensureExtended(config.getConfiguredInstance(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
                                                                                          Serializer.class));
@@ -397,7 +397,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             short acks = configureAcks(config, transactionManager != null, log);
 
             this.apiVersions = new ApiVersions();
-            this.accumulator = new RecordAccumulator(logContext,
+            this.accumulator = new RecordAccumulator(logContext,  // 记录收集器
                     config.getInt(ProducerConfig.BATCH_SIZE_CONFIG),
                     this.totalMemorySize,
                     this.compressionType,
@@ -490,7 +490,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         if (userConfiguredTransactions)
             idempotenceEnabled = true;
 
-        if (idempotenceEnabled) {// 开启事务
+        if (idempotenceEnabled) {// 是否启用事务器，（事务id、幂等）
             String transactionalId = config.getString(ProducerConfig.TRANSACTIONAL_ID_CONFIG);
             int transactionTimeoutMs = config.getInt(ProducerConfig.TRANSACTION_TIMEOUT_CONFIG);
             long retryBackoffMs = config.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
@@ -641,7 +641,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     /**
-     * Commits the ongoing transaction. This method will flush any unsent records before actually committing the transaction.
+     * 提交正在进行的事务。 此方法将在实际提交事务之前清空所有未发送的记录。
      *
      * Further, if any of the {@link #send(ProducerRecord)} calls which were part of the transaction hit irrecoverable
      * errors, this method will throw the last received exception immediately and the transaction will not be committed.
@@ -831,14 +831,14 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
                         " to class " + producerConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
                         " specified in value.serializer", cce);
             }
-            int partition = partition(record, serializedKey, serializedValue, cluster);
+            int partition = partition(record, serializedKey, serializedValue, cluster); // 计算分区
             tp = new TopicPartition(record.topic(), partition);
 
             setReadOnly(record.headers());
             Header[] headers = record.headers().toArray();
 
             int serializedSize = AbstractRecords.estimateSizeInBytesUpperBound(apiVersions.maxUsableProduceMagic(),
-                    compressionType, serializedKey, serializedValue, headers);
+                    compressionType, serializedKey, serializedValue, headers); // 估算记录大小
             ensureValidRecordSize(serializedSize);
             long timestamp = record.timestamp() == null ? time.milliseconds() : record.timestamp();
             log.trace("Sending record {} with callback {} to topic {} partition {}", record, callback, record.topic(), partition);
@@ -846,7 +846,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
             Callback interceptCallback = new InterceptorCallback<>(callback, this.interceptors, tp);
 
             if (transactionManager != null && transactionManager.isTransactional())
-                transactionManager.maybeAddPartitionToTransaction(tp);
+                transactionManager.maybeAddPartitionToTransaction(tp); // 添加事务中的分区
 
             RecordAccumulator.RecordAppendResult result = accumulator.append(tp, timestamp, serializedKey,
                     serializedValue, headers, interceptCallback, remainingWaitMs);
@@ -907,7 +907,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         // or within the known partition range
         // 返回缓存的元数据，如果有的话，如果记录的分区是未定义的，或者在已知的分区范围内
         if (partitionsCount != null && (partition == null || partition < partitionsCount))
-            return new ClusterAndWaitTime(cluster, 0);
+            return new ClusterAndWaitTime(cluster, 0); // 不需要等待
 
         long begin = time.milliseconds();
         long remainingWaitMs = maxWaitMs;
@@ -916,7 +916,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         // In case we already have cached metadata for the topic, but the requested partition is greater
         // than expected, issue an update request only once. This is necessary in case the metadata
         // is stale and the number of partitions for this topic has increased in the meantime.
-        do {// 阻塞更新元数据
+        do {// 阻塞更新元数据（主题和分区缺失）
             log.trace("Requesting metadata update for topic {}.", topic);
             metadata.add(topic);
             int version = metadata.requestUpdate();
@@ -1205,6 +1205,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     /**
      * A callback called when producer request is complete. It in turn calls user-supplied callback (if given) and
      * notifies producer interceptors about the request completion.
+     * 回调的连接器
      */
     private static class InterceptorCallback<K, V> implements Callback {
         private final Callback userCallback;
@@ -1219,7 +1220,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
         public void onCompletion(RecordMetadata metadata, Exception exception) {
             metadata = metadata != null ? metadata : new RecordMetadata(tp, -1, -1, RecordBatch.NO_TIMESTAMP, Long.valueOf(-1L), -1, -1);
-            this.interceptors.onAcknowledgement(metadata, exception);
+            this.interceptors.onAcknowledgement(metadata, exception); // 先处理连接器，在处理回调
             if (this.userCallback != null)
                 this.userCallback.onCompletion(metadata, exception);
         }

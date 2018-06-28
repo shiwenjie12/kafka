@@ -71,14 +71,16 @@ class LogManager(logDirs: Seq[File],
 
   private val logCreationOrDeletionLock = new Object
   private val currentLogs = new Pool[TopicPartition, Log]()
-  // Future logs are put in the directory with "-future" suffix. Future log is created when user wants to move replica
-  // from one log directory to another log directory on the same broker. The directory of the future log will be renamed
-  // to replace the current log of the partition after the future log catches up with the current log
+
+  // 将来的日志被放置在带有“-future”后缀的目录中。
+  // 当用户希望将副本从一个日志目录移动到同一个代理上的另一个日志目录时，创建未来日志。
+  // 将来日志的目录将被重命名，以替换未来日志在当前日志中捕获到的分区的当前日志。
   private val futureLogs = new Pool[TopicPartition, Log]()
   private val logsToBeDeleted = new LinkedBlockingQueue[Log]()
 
   private val _liveLogDirs: ConcurrentLinkedQueue[File] = createAndValidateLogDirs(logDirs, initialOfflineDirs)
   @volatile var currentDefaultConfig = initialDefaultConfig
+  // 每个日志目录下的线程回收数目
   @volatile private var numRecoveryThreadsPerDataDir = recoveryThreadsPerDataDir
 
   def reconfigureDefaultLogConfig(logConfig: LogConfig): Unit = {
@@ -133,15 +135,16 @@ class LogManager(logDirs: Seq[File],
   }
 
   /**
-   * Create and check validity of the given directories that are not in the given offline directories, specifically:
+   * 创建并检查不在给定离线目录中的给定目录的有效性，具体地说：
    * <ol>
-   * <li> Ensure that there are no duplicates in the directory list
-   * <li> Create each directory if it doesn't exist
-   * <li> Check that each path is a readable directory
+   * <li> 确保目录列表中没有重复项
+   * <li> 如果不存在，则创建每个目录
+   * <li> 检查每个路径是否是可读目录
    * </ol>
+    * 返回存活的目录文件
    */
   private def createAndValidateLogDirs(dirs: Seq[File], initialOfflineDirs: Seq[File]): ConcurrentLinkedQueue[File] = {
-    if(dirs.map(_.getCanonicalPath).toSet.size < dirs.size)
+    if(dirs.map(_.getCanonicalPath).toSet.size < dirs.size)// 标准路径（去重）
       throw new KafkaException("Duplicate log directory found: " + dirs.mkString(", "))
 
     val liveLogDirs = new ConcurrentLinkedQueue[File]()
@@ -222,7 +225,7 @@ class LogManager(logDirs: Seq[File],
   }
 
   /**
-   * Lock all the given directories
+   * 锁上所有的给定目录
    */
   private def lockLogDirs(dirs: Seq[File]): Seq[FileLock] = {
     dirs.flatMap { dir =>
@@ -240,10 +243,11 @@ class LogManager(logDirs: Seq[File],
     }
   }
 
+  // 加载日志
   private def loadLog(logDir: File, recoveryPoints: Map[TopicPartition, Long], logStartOffsets: Map[TopicPartition, Long]): Unit = {
     debug("Loading log '" + logDir.getName + "'")
-    val topicPartition = Log.parseTopicPartitionName(logDir)
-    val config = topicConfigs.getOrElse(topicPartition.topic, currentDefaultConfig)
+    val topicPartition = Log.parseTopicPartitionName(logDir)// 获取主题和分区
+    val config = topicConfigs.getOrElse(topicPartition.topic, currentDefaultConfig) // 获取主题的配置
     val logRecoveryPoint = recoveryPoints.getOrElse(topicPartition, 0L)
     val logStartOffset = logStartOffsets.getOrElse(topicPartition, 0L)
 
@@ -281,7 +285,7 @@ class LogManager(logDirs: Seq[File],
   }
 
   /**
-   * Recover and load all logs in the given data directories
+   * 恢复并加载给定数据目录中的所有日志
    */
   private def loadLogs(): Unit = {
     info("Loading logs.")
@@ -297,7 +301,7 @@ class LogManager(logDirs: Seq[File],
 
         val cleanShutdownFile = new File(dir, Log.CleanShutdownFile)
 
-        if (cleanShutdownFile.exists) {
+        if (cleanShutdownFile.exists) {// 标记清除文件
           debug(s"Found clean shutdown file. Skipping recovery for all logs in data directory: ${dir.getAbsolutePath}")
         } else {
           // log recovery itself is being performed by `Log` class during initialization
@@ -321,9 +325,11 @@ class LogManager(logDirs: Seq[File],
             warn("Error occurred while reading log-start-offset-checkpoint file of directory " + dir, e)
         }
 
+        // 获取用于加载日志的工作
         val jobsForDir = for {
           dirContent <- Option(dir.listFiles).toList
-          logDir <- dirContent if logDir.isDirectory
+            logDir <- dirContent
+              if logDir.isDirectory
         } yield {
           CoreUtils.runnable {
             try {
@@ -355,7 +361,7 @@ class LogManager(logDirs: Seq[File],
         }
       }
 
-      offlineDirs.foreach { case (dir, e) =>
+      offlineDirs.foreach { case (dir, e) => // 处理脱机目录
         logDirFailureChannel.maybeAddOfflineLogDir(dir, s"Error while deleting the clean shutdown file in dir $dir", e)
       }
     } catch {
@@ -407,7 +413,7 @@ class LogManager(logDirs: Seq[File],
   }
 
   /**
-   * Close all the logs
+   * 关闭全部的日志
    */
   def shutdown() {
     info("Shutting down.")
@@ -474,10 +480,10 @@ class LogManager(logDirs: Seq[File],
   }
 
   /**
-   * Truncate the partition logs to the specified offsets and checkpoint the recovery point to this offset
+   * 将分区日志截断到指定的偏移量，并将恢复点检查到此偏移量。
    *
    * @param partitionOffsets Partition logs that need to be truncated
-   * @param isFuture True iff the truncation should be performed on the future log of the specified partitions
+   * @param isFuture 如果应在指定分区的将来日志上执行截断，则为真
    */
   def truncateTo(partitionOffsets: Map[TopicPartition, Long], isFuture: Boolean) {
     var truncated = false
@@ -490,12 +496,12 @@ class LogManager(logDirs: Seq[File],
       }
       // If the log does not exist, skip it
       if (log != null) {
-        //May need to abort and pause the cleaning of the log, and resume after truncation is done.
+        // 可能需要中止并暂停日志的清理，并在截断完成后恢复。
         val needToStopCleaner = cleaner != null && truncateOffset < log.activeSegment.baseOffset
         if (needToStopCleaner && !isFuture)
           cleaner.abortAndPauseCleaning(topicPartition)
         try {
-          if (log.truncateTo(truncateOffset))
+          if (log.truncateTo(truncateOffset)) // 截取数据
             truncated = true
           if (needToStopCleaner && !isFuture)
             cleaner.maybeTruncateCheckpoint(log.dir.getParentFile, topicPartition, log.activeSegment.baseOffset)
@@ -913,10 +919,10 @@ object LogManager {
             time: Time,
             brokerTopicStats: BrokerTopicStats,
             logDirFailureChannel: LogDirFailureChannel): LogManager = {
-    val defaultProps = KafkaServer.copyKafkaConfigToLog(config)
-    val defaultLogConfig = LogConfig(defaultProps)
+    val defaultProps = KafkaServer.copyKafkaConfigToLog(config)// 日志属性
+    val defaultLogConfig = new LogConfig(defaultProps) // 日志配置
 
-    // read the log configurations from zookeeper
+    // 从zookeeper中读取主题下的日志配置
     val (topicConfigs, failed) = zkClient.getLogConfigs(zkClient.getAllTopicsInCluster, defaultProps)
     if (!failed.isEmpty) throw failed.head._2
 

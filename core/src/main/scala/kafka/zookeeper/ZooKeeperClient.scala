@@ -37,13 +37,13 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable.Set
 
 /**
- * A ZooKeeper client that encourages pipelined requests.
- *
- * @param connectString comma separated host:port pairs, each corresponding to a zk server
- * @param sessionTimeoutMs session timeout in milliseconds
- * @param connectionTimeoutMs connection timeout in milliseconds
- * @param maxInFlightRequests maximum number of unacknowledged requests the client will send before blocking.
- */
+  * A ZooKeeper client 促进更快速请求。
+  *
+  * @param connectString       comma separated host:port pairs, each corresponding to a zk server
+  * @param sessionTimeoutMs    session timeout in milliseconds
+  * @param connectionTimeoutMs connection timeout in milliseconds
+  * @param maxInFlightRequests maximum number of unacknowledged requests the client will send before blocking.
+  */
 class ZooKeeperClient(connectString: String,
                       sessionTimeoutMs: Int,
                       connectionTimeoutMs: Int,
@@ -63,7 +63,7 @@ class ZooKeeperClient(connectString: String,
 
   private val metricNames = Set[String]()
 
-  // The state map has to be created before creating ZooKeeper since it's needed in the ZooKeeper callback.
+  // 在创建zookeeper之前，需要将状态映射到Meter中，用于回调
   private val stateToMeterMap = {
     import KeeperState._
     val stateToEventTypeMap = Map(
@@ -82,7 +82,7 @@ class ZooKeeperClient(connectString: String,
   }
 
   info(s"Initializing a new session to $connectString.")
-  // Fail-fast if there's an error during construction (so don't call initialize, which retries forever)
+  // 如果构造过程中出现错误，则快速失败 (so don't call initialize, which retries forever)
   @volatile private var zooKeeper = new ZooKeeper(connectString, sessionTimeoutMs, ZooKeeperClientWatcher)
 
   newGauge("SessionState", new Gauge[String] {
@@ -99,31 +99,31 @@ class ZooKeeperClient(connectString: String,
   }
 
   /**
-   * Return the state of the ZooKeeper connection.
-   */
+    * 返回zookeeper的连接状态
+    */
   def connectionState: States = zooKeeper.getState
 
   /**
-   * Send a request and wait for its response. See handle(Seq[AsyncRequest]) for details.
-   *
-   * @param request a single request to send and wait on.
-   * @return an instance of the response with the specific type (e.g. CreateRequest -> CreateResponse).
-   */
+    * 发送一个请求并等待其响应 . See handle(Seq[AsyncRequest]) for details.
+    *
+    * @param request a single request to send and wait on.
+    * @return an instance of the response with the specific type (e.g. CreateRequest -> CreateResponse).
+    */
   def handleRequest[Req <: AsyncRequest](request: Req): Req#Response = {
     handleRequests(Seq(request)).head
   }
 
   /**
-   * Send a pipelined sequence of requests and wait for all of their responses.
-   *
-   * The watch flag on each outgoing request will be set if we've already registered a handler for the
-   * path associated with the request.
-   *
-   * @param requests a sequence of requests to send and wait on.
-   * @return the responses for the requests. If all requests have the same type, the responses will have the respective
-   * response type (e.g. Seq[CreateRequest] -> Seq[CreateResponse]). Otherwise, the most specific common supertype
-   * will be used (e.g. Seq[AsyncRequest] -> Seq[AsyncResponse]).
-   */
+    * 送流水线请求序列并等待它们的所有响应。
+    *
+    * The watch flag on each outgoing request will be set if we've already registered a handler for the
+    * path associated with the request.
+    *
+    * @param requests a sequence of requests to send and wait on.
+    * @return the responses for the requests. If all requests have the same type, the responses will have the respective
+    *         response type (e.g. Seq[CreateRequest] -> Seq[CreateResponse]). Otherwise, the most specific common supertype
+    *         will be used (e.g. Seq[AsyncRequest] -> Seq[AsyncResponse]).
+    */
   def handleRequests[Req <: AsyncRequest](requests: Seq[Req]): Seq[Req#Response] = {
     if (requests.isEmpty)
       Seq.empty
@@ -132,7 +132,7 @@ class ZooKeeperClient(connectString: String,
       val responseQueue = new ArrayBlockingQueue[Req#Response](requests.size)
 
       requests.foreach { request =>
-        inFlightRequests.acquire()
+        inFlightRequests.acquire()// 对正在请求中的请求的锁
         try {
           inReadLock(initializationLock) {
             send(request) { response =>
@@ -147,19 +147,27 @@ class ZooKeeperClient(connectString: String,
             throw e
         }
       }
-      countDownLatch.await()
+      countDownLatch.await()// 等待所有的请求完成
       responseQueue.asScala.toBuffer
     }
   }
 
   // Visibility to override for testing
+  /**
+    * 实际处理发送的方法
+    * @param request
+    * @param processResponse 用于处理响应的回调
+    * @tparam Req
+    */
   private[zookeeper] def send[Req <: AsyncRequest](request: Req)(processResponse: Req#Response => Unit): Unit = {
     // Safe to cast as we always create a response of the right type
+    // 将传入方法定义为回调函数（将返回响应 asInstanceOf [Req#Response]）
     def callback(response: AsyncResponse): Unit = processResponse(response.asInstanceOf[Req#Response])
 
+    // 确定请求的耗时
     def responseMetadata(sendTimeMs: Long) = new ResponseMetadata(sendTimeMs, receivedTimeMs = time.hiResClockMs())
 
-    val sendTimeMs = time.hiResClockMs()
+    val sendTimeMs = time.hiResClockMs()// 开始发送时间
     request match {
       case ExistsRequest(path, ctx) =>
         zooKeeper.exists(path, shouldWatch(request), new StatCallback {
@@ -168,7 +176,9 @@ class ZooKeeperClient(connectString: String,
         }, ctx.orNull)
       case GetDataRequest(path, ctx) =>
         zooKeeper.getData(path, shouldWatch(request), new DataCallback {
+          // 设置回调处理结果的处理器
           override def processResult(rc: Int, path: String, ctx: Any, data: Array[Byte], stat: Stat): Unit =
+            // 将构造的响应传入到 回调中
             callback(GetDataResponse(Code.get(rc), path, Option(ctx), data, stat, responseMetadata(sendTimeMs)))
         }, ctx.orNull)
       case GetChildrenRequest(path, ctx) =>
@@ -197,7 +207,8 @@ class ZooKeeperClient(connectString: String,
           override def processResult(rc: Int, path: String, ctx: Any, acl: java.util.List[ACL], stat: Stat): Unit = {
             callback(GetAclResponse(Code.get(rc), path, Option(ctx), Option(acl).map(_.asScala).getOrElse(Seq.empty),
               stat, responseMetadata(sendTimeMs)))
-        }}, ctx.orNull)
+          }
+        }, ctx.orNull)
       case SetAclRequest(path, acl, version, ctx) =>
         zooKeeper.setACL(path, acl.asJava, version, new StatCallback {
           override def processResult(rc: Int, path: String, ctx: Any, stat: Stat): Unit =
@@ -207,10 +218,11 @@ class ZooKeeperClient(connectString: String,
   }
 
   /**
-   * Wait indefinitely until the underlying zookeeper client to reaches the CONNECTED state.
-   * @throws ZooKeeperClientAuthFailedException if the authentication failed either before or while waiting for connection.
-   * @throws ZooKeeperClientExpiredException if the session expired either before or while waiting for connection.
-   */
+    * Wait indefinitely until the underlying zookeeper client to reaches the CONNECTED state.
+    *
+    * @throws ZooKeeperClientAuthFailedException if the authentication failed either before or while waiting for connection.
+    * @throws ZooKeeperClientExpiredException    if the session expired either before or while waiting for connection.
+    */
   def waitUntilConnected(): Unit = inLock(isConnectedOrExpiredLock) {
     waitUntilConnected(Long.MaxValue, TimeUnit.MILLISECONDS)
   }
@@ -220,7 +232,7 @@ class ZooKeeperClient(connectString: String,
     var nanos = timeUnit.toNanos(timeout)
     inLock(isConnectedOrExpiredLock) {
       var state = connectionState
-      while (!state.isConnected && state.isAlive) {
+      while (!state.isConnected && state.isAlive) {// 在时间范围内，等待zookeeper连接成功
         if (nanos <= 0) {
           throw new ZooKeeperClientTimeoutException(s"Timed out waiting for connection while in state: $state")
         }
@@ -238,65 +250,68 @@ class ZooKeeperClient(connectString: String,
 
   // If this method is changed, the documentation for registerZNodeChangeHandler and/or registerZNodeChildChangeHandler
   // may need to be updated.
+  // 对于特定的zk请求，判断是否应该设置watch
   private def shouldWatch(request: AsyncRequest): Boolean = request match {
-    case _: GetChildrenRequest => zNodeChildChangeHandlers.contains(request.path)
+    case _: GetChildrenRequest => zNodeChildChangeHandlers.contains(request.path)// 是否是特定的子节点
     case _: ExistsRequest | _: GetDataRequest => zNodeChangeHandlers.contains(request.path)
     case _ => throw new IllegalArgumentException(s"Request $request is not watchable")
   }
 
   /**
-   * Register the handler to ZooKeeperClient. This is just a local operation. This does not actually register a watcher.
-   *
-   * The watcher is only registered once the user calls handle(AsyncRequest) or handle(Seq[AsyncRequest])
-   * with either a GetDataRequest or ExistsRequest.
-   *
-   * NOTE: zookeeper only allows registration to a nonexistent znode with ExistsRequest.
-   *
-   * @param zNodeChangeHandler the handler to register
-   */
+    * 向ZooKeeperClient注册处理器. 这只是一个局部操作。这实际上没有注册观察者。、
+    * 而是在监控器中获取处理器，然后调用
+    *
+    * The watcher is only registered once the user calls handle(AsyncRequest) or handle(Seq[AsyncRequest])
+    * with either a GetDataRequest or ExistsRequest.
+    *
+    * NOTE: zookeeper only allows registration to a nonexistent znode with ExistsRequest.
+    *
+    * @param zNodeChangeHandler the handler to register
+    */
   def registerZNodeChangeHandler(zNodeChangeHandler: ZNodeChangeHandler): Unit = {
     zNodeChangeHandlers.put(zNodeChangeHandler.path, zNodeChangeHandler)
   }
 
   /**
-   * Unregister the handler from ZooKeeperClient. This is just a local operation.
-   * @param path the path of the handler to unregister
-   */
+    * Unregister the handler from ZooKeeperClient. This is just a local operation.
+    *
+    * @param path the path of the handler to unregister
+    */
   def unregisterZNodeChangeHandler(path: String): Unit = {
     zNodeChangeHandlers.remove(path)
   }
 
   /**
-   * Register the handler to ZooKeeperClient. This is just a local operation. This does not actually register a watcher.
-   *
-   * The watcher is only registered once the user calls handle(AsyncRequest) or handle(Seq[AsyncRequest]) with a GetChildrenRequest.
-   *
-   * @param zNodeChildChangeHandler the handler to register
-   */
+    * 将处理程序注册到ZooKeeperClient。 这只是一个本地操作。 这实际上并没有注册观察者。
+    *
+    * 观察者只有在用户使用GetChildrenRequest调用句柄（AsyncRequest）或处理（Seq [AsyncRequest]）时才被注册。
+    * @param zNodeChildChangeHandler the handler to register
+    */
   def registerZNodeChildChangeHandler(zNodeChildChangeHandler: ZNodeChildChangeHandler): Unit = {
     zNodeChildChangeHandlers.put(zNodeChildChangeHandler.path, zNodeChildChangeHandler)
   }
 
   /**
-   * Unregister the handler from ZooKeeperClient. This is just a local operation.
-   * @param path the path of the handler to unregister
-   */
+    * Unregister the handler from ZooKeeperClient. This is just a local operation.
+    *
+    * @param path the path of the handler to unregister
+    */
   def unregisterZNodeChildChangeHandler(path: String): Unit = {
     zNodeChildChangeHandlers.remove(path)
   }
 
   /**
-   * @param stateChangeHandler
-   */
+    * @param stateChangeHandler
+    */
   def registerStateChangeHandler(stateChangeHandler: StateChangeHandler): Unit = inReadLock(initializationLock) {
     if (stateChangeHandler != null)
       stateChangeHandlers.put(stateChangeHandler.name, stateChangeHandler)
   }
 
   /**
-   *
-   * @param name
-   */
+    *
+    * @param name
+    */
   def unregisterStateChangeHandler(name: String): Unit = inReadLock(initializationLock) {
     stateChangeHandlers.remove(name)
   }
@@ -320,12 +335,15 @@ class ZooKeeperClient(connectString: String,
   private[kafka] def currentZooKeeper: ZooKeeper = inReadLock(initializationLock) {
     zooKeeper
   }
-  
+
+  /**
+    * 初始化zookeeper的连接
+    */
   private def initialize(): Unit = {
     if (!connectionState.isAlive) {
       zooKeeper.close()
       info(s"Initializing a new session to $connectString.")
-      // retry forever until ZooKeeper can be instantiated
+      // ZooKeeper 可以实例化重试直到永远
       var connected = false
       while (!connected) {
         try {
@@ -341,39 +359,40 @@ class ZooKeeperClient(connectString: String,
   }
 
   /**
-   * reinitialize method to use in unit tests
-   */
+    * reinitialize method to use in unit tests
+    */
   private[zookeeper] def reinitialize(): Unit = {
     zooKeeper.close()
     initialize()
   }
 
   // package level visibility for testing only
+  // zookeeper客户端的监听器
   private[zookeeper] object ZooKeeperClientWatcher extends Watcher {
     override def process(event: WatchedEvent): Unit = {
       debug(s"Received event: $event")
       Option(event.getPath) match {
         case None =>
           val state = event.getState
-          stateToMeterMap.get(state).foreach(_.mark())
-          inLock(isConnectedOrExpiredLock) {
+          stateToMeterMap.get(state).foreach(_.mark())// 刷新状态监控
+          inLock(isConnectedOrExpiredLock) {// 唤醒连接或者过期的信号
             isConnectedOrExpiredCondition.signalAll()
           }
-          if (state == KeeperState.AuthFailed) {
+          if (state == KeeperState.AuthFailed) { // 验证失败
             error("Auth failed.")
             stateChangeHandlers.values.foreach(_.onAuthFailure())
           } else if (state == KeeperState.Expired) {
             expiryScheduler.schedule("zk-session-expired", () => {
               inWriteLock(initializationLock) {
                 info("Session expired.")
-                stateChangeHandlers.values.foreach(_.beforeInitializingSession())
-                initialize()
-                stateChangeHandlers.values.foreach(_.afterInitializingSession())
+                stateChangeHandlers.values.foreach(_.beforeInitializingSession()) // 初始化session之前
+                initialize() // 初始化zookeeper连接
+                stateChangeHandlers.values.foreach(_.afterInitializingSession())  // 初始化session之后
               }
             }, delay = 0L, period = -1L, unit = TimeUnit.MILLISECONDS)
           }
         case Some(path) =>
-          (event.getType: @unchecked) match {
+          (event.getType: @unchecked) match {// 执行节点状态改变和子节点状态改变的 的事件
             case EventType.NodeChildrenChanged => zNodeChildChangeHandlers.get(path).foreach(_.handleChildChange())
             case EventType.NodeCreated => zNodeChangeHandlers.get(path).foreach(_.handleCreation())
             case EventType.NodeDeleted => zNodeChangeHandlers.get(path).foreach(_.handleDeletion())
@@ -382,34 +401,59 @@ class ZooKeeperClient(connectString: String,
       }
     }
   }
+
 }
 
+/**
+  * 状态改变处理器
+  */
 trait StateChangeHandler {
   val name: String
+
   def beforeInitializingSession(): Unit = {}
+
   def afterInitializingSession(): Unit = {}
+
+  /**
+    * 授权失败
+    */
   def onAuthFailure(): Unit = {}
 }
 
+/**
+  * 节点改变处理器
+  */
 trait ZNodeChangeHandler {
   val path: String
+
   def handleCreation(): Unit = {}
+
   def handleDeletion(): Unit = {}
+
   def handleDataChange(): Unit = {}
 }
 
+/**
+  * 子节点改变处理器
+  */
 trait ZNodeChildChangeHandler {
   val path: String
+
   def handleChildChange(): Unit = {}
 }
 
+/**
+  * 异步的请求，包含响应、路径、上下文
+  */
 sealed trait AsyncRequest {
   /**
-   * This type member allows us to define methods that take requests and return responses with the correct types.
-   * See ``ZooKeeperClient.handleRequests`` for example.
-   */
+    * This type member allows us to define methods that take requests and return responses with the correct types.
+    * See ``ZooKeeperClient.handleRequests`` for example.
+    */
   type Response <: AsyncResponse
+
   def path: String
+
   def ctx: Option[Any]
 }
 
@@ -446,9 +490,14 @@ case class GetChildrenRequest(path: String, ctx: Option[Any] = None) extends Asy
   type Response = GetChildrenResponse
 }
 
+/**
+  * 异步响应的基类
+  */
 sealed abstract class AsyncResponse {
   def resultCode: Code
+
   def path: String
+
   def ctx: Option[Any]
 
   /** Return None if the result code is OK and KeeperException otherwise. */
@@ -456,8 +505,8 @@ sealed abstract class AsyncResponse {
     if (resultCode == Code.OK) None else Some(KeeperException.create(resultCode, path))
 
   /**
-   * Throw KeeperException if the result code is not OK.
-   */
+    * Throw KeeperException if the result code is not OK.
+    */
   def maybeThrow(): Unit = {
     if (resultCode != Code.OK)
       throw KeeperException.create(resultCode, path)
@@ -471,18 +520,28 @@ case class ResponseMetadata(sendTimeMs: Long, receivedTimeMs: Long) {
 }
 
 case class CreateResponse(resultCode: Code, path: String, ctx: Option[Any], name: String, metadata: ResponseMetadata) extends AsyncResponse
+
 case class DeleteResponse(resultCode: Code, path: String, ctx: Option[Any], metadata: ResponseMetadata) extends AsyncResponse
+
 case class ExistsResponse(resultCode: Code, path: String, ctx: Option[Any], stat: Stat, metadata: ResponseMetadata) extends AsyncResponse
+
 case class GetDataResponse(resultCode: Code, path: String, ctx: Option[Any], data: Array[Byte], stat: Stat,
                            metadata: ResponseMetadata) extends AsyncResponse
+
 case class SetDataResponse(resultCode: Code, path: String, ctx: Option[Any], stat: Stat, metadata: ResponseMetadata) extends AsyncResponse
+
 case class GetAclResponse(resultCode: Code, path: String, ctx: Option[Any], acl: Seq[ACL], stat: Stat,
                           metadata: ResponseMetadata) extends AsyncResponse
+
 case class SetAclResponse(resultCode: Code, path: String, ctx: Option[Any], stat: Stat, metadata: ResponseMetadata) extends AsyncResponse
+
 case class GetChildrenResponse(resultCode: Code, path: String, ctx: Option[Any], children: Seq[String], stat: Stat,
                                metadata: ResponseMetadata) extends AsyncResponse
 
 class ZooKeeperClientException(message: String) extends RuntimeException(message)
+
 class ZooKeeperClientExpiredException(message: String) extends ZooKeeperClientException(message)
+
 class ZooKeeperClientAuthFailedException(message: String) extends ZooKeeperClientException(message)
+
 class ZooKeeperClientTimeoutException(message: String) extends ZooKeeperClientException(message)

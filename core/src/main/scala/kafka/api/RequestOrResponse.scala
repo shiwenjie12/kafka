@@ -22,11 +22,11 @@ import kafka.network.RequestChannel
 import kafka.utils.Logging
 
 object Request {
-  val OrdinaryConsumerId: Int = -1
-  val DebuggingConsumerId: Int = -2
-  val FutureLocalReplicaId: Int = -3
+  val OrdinaryConsumerId: Int = -1 // 普通的消费者id
+  val DebuggingConsumerId: Int = -2  // 测试的消费者id
+  val FutureLocalReplicaId: Int = -3 // 未来的本地副本id
 
-  // Broker ids are non-negative int.
+  // broker的id是非负数的int
   def isValidBrokerId(brokerId: Int): Boolean = brokerId >= 0
 }
 

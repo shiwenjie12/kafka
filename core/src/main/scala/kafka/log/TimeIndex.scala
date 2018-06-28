@@ -26,8 +26,7 @@ import kafka.utils.Logging
 import org.apache.kafka.common.record.RecordBatch
 
 /**
- * An index that maps from the timestamp to the logical offsets of the messages in a segment. This index might be
- * sparse, i.e. it may not hold an entry for all the messages in the segment.
+  *  从时间戳映射到段中消息的逻辑偏移量的索引。该索引可能是稀疏的，也就是说，它可能不为该段中的所有消息保留条目。
  *
  * The index is stored in a file that is preallocated to hold a fixed maximum amount of 12-byte time index entries.
  * The file format is a series of time index entries. The physical format is a 8 bytes timestamp and a 4 bytes "relative"
@@ -97,9 +96,8 @@ class TimeIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writable:
   }
 
   /**
-   * Attempt to append a time index entry to the time index.
-   * The new entry is appended only if both the timestamp and offsets are greater than the last appended timestamp and
-   * the last appended offset.
+    * 尝试将时间索引条目附加到时间索引。
+    * 只有当时间戳和偏移量都大于最后附加的时间戳和最后附加的偏移量时，才会追加新条目。
    *
    * @param timestamp The timestamp of the new time index entry
    * @param offset The offset of the new time index entry

@@ -16,6 +16,7 @@
  */
 package org.apache.kafka.common.requests;
 
+// 隔离等级
 public enum IsolationLevel {
     READ_UNCOMMITTED((byte) 0), READ_COMMITTED((byte) 1);
 

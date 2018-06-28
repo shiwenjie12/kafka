@@ -25,12 +25,12 @@ import kafka.zk.{KafkaZkClient, ProducerIdBlockZNode}
 import scala.collection.JavaConverters._
 
 /**
- * ProducerIdManager is the part of the transaction coordinator that provides ProducerIds in a unique way
- * such that the same producerId will not be assigned twice across multiple transaction coordinators.
- *
- * ProducerIds are managed via ZooKeeper, where the latest producerId block is written on the corresponding ZK
- * path by the manager who claims the block, where the written block_start and block_end are both inclusive.
- */
+  * ProducerIdManager是事务协调器的一部分，它以一种独特的方式提供ProducerIds，使得相同的producerId不会在多个事务协调器中分配两次。
+  *
+  * ProducerIds通过ZooKeeper进行管理，其中最新的producerId块由声明该块的管理器写入相应的ZK路径，
+  * 其中写入的block_start和block_end都包含在内。
+  *
+  */
 object ProducerIdManager extends Logging {
   val CurrentVersion: Long = 1L
   val PidBlockSize: Long = 1000L
@@ -60,6 +60,7 @@ object ProducerIdManager extends Logging {
   }
 }
 
+// 生成者的块
 case class ProducerIdBlock(brokerId: Int, blockStartId: Long, blockEndId: Long) {
   override def toString: String = {
     val producerIdBlockInfo = new StringBuilder
@@ -70,6 +71,7 @@ case class ProducerIdBlock(brokerId: Int, blockStartId: Long, blockEndId: Long) 
   }
 }
 
+// 生产者的管理器
 class ProducerIdManager(val brokerId: Int, val zkClient: KafkaZkClient) extends Logging {
 
   this.logIdent = "[ProducerId Manager " + brokerId + "]: "
@@ -78,15 +80,16 @@ class ProducerIdManager(val brokerId: Int, val zkClient: KafkaZkClient) extends 
   private var nextProducerId: Long = -1L
 
   // grab the first block of producerIds
-  this synchronized {
+  this synchronized {  //  初始化同步代码块
     getNewProducerIdBlock()
     nextProducerId = currentProducerIdBlock.blockStartId
   }
 
+  // 产生新的服务器
   private def getNewProducerIdBlock(): Unit = {
     var zkWriteComplete = false
     while (!zkWriteComplete) {
-      // refresh current producerId block from zookeeper again
+      // 再次从zookeeper刷新当前producerId块
       val (dataOpt, zkVersion) = zkClient.getDataAndVersion(ProducerIdBlockZNode.path)
 
       // generate the new producerId block
@@ -109,7 +112,7 @@ class ProducerIdManager(val brokerId: Int, val zkClient: KafkaZkClient) extends 
 
       val newProducerIdBlockData = ProducerIdManager.generateProducerIdBlockJson(currentProducerIdBlock)
 
-      // try to write the new producerId block into zookeeper
+      // 尝试将新的producerId块写入zookeeper
       val (succeeded, version) = zkClient.conditionalUpdatePath(ProducerIdBlockZNode.path,
         newProducerIdBlockData, zkVersion, Some(checkProducerIdBlockZkData))
       zkWriteComplete = succeeded
@@ -138,7 +141,7 @@ class ProducerIdManager(val brokerId: Int, val zkClient: KafkaZkClient) extends 
 
   def generateProducerId(): Long = {
     this synchronized {
-      // grab a new block of producerIds if this block has been exhausted
+      // 如果此块已耗尽，则抓取新的producerIds块
       if (nextProducerId > currentProducerIdBlock.blockEndId) {
         getNewProducerIdBlock()
         nextProducerId = currentProducerIdBlock.blockStartId + 1

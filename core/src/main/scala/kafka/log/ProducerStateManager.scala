@@ -37,7 +37,7 @@ import scala.collection.{immutable, mutable}
 class CorruptSnapshotException(msg: String) extends KafkaException(msg)
 
 
-// ValidationType and its subtypes define the extent of the validation to perform on a given ProducerAppendInfo instance
+// ValidationType及其子类型定义了在给定ProducerAppendInfo实例上执行验证的范围
 private[log] sealed trait ValidationType
 private[log] object ValidationType {
 
@@ -59,6 +59,7 @@ private[log] object ValidationType {
   case object Full extends ValidationType
 }
 
+// 事务元数据
 private[log] case class TxnMetadata(producerId: Long, var firstOffset: LogOffsetMetadata, var lastOffset: Option[Long] = None) {
   def this(producerId: Long, firstOffset: Long) = this(producerId, LogOffsetMetadata(firstOffset))
 
@@ -89,9 +90,9 @@ private[log] case class BatchMetadata(lastSeq: Int, lastOffset: Long, offsetDelt
   }
 }
 
-// the batchMetadata is ordered such that the batch with the lowest sequence is at the head of the queue while the
-// batch with the highest sequence is at the tail of the queue. We will retain at most ProducerIdEntry.NumBatchesToRetain
-// elements in the queue. When the queue is at capacity, we remove the first element to make space for the incoming batch.
+// batchMetadata是有序的，使得具有最低序列的批次位于队列的头上，而具有最高序列的批在队列的尾部。
+// 我们将在队列中保留最多的ProducerIdEntry.NumBatchesToRetain元素。
+// 当队列处于容量时，我们删除第一个元素来为传入的批处理创建空间。
 private[log] class ProducerIdEntry(val producerId: Long, val batchMetadata: mutable.Queue[BatchMetadata],
                                    var producerEpoch: Short, var coordinatorEpoch: Int,
                                    var currentTxnFirstOffset: Option[Long]) {
@@ -108,11 +109,12 @@ private[log] class ProducerIdEntry(val producerId: Long, val batchMetadata: muta
     maybeUpdateEpoch(producerEpoch)
 
     if (batchMetadata.size == ProducerIdEntry.NumBatchesToRetain)
-      batchMetadata.dequeue()
+      batchMetadata.dequeue() // 出队
 
-    batchMetadata.enqueue(BatchMetadata(lastSeq, lastOffset, offsetDelta, timestamp))
+    batchMetadata.enqueue(BatchMetadata(lastSeq, lastOffset, offsetDelta, timestamp)) // 添加新的元数据
   }
 
+  // 可能需要更新Epoch
   def maybeUpdateEpoch(producerEpoch: Short): Boolean = {
     if (this.producerEpoch != producerEpoch) {
       batchMetadata.clear()
@@ -125,6 +127,7 @@ private[log] class ProducerIdEntry(val producerId: Long, val batchMetadata: muta
 
   def removeBatchesOlderThan(offset: Long) = batchMetadata.dropWhile(_.lastOffset < offset)
 
+  // 复制当前批次的元数据
   def duplicateOf(batch: RecordBatch): Option[BatchMetadata] = {
     if (batch.producerEpoch() != producerEpoch)
        None
@@ -132,7 +135,7 @@ private[log] class ProducerIdEntry(val producerId: Long, val batchMetadata: muta
       batchWithSequenceRange(batch.baseSequence(), batch.lastSequence())
   }
 
-  // Return the batch metadata of the cached batch having the exact sequence range, if any.
+  // 返回具有特定序列范围的缓存批处理的元数据（如果有的话）。
   def batchWithSequenceRange(firstSeq: Int, lastSeq: Int): Option[BatchMetadata] = {
     val duplicate = batchMetadata.filter { case(metadata) =>
       firstSeq == metadata.firstSeq && lastSeq == metadata.lastSeq
@@ -151,10 +154,9 @@ private[log] class ProducerIdEntry(val producerId: Long, val batchMetadata: muta
 }
 
 /**
- * This class is used to validate the records appended by a given producer before they are written to the log.
- * It is initialized with the producer's state after the last successful append, and transitively validates the
- * sequence numbers and epochs of each new record. Additionally, this class accumulates transaction metadata
- * as the incoming records are validated.
+  * 该类用于验证给定生产者在写入日志之前附加的记录。
+  * 它在上次成功追加后用生产者的状态进行初始化，并且可以对每个新记录的序列号和历元进行过渡性验证。
+  * 另外，这个类在传入记录被验证时积累事务元数据。
  *
  * @param producerId The id of the producer appending to the log
  * @param currentEntry  The current entry associated with the producer id which contains metadata for a fixed number of
@@ -186,7 +188,7 @@ private[log] class ProducerAppendInfo(val producerId: Long,
   }
 
   private def checkEpoch(producerEpoch: Short): Unit = {
-    if (isFenced(producerEpoch)) {
+    if (isFenced(producerEpoch)) {// 添加的小于当前的Epoch
       throw new ProducerFencedException(s"Producer's epoch is no longer valid. There is probably another producer " +
         s"with a newer epoch. $producerEpoch (request epoch), ${currentEntry.producerEpoch} (server epoch)")
     }
@@ -207,7 +209,7 @@ private[log] class ProducerAppendInfo(val producerId: Long,
       // the epoch was bumped by a control record, so we expect the sequence number to be reset
       throw new OutOfOrderSequenceException(s"Out of order sequence number for producerId $producerId: found $firstSeq " +
         s"(incoming seq. number), but expected 0")
-    } else if (isDuplicate(firstSeq, lastSeq)) {
+    } else if (isDuplicate(firstSeq, lastSeq)) { // 幂等异常
       throw new DuplicateSequenceException(s"Duplicate sequence number for producerId $producerId: (incomingBatch.firstSeq, " +
         s"incomingBatch.lastSeq): ($firstSeq, $lastSeq).")
     } else if (!inSequence(firstSeq, lastSeq)) {
@@ -229,10 +231,11 @@ private[log] class ProducerAppendInfo(val producerId: Long,
     producerEpoch < currentEntry.producerEpoch
   }
 
+  // 向生产者状态管理器添加批次信息，分两种情况一种是普通的，一种是事务结束的
   def append(batch: RecordBatch): Option[CompletedTxn] = {
     if (batch.isControlBatch) {
       val record = batch.iterator.next()
-      val endTxnMarker = EndTransactionMarker.deserialize(record)
+      val endTxnMarker = EndTransactionMarker.deserialize(record) // 事务结束标记
       val completedTxn = appendEndTxnMarker(endTxnMarker, batch.producerEpoch, batch.baseOffset, record.timestamp)
       Some(completedTxn)
     } else {
@@ -242,26 +245,28 @@ private[log] class ProducerAppendInfo(val producerId: Long,
     }
   }
 
+  // 未开启控制批次的添加
   def append(epoch: Short,
              firstSeq: Int,
              lastSeq: Int,
              lastTimestamp: Long,
              lastOffset: Long,
              isTransactional: Boolean): Unit = {
-    maybeValidateAppend(epoch, firstSeq, lastSeq)
+    maybeValidateAppend(epoch, firstSeq, lastSeq)// 验证添加信息
 
-    currentEntry.addBatchMetadata(epoch, lastSeq, lastOffset, lastSeq - firstSeq, lastTimestamp)
+    currentEntry.addBatchMetadata(epoch, lastSeq, lastOffset, lastSeq - firstSeq, lastTimestamp)// 添加批元数据
 
     if (currentEntry.currentTxnFirstOffset.isDefined && !isTransactional)
       throw new InvalidTxnStateException(s"Expected transactional write from producer $producerId")
 
-    if (isTransactional && currentEntry.currentTxnFirstOffset.isEmpty) {
+    if (isTransactional && currentEntry.currentTxnFirstOffset.isEmpty) { // 为空则设置事务开启偏移量
       val firstOffset = lastOffset - (lastSeq - firstSeq)
-      currentEntry.currentTxnFirstOffset = Some(firstOffset)
+      currentEntry.currentTxnFirstOffset = Some(firstOffset) // 当前事务的起始偏移量
       transactions += new TxnMetadata(producerId, firstOffset)
     }
   }
 
+  // 添加结束事务的标记
   def appendEndTxnMarker(endTxnMarker: EndTransactionMarker,
                          producerEpoch: Short,
                          offset: Long,
@@ -276,8 +281,8 @@ private[log] class ProducerAppendInfo(val producerId: Long,
     currentEntry.maybeUpdateEpoch(producerEpoch)
 
     val firstOffset = currentEntry.currentTxnFirstOffset match {
-      case Some(txnFirstOffset) => txnFirstOffset
-      case None =>
+      case Some(txnFirstOffset) => txnFirstOffset // 本次事务的起始偏移量
+      case None => // 本次消息的偏移量
         transactions += new TxnMetadata(producerId, offset)
         offset
     }
@@ -289,6 +294,7 @@ private[log] class ProducerAppendInfo(val producerId: Long,
 
   def latestEntry: ProducerIdEntry = currentEntry
 
+  // 开启的事务
   def startedTransactions: List[TxnMetadata] = transactions.toList
 
   def maybeCacheTxnFirstOffsetMetadata(logOffsetMetadata: LogOffsetMetadata): Unit = {
@@ -347,6 +353,7 @@ object ProducerStateManager {
     new Field(CrcField, Type.UNSIGNED_INT32, "CRC of the snapshot data"),
     new Field(ProducerEntriesField, new ArrayOf(ProducerSnapshotEntrySchema), "The entries in the producer table"))
 
+  // 读取快照 读取ProducerIdEntry
   def readSnapshot(file: File): Iterable[ProducerIdEntry] = {
     try {
       val buffer = Files.readAllBytes(file.toPath)
@@ -419,7 +426,7 @@ object ProducerStateManager {
 
   private def isSnapshotFile(file: File): Boolean = file.getName.endsWith(Log.ProducerSnapshotFileSuffix)
 
-  // visible for testing
+  // 文件目录下的生产者快照文件
   private[log] def listSnapshotFiles(dir: File): Seq[File] = {
     if (dir.exists && dir.isDirectory) {
       Option(dir.listFiles).map { files =>
@@ -431,6 +438,7 @@ object ProducerStateManager {
   // visible for testing
   private[log] def deleteSnapshotsBefore(dir: File, offset: Long): Unit = deleteSnapshotFiles(dir, _ < offset)
 
+  // 删除符合条件的快照文件
   private def deleteSnapshotFiles(dir: File, predicate: Long => Boolean = _ => true) {
     listSnapshotFiles(dir).filter(file => predicate(offsetFromFile(file))).foreach { file =>
       Files.deleteIfExists(file.toPath)
@@ -440,8 +448,7 @@ object ProducerStateManager {
 }
 
 /**
- * Maintains a mapping from ProducerIds to metadata about the last appended entries (e.g.
- * epoch, sequence number, last offset, etc.)
+  * 维护从产品ID到元数据的最后一个附加条目（例如，历元、序列号、最后偏移等）的映射。
  *
  * The sequence number is the last number successfully appended to the partition for the given identifier.
  * The epoch is used for fencing against zombie writers. The offset is the one of the last successful message
@@ -466,20 +473,19 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   private var lastMapOffset = 0L
   private var lastSnapOffset = 0L
 
-  // ongoing transactions sorted by the first offset of the transaction
+  // 正在进行的交易按交易的第一笔抵消进行排序
   private val ongoingTxns = new util.TreeMap[Long, TxnMetadata]
 
-  // completed transactions whose markers are at offsets above the high watermark
+  // 已完成的交易，其标记位于高水印以上偏移处
   private val unreplicatedTxns = new util.TreeMap[Long, TxnMetadata]
 
   /**
-   * An unstable offset is one which is either undecided (i.e. its ultimate outcome is not yet known),
-   * or one that is decided, but may not have been replicated (i.e. any transaction which has a COMMIT/ABORT
-   * marker written at a higher offset than the current high watermark).
+    * 不稳定偏移是一个未决定的（即其最终结果尚不知道），
+    * 或者是一个被确定但可能未被复制的（即，具有比当前高水印写入更高偏移量的提交/中止标记的任何事务）。
    */
   def firstUnstableOffset: Option[LogOffsetMetadata] = {
-    val unreplicatedFirstOffset = Option(unreplicatedTxns.firstEntry).map(_.getValue.firstOffset)
-    val undecidedFirstOffset = Option(ongoingTxns.firstEntry).map(_.getValue.firstOffset)
+    val unreplicatedFirstOffset = Option(unreplicatedTxns.firstEntry).map(_.getValue.firstOffset) // 未复制的
+    val undecidedFirstOffset = Option(ongoingTxns.firstEntry).map(_.getValue.firstOffset)//  未确定的
     if (unreplicatedFirstOffset.isEmpty)
       undecidedFirstOffset
     else if (undecidedFirstOffset.isEmpty)
@@ -491,16 +497,14 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   }
 
   /**
-   * Acknowledge all transactions which have been completed before a given offset. This allows the LSO
-   * to advance to the next unstable offset.
+    * 确认在给定偏移之前完成的所有事务。这允许LSO前进到下一个不稳定偏移。
    */
   def onHighWatermarkUpdated(highWatermark: Long): Unit = {
     removeUnreplicatedTransactions(highWatermark)
   }
 
   /**
-   * The first undecided offset is the earliest transactional message which has not yet been committed
-   * or aborted.
+   * 第一个未定的偏移量    是尚未提交或中止的最早的事务消息。
    */
   def firstUndecidedOffset: Option[Long] = Option(ongoingTxns.firstEntry).map(_.getValue.firstOffset.messageOffset)
 
@@ -516,6 +520,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
 
   def isEmpty: Boolean = producers.isEmpty && unreplicatedTxns.isEmpty
 
+  // 从快照中加载生产者状态数据
   private def loadFromSnapshot(logStartOffset: Long, currentTime: Long) {
     while (true) {
       latestSnapshotFile match {
@@ -542,7 +547,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
     }
   }
 
-  // visible for testing
+  // 将ProducerIdEntry加载producers ongoingTxns
   private[log] def loadProducerEntry(entry: ProducerIdEntry): Unit = {
     val producerId = entry.producerId
     producers.put(producerId, entry)
@@ -564,12 +569,13 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   }
 
   /**
-   * Truncate the producer id mapping to the given offset range and reload the entries from the most recent
-   * snapshot in range (if there is one). Note that the log end offset is assumed to be less than
-   * or equal to the high watermark.
+    * 将生产者标识映射截断到给定的偏移范围，并重新加载范围中最近快照的条目（如果有的话）。
+    * 请注意，日志结束偏移被假定为小于或等于高水印。
+    * @param logStartOffset tp的起始偏移量
+    * @param logEndOffset 之前正常的偏移量
    */
   def truncateAndReload(logStartOffset: Long, logEndOffset: Long, currentTimeMs: Long) {
-    // remove all out of range snapshots
+    // 删除所有超出范围的快照
     deleteSnapshotFiles(logDir, { snapOffset =>
       snapOffset > logEndOffset || snapOffset <= logStartOffset
     })
@@ -587,8 +593,9 @@ class ProducerStateManager(val topicPartition: TopicPartition,
     }
   }
 
+  // 产生生产者级别的
   def prepareUpdate(producerId: Long, isFromClient: Boolean): ProducerAppendInfo = {
-    val validationToPerform =
+    val validationToPerform = // 用于执行验证的类型
       if (!isFromClient)
         ValidationType.None
       else if (topicPartition.topic == Topic.GROUP_METADATA_TOPIC_NAME)
@@ -600,7 +607,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   }
 
   /**
-   * Update the mapping with the given append information
+   * 用给定的附加信息更新映射（producers、ongoingTxns）
    */
   def update(appendInfo: ProducerAppendInfo): Unit = {
     if (appendInfo.producerId == RecordBatch.NO_PRODUCER_ID)
@@ -620,19 +627,19 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   }
 
   /**
-   * Get the last written entry for the given producer id.
+   * 获取给定生产者ID的最后写入entry
    */
   def lastEntry(producerId: Long): Option[ProducerIdEntry] = producers.get(producerId)
 
   /**
-   * Take a snapshot at the current end offset if one does not already exist.
+   * 如果尚不存在，则在当前末端偏移处拍摄快照。
    */
   def takeSnapshot(): Unit = {
-    // If not a new offset, then it is not worth taking another snapshot
+    // 如果是新的偏移量，那么拍一张快照
     if (lastMapOffset > lastSnapOffset) {
       val snapshotFile = Log.producerSnapshotFile(logDir, lastMapOffset)
       debug(s"Writing producer snapshot for partition $topicPartition at offset $lastMapOffset")
-      writeSnapshot(snapshotFile, producers)
+      writeSnapshot(snapshotFile, producers)// 写入生成的快照
 
       // Update the last snap offset according to the serialized map
       lastSnapOffset = lastMapOffset
@@ -712,13 +719,14 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   }
 
   /**
-   * Complete the transaction and return the last stable offset.
+    * 完成事务并返回最后稳定的偏移量
    */
   def completeTxn(completedTxn: CompletedTxn): Long = {
-    val txnMetadata = ongoingTxns.remove(completedTxn.firstOffset)
+    val txnMetadata = ongoingTxns.remove(completedTxn.firstOffset) // 从正在进行的事务中移除完成事务
     if (txnMetadata == null)
       throw new IllegalArgumentException("Attempted to complete a transaction which was not started")
 
+    // 标记事务元素的完成偏移量
     txnMetadata.lastOffset = Some(completedTxn.lastOffset)
     unreplicatedTxns.put(completedTxn.firstOffset, txnMetadata)
 
@@ -737,6 +745,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
       None
   }
 
+  // 获取最新的快照文件
   private def latestSnapshotFile: Option[File] = {
     val files = listSnapshotFiles
     if (files.nonEmpty)
@@ -745,6 +754,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
       None
   }
 
+  // 所有快照文件
   private def listSnapshotFiles: Seq[File] = ProducerStateManager.listSnapshotFiles(logDir)
 
 }

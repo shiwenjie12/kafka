@@ -51,7 +51,7 @@ import scala.collection.JavaConverters._
 import scala.collection._
 
 /*
- * Result metadata of a log append operation on the log
+ * 日志中的日志追加操作的结果元数据
  */
 case class LogAppendResult(info: LogAppendInfo, exception: Option[Throwable] = None) {
   def error: Errors = exception match {
@@ -68,7 +68,7 @@ case class LogDeleteRecordsResult(requestedOffset: Long, lowWatermark: Long, exc
 }
 
 /*
- * Result metadata of a log read operation on the log
+ * 日志中的日志读取操作的结果元数据
  * @param info @FetchDataInfo returned by the @Log read
  * @param hw high watermark of the local replica
  * @param readSize amount of data that was read from the log i.e. size of the fetch
@@ -124,12 +124,15 @@ object LogReadResult {
 }
 
 object ReplicaManager {
+  // 备份偏移量检查点
   val HighWatermarkFilename = "replication-offset-checkpoint"
   val IsrChangePropagationBlackOut = 5000L
   val IsrChangePropagationInterval = 60000L
+  // 下线的偏移量
   val OfflinePartition = new Partition("", -1, null, null, isOffline = true)
 }
 
+// 副本管理器
 class ReplicaManager(val config: KafkaConfig,
                      metrics: Metrics,
                      time: Time,
@@ -140,7 +143,7 @@ class ReplicaManager(val config: KafkaConfig,
                      quotaManagers: QuotaManagers,
                      val brokerTopicStats: BrokerTopicStats,
                      val metadataCache: MetadataCache,
-                     logDirFailureChannel: LogDirFailureChannel,
+                     logDirFailureChannel: LogDirFailureChannel, // 日志失败文件通道
                      val delayedProducePurgatory: DelayedOperationPurgatory[DelayedProduce],
                      val delayedFetchPurgatory: DelayedOperationPurgatory[DelayedFetch],
                      val delayedDeleteRecordsPurgatory: DelayedOperationPurgatory[DelayedDeleteRecords],
@@ -175,12 +178,14 @@ class ReplicaManager(val config: KafkaConfig,
   /* epoch of the controller that last changed the leader */
   @volatile var controllerEpoch: Int = KafkaController.InitialControllerEpoch - 1
   private val localBrokerId = config.brokerId
+  // 包含的全部分区
   private val allPartitions = new Pool[TopicPartition, Partition](valueFactory = Some(tp =>
     new Partition(tp.topic, tp.partition, time, this)))
   private val replicaStateChangeLock = new Object
   val replicaFetcherManager = createReplicaFetcherManager(metrics, time, threadNamePrefix, quotaManagers.follower)
   val replicaAlterLogDirsManager = createReplicaAlterLogDirsManager(quotaManagers.alterLogDirs, brokerTopicStats)
   private val highWatermarkCheckPointThreadStarted = new AtomicBoolean(false)
+
   @volatile var highWatermarkCheckpoints = logManager.liveLogDirs.map(dir =>
     (dir.getAbsolutePath, new OffsetCheckpointFile(new File(dir, ReplicaManager.HighWatermarkFilename), logDirFailureChannel))).toMap
 
@@ -188,12 +193,14 @@ class ReplicaManager(val config: KafkaConfig,
   this.logIdent = s"[ReplicaManager broker=$localBrokerId] "
   private val stateChangeLogger = new StateChangeLogger(localBrokerId, inControllerContext = false, None)
 
+  // isr的改变集
   private val isrChangeSet: mutable.Set[TopicPartition] = new mutable.HashSet[TopicPartition]()
   private val lastIsrChangeMs = new AtomicLong(System.currentTimeMillis())
   private val lastIsrPropagationMs = new AtomicLong(System.currentTimeMillis())
 
   private var logDirFailureHandler: LogDirFailureHandler = null
 
+  // 失败日志的处理器 haltBrokerOnDirFailure：错误日志是否停机
   private class LogDirFailureHandler(name: String, haltBrokerOnDirFailure: Boolean) extends ShutdownableThread(name) {
     override def doWork() {
       val newOfflineLogDir = logDirFailureChannel.takeNextOfflineLogDir()
@@ -247,6 +254,7 @@ class ReplicaManager(val config: KafkaConfig,
       scheduler.schedule("highwatermark-checkpoint", checkpointHighWatermarks _, period = config.replicaHighWatermarkCheckpointIntervalMs, unit = TimeUnit.MILLISECONDS)
   }
 
+  // 记录ISR改变
   def recordIsrChange(topicPartition: TopicPartition) {
     isrChangeSet synchronized {
       isrChangeSet += topicPartition
@@ -254,11 +262,11 @@ class ReplicaManager(val config: KafkaConfig,
     }
   }
   /**
-   * This function periodically runs to see if ISR needs to be propagated. It propagates ISR when:
-   * 1. There is ISR change not propagated yet.
-   * 2. There is no ISR Change in the last five seconds, or it has been more than 60 seconds since the last ISR propagation.
-   * This allows an occasional ISR change to be propagated within a few seconds, and avoids overwhelming controller and
-   * other brokers when large amount of ISR change occurs.
+   * 该函数会定期运行以查看是否需要传播ISR。 它在以下情况下传播ISR：
+   * 1. ISR更改尚未传播。
+   * 2.过去5秒内没有ISR变化，或者自上次ISR传播以来已经超过60秒。
+   * 这允许偶尔的ISR更改在几秒钟内传播，并避免在发生大量ISR更改时压倒性的控制器和其他代理。
+   *
    */
   def maybePropagateIsrChanges() {
     val now = System.currentTimeMillis()
@@ -266,17 +274,16 @@ class ReplicaManager(val config: KafkaConfig,
       if (isrChangeSet.nonEmpty &&
         (lastIsrChangeMs.get() + ReplicaManager.IsrChangePropagationBlackOut < now ||
           lastIsrPropagationMs.get() + ReplicaManager.IsrChangePropagationInterval < now)) {
-        zkClient.propagateIsrChanges(isrChangeSet)
+        zkClient.propagateIsrChanges(isrChangeSet) // 传播ISR改变集
         isrChangeSet.clear()
         lastIsrPropagationMs.set(now)
       }
     }
   }
 
-  // When ReplicaAlterDirThread finishes replacing a current replica with a future replica, it will
-  // remove the partition from the partition state map. But it will not close itself even if the
-  // partition state map is empty. Thus we need to call shutdownIdleReplicaAlterDirThread() periodically
-  // to shutdown idle ReplicaAlterDirThread
+  // 当ReplicaAlterDirThread完成使用未来副本替换当前副本时，它将从分区状态图中删除该分区。
+  // 但即使分区状态图为空，它也不会自行关闭。
+  // 因此，我们需要定期调用shutdownIdleReplicaAlterDirThread（）来关闭闲置的ReplicaAlterDirThread
   def shutdownIdleReplicaAlterLogDirsThread(): Unit = {
     replicaAlterLogDirsManager.shutdownIdleFetcherThreads()
   }
@@ -284,11 +291,11 @@ class ReplicaManager(val config: KafkaConfig,
   def getLog(topicPartition: TopicPartition): Option[Log] = logManager.getLog(topicPartition)
 
   /**
-   * Try to complete some delayed produce requests with the request key;
-   * this can be triggered when:
+   * 尝试使用请求密钥完成一些延迟的生产者请求;
+   * 这可以在以下情况下触发：
    *
-   * 1. The partition HW has changed (for acks = -1)
-   * 2. A follower replica's fetch operation is received (for acks > 1)
+   * 1.分区HW已更改（对于acks = -1）
+   * 2.收到跟随者副本的获取操作（对于副本> 1）
    */
   def tryCompleteDelayedProduce(key: DelayedOperationKey) {
     val completed = delayedProducePurgatory.checkAndComplete(key)
@@ -296,11 +303,11 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   /**
-   * Try to complete some delayed fetch requests with the request key;
-   * this can be triggered when:
+   * 尝试使用请求键完成一些延迟的提取请求;
+   * 这可以在以下情况下触发：
    *
-   * 1. The partition HW has changed (for regular fetch)
-   * 2. A new message set is appended to the local log (for follower fetch)
+   * 1.分区HW已更改（用于常规提取）
+   * 2.新的消息集被附加到本地日志（用于追随者获取）
    */
   def tryCompleteDelayedFetch(key: DelayedOperationKey) {
     val completed = delayedFetchPurgatory.checkAndComplete(key)
@@ -317,8 +324,8 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   def startup() {
-    // start ISR expiration thread
-    // A follower can lag behind leader for up to config.replicaLagTimeMaxMs x 1.5 before it is removed from ISR
+    // 启动ISR过期线程
+    // 跟随者在从ISR中移除之前可能会落后于领先者config.replicaLagTimeMaxMs x 1.5
     scheduler.schedule("isr-expiration", maybeShrinkIsr _, period = config.replicaLagTimeMaxMs / 2, unit = TimeUnit.MILLISECONDS)
     scheduler.schedule("isr-change-propagation", maybePropagateIsrChanges _, period = 2500L, unit = TimeUnit.MILLISECONDS)
     scheduler.schedule("shutdown-idle-replica-alter-log-dirs-thread", shutdownIdleReplicaAlterLogDirsThread _, period = 10000L, unit = TimeUnit.MILLISECONDS)
@@ -326,6 +333,9 @@ class ReplicaManager(val config: KafkaConfig,
     // If inter-broker protocol (IBP) < 1.0, the controller will send LeaderAndIsrRequest V0 which does not include isNew field.
     // In this case, the broker receiving the request cannot determine whether it is safe to create a partition if a log directory has failed.
     // Thus, we choose to halt the broker on any log diretory failure if IBP < 1.0
+    // 如果代理间协议（IBP）<1.0，则控制器将发送不包括isNew字段的LeaderAndIsrRequest V0。
+    // 在这种情况下，如果日志目录失败，接收请求的代理无法确定创建分区是否安全。
+    // 因此，如果IBP <1.0，我们选择停止经纪人的任何日志定向失败
     val haltBrokerOnFailure = config.interBrokerProtocolVersion < KAFKA_1_0_IV0
     logDirFailureHandler = new LogDirFailureHandler("LogDirFailureHandler", haltBrokerOnFailure)
     logDirFailureHandler.start()
@@ -397,22 +407,25 @@ class ReplicaManager(val config: KafkaConfig,
   def nonOfflinePartition(topicPartition: TopicPartition): Option[Partition] =
     getPartition(topicPartition).filter(_ ne ReplicaManager.OfflinePartition)
 
+  // 在线的分区迭代器
   private def nonOfflinePartitionsIterator: Iterator[Partition] =
     allPartitions.values.iterator.filter(_ ne ReplicaManager.OfflinePartition)
 
+  // 下线的分区迭代器
   private def offlinePartitionsIterator: Iterator[Partition] =
     allPartitions.values.iterator.filter(_ eq ReplicaManager.OfflinePartition)
 
+  // 获取备份
   def getReplicaOrException(topicPartition: TopicPartition, brokerId: Int): Replica = {
     getPartition(topicPartition) match {
       case Some(partition) =>
-        if (partition eq ReplicaManager.OfflinePartition)
+        if (partition eq ReplicaManager.OfflinePartition)// 下线的分区
           throw new KafkaStorageException(s"Replica $brokerId is in an offline log directory for partition $topicPartition")
         else
           partition.getReplica(brokerId).getOrElse(
             throw new ReplicaNotAvailableException(s"Replica $brokerId is not available for partition $topicPartition"))
       case None =>
-        throw new ReplicaNotAvailableException(s"Replica $brokerId is not available for partition $topicPartition")
+        throw new ReplicaNotAvailableException(s"Replica $brokerId is not available for pa】rtition $topicPartition")
     }
   }
 
@@ -431,7 +444,7 @@ class ReplicaManager(val config: KafkaConfig,
       case Some(partition) =>
         if (partition eq ReplicaManager.OfflinePartition)
           throw new KafkaStorageException(s"Partition $topicPartition is in an offline log directory on broker $localBrokerId")
-        else partition.leaderReplicaIfLocal match {
+        else partition.leaderReplicaIfLocal match { // 领导者副本
           case Some(leaderReplica) => (partition, leaderReplica)
           case None =>
             throw new NotLeaderForPartitionException(s"Leader not local for partition $topicPartition on broker $localBrokerId")
@@ -442,6 +455,7 @@ class ReplicaManager(val config: KafkaConfig,
   def getReplica(topicPartition: TopicPartition, replicaId: Int): Option[Replica] =
     nonOfflinePartition(topicPartition).flatMap(_.getReplica(replicaId))
 
+  // 获取tp的备份
   def getReplica(tp: TopicPartition): Option[Replica] = getReplica(tp, localBrokerId)
 
   def getLogDir(topicPartition: TopicPartition): Option[String] = {
@@ -452,9 +466,9 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   /**
-   * Append messages to leader replicas of the partition, and wait for them to be replicated to other replicas;
-   * the callback function will be triggered either when timeout or the required acks are satisfied;
-   * if the callback function itself is already synchronized on some object then pass this object to avoid deadlock.
+   * 将消息附加到分区的领导者副本，并等待将它们复制到其他副本;
+   * 当超时或所需的确认满足时，回调函数将被触发;
+   * 如果回调函数本身已经在某个对象上同步过，则传递此对象以避免死锁。
    */
   def appendRecords(timeout: Long,
                     requiredAcks: Short,
@@ -464,24 +478,26 @@ class ReplicaManager(val config: KafkaConfig,
                     responseCallback: Map[TopicPartition, PartitionResponse] => Unit,
                     delayedProduceLock: Option[Lock] = None,
                     processingStatsCallback: Map[TopicPartition, RecordsProcessingStats] => Unit = _ => ()) {
-    if (isValidRequiredAcks(requiredAcks)) {
+    if (isValidRequiredAcks(requiredAcks)) { // ack是否符合
       val sTime = time.milliseconds
       val localProduceResults = appendToLocalLog(internalTopicsAllowed = internalTopicsAllowed,
-        isFromClient = isFromClient, entriesPerPartition, requiredAcks)
+        isFromClient = isFromClient, entriesPerPartition, requiredAcks) // 添加到本地日志
       debug("Produce to local log in %d ms".format(time.milliseconds - sTime))
 
+      // 生成者的状态
       val produceStatus = localProduceResults.map { case (topicPartition, result) =>
         topicPartition ->
                 ProducePartitionStatus(
-                  result.info.lastOffset + 1, // required offset
+                  result.info.lastOffset + 1, // 必须到达的偏移量
                   new PartitionResponse(result.error, result.info.firstOffset, result.info.logAppendTime, result.info.logStartOffset)) // response status
       }
 
+      // 记录处理状态
       processingStatsCallback(localProduceResults.mapValues(_.info.recordsProcessingStats))
 
-      if (delayedProduceRequestRequired(requiredAcks, entriesPerPartition, localProduceResults)) {
-        // create delayed produce operation
-        val produceMetadata = ProduceMetadata(requiredAcks, produceStatus)
+      if (delayedProduceRequestRequired(requiredAcks, entriesPerPartition, localProduceResults)) { // 延迟生成者请求是否是必须的
+
+        val produceMetadata = ProduceMetadata(requiredAcks, produceStatus)// create delayed produce operation
         val delayedProduce = new DelayedProduce(timeout, produceMetadata, this, responseCallback, delayedProduceLock)
 
         // create a list of (topic, partition) pairs to use as keys for this delayed produce operation
@@ -493,11 +509,11 @@ class ReplicaManager(val config: KafkaConfig,
         delayedProducePurgatory.tryCompleteElseWatch(delayedProduce, producerRequestKeys)
 
       } else {
-        // we can respond immediately
+        // 我们可以立即回应，ack = 1
         val produceResponseStatus = produceStatus.mapValues(status => status.responseStatus)
         responseCallback(produceResponseStatus)
       }
-    } else {
+    } else {// 直接返回错误，不做任何处理
       // If required.acks is outside accepted range, something is wrong with the client
       // Just return an error and don't handle the request at all
       val responseStatus = entriesPerPartition.map { case (topicPartition, _) =>
@@ -700,7 +716,7 @@ class ReplicaManager(val config: KafkaConfig,
     }
   }
 
-  // If all the following conditions are true, we need to put a delayed produce request and wait for replication to complete
+  // 如果满足以下所有条件，我们需要放置一个延迟产品请求并等待复制完成
   //
   // 1. required acks = -1
   // 2. there is data to append
@@ -718,7 +734,7 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   /**
-   * Append the messages to the local replica logs
+   * 添加消息到本地副本日志
    */
   private def appendToLocalLog(internalTopicsAllowed: Boolean,
                                isFromClient: Boolean,
@@ -726,10 +742,10 @@ class ReplicaManager(val config: KafkaConfig,
                                requiredAcks: Short): Map[TopicPartition, LogAppendResult] = {
     trace(s"Append [$entriesPerPartition] to local log")
     entriesPerPartition.map { case (topicPartition, records) =>
-      brokerTopicStats.topicStats(topicPartition.topic).totalProduceRequestRate.mark()
+      brokerTopicStats.topicStats(topicPartition.topic).totalProduceRequestRate.mark() // 标记请求速率
       brokerTopicStats.allTopicsStats.totalProduceRequestRate.mark()
 
-      // reject appending to internal topics if it is not allowed
+      // 如果不允许，拒绝附加到内部主题
       if (Topic.isInternal(topicPartition.topic) && !internalTopicsAllowed) {
         (topicPartition, LogAppendResult(
           LogAppendInfo.UnknownLogAppendInfo,
@@ -739,7 +755,7 @@ class ReplicaManager(val config: KafkaConfig,
           val partitionOpt = getPartition(topicPartition)
           val info = partitionOpt match {
             case Some(partition) =>
-              if (partition eq ReplicaManager.OfflinePartition)
+              if (partition eq ReplicaManager.OfflinePartition) // 下线的分区抛出异常
                 throw new KafkaStorageException(s"Partition $topicPartition is in an offline log directory on broker $localBrokerId")
               partition.appendRecordsToLeader(records, isFromClient, requiredAcks)
 
@@ -747,7 +763,7 @@ class ReplicaManager(val config: KafkaConfig,
               .format(topicPartition, localBrokerId))
           }
 
-          val numAppendedMessages =
+          val numAppendedMessages = // 添加的消息数
             if (info.firstOffset == -1L || info.lastOffset == -1L)
               0
             else
@@ -790,8 +806,7 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   /**
-   * Fetch messages from the leader replica, and wait until enough data can be fetched and return;
-   * the callback function will be triggered either when timeout or required fetch info is satisfied
+    * 从领导副本获取消息，并等待，直到获取足够的数据并返回; 当超时或所需的提取信息满足时，回调函数将被触发
    */
   def fetchMessages(timeout: Long,
                     replicaId: Int,
@@ -802,9 +817,9 @@ class ReplicaManager(val config: KafkaConfig,
                     quota: ReplicaQuota = UnboundedQuota,
                     responseCallback: Seq[(TopicPartition, FetchPartitionData)] => Unit,
                     isolationLevel: IsolationLevel) {
-    val isFromFollower = Request.isValidBrokerId(replicaId)
+    val isFromFollower = Request.isValidBrokerId(replicaId) // 是否来自于跟随者
     val fetchOnlyFromLeader = replicaId != Request.DebuggingConsumerId && replicaId != Request.FutureLocalReplicaId
-    val fetchOnlyCommitted = !isFromFollower && replicaId != Request.FutureLocalReplicaId
+    val fetchOnlyCommitted = !isFromFollower && replicaId != Request.FutureLocalReplicaId  // 仅仅是提交的
 
     def readFromLog(): Seq[(TopicPartition, LogReadResult)] = {
       val result = readFromLocalLog(
@@ -822,7 +837,7 @@ class ReplicaManager(val config: KafkaConfig,
 
     val logReadResults = readFromLog()
 
-    // check if this fetch request can be satisfied right away
+    // 检查这个获取请求是否可以马上得到满足
     val logReadResultValues = logReadResults.map { case (_, v) => v }
     val bytesReadable = logReadResultValues.map(_.info.records.sizeInBytes).sum
     val errorReadingData = logReadResultValues.foldLeft(false) ((errorIncurred, readResult) =>
@@ -832,13 +847,14 @@ class ReplicaManager(val config: KafkaConfig,
     //                        2) fetch request does not require any data
     //                        3) has enough data to respond
     //                        4) some error happens while reading data
+    // 立即返回数据
     if (timeout <= 0 || fetchInfos.isEmpty || bytesReadable >= fetchMinBytes || errorReadingData) {
       val fetchPartitionData = logReadResults.map { case (tp, result) =>
         tp -> FetchPartitionData(result.error, result.highWatermark, result.leaderLogStartOffset, result.info.records,
           result.lastStableOffset, result.info.abortedTransactions)
       }
       responseCallback(fetchPartitionData)
-    } else {
+    } else { // 进行延迟处理
       // construct the fetch results from the read results
       val fetchPartitionStatus = logReadResults.map { case (topicPartition, result) =>
         val fetchInfo = fetchInfos.collectFirst {
@@ -853,30 +869,31 @@ class ReplicaManager(val config: KafkaConfig,
       // create a list of (topic, partition) pairs to use as keys for this delayed fetch operation
       val delayedFetchKeys = fetchPartitionStatus.map { case (tp, _) => new TopicPartitionOperationKey(tp) }
 
-      // try to complete the request immediately, otherwise put it into the purgatory;
-      // this is because while the delayed fetch operation is being created, new requests
-      // may arrive and hence make this operation completable.
+      // 尝试立即完成请求，否则将其放入炼狱;
+      // 这是因为在创建延迟获取操作的同时，新的请求可能会到达，从而使此操作可以完成。
       delayedFetchPurgatory.tryCompleteElseWatch(delayedFetch, delayedFetchKeys)
     }
   }
 
   /**
-   * Read from multiple topic partitions at the given offset up to maxSize bytes
+    * 从本地日志读取
+   * 以给定偏移量读取多个主题分区，最大为maxSize字节
    */
   def readFromLocalLog(replicaId: Int,
                        fetchOnlyFromLeader: Boolean,
                        readOnlyCommitted: Boolean,
                        fetchMaxBytes: Int,
                        hardMaxBytesLimit: Boolean,
-                       readPartitionInfo: Seq[(TopicPartition, PartitionData)],
+                       readPartitionInfo: Seq[(TopicPartition, PartitionData)], // 需要读取的分区信息
                        quota: ReplicaQuota,
                        isolationLevel: IsolationLevel): Seq[(TopicPartition, LogReadResult)] = {
 
     def read(tp: TopicPartition, fetchInfo: PartitionData, limitBytes: Int, minOneMessage: Boolean): LogReadResult = {
       val offset = fetchInfo.fetchOffset
-      val partitionFetchSize = fetchInfo.maxBytes
+      val partitionFetchSize = fetchInfo.maxBytes // 分区获取的大小
       val followerLogStartOffset = fetchInfo.logStartOffset
 
+      // 标记获取请求速率
       brokerTopicStats.topicStats(tp.topic).totalFetchRequestRate.mark()
       brokerTopicStats.allTopicsStats.totalFetchRequestRate.mark()
 
@@ -885,7 +902,7 @@ class ReplicaManager(val config: KafkaConfig,
           s"remaining response limit $limitBytes" +
           (if (minOneMessage) s", ignoring response/partition size limits" else ""))
 
-        // decide whether to only fetch from leader
+        // 决定是否仅从领导者处获取
         val localReplica = if (fetchOnlyFromLeader)
           getLeaderReplicaIfLocal(tp)
         else
@@ -897,33 +914,32 @@ class ReplicaManager(val config: KafkaConfig,
         else
           None
 
-        // decide whether to only fetch committed data (i.e. messages below high watermark)
+        // 决定是否只提取提交的数据（即低于高水位的消息）
         val maxOffsetOpt = if (readOnlyCommitted)
           Some(lastStableOffset.getOrElse(initialHighWatermark))
         else
           None
 
-        /* Read the LogOffsetMetadata prior to performing the read from the log.
-         * We use the LogOffsetMetadata to determine if a particular replica is in-sync or not.
-         * Using the log end offset after performing the read can lead to a race condition
-         * where data gets appended to the log immediately after the replica has consumed from it
-         * This can cause a replica to always be out of sync.
+        /* initial(初始)
+         * 在执行从日志读取之前，请先阅读LogOffsetMetadata。
+         * 我们使用LogOffsetMetadata来确定特定副本是否处于同步状态。
+         * 在执行读取操作后使用日志结束偏移可能会导致竞争状况，在复制副本从中消耗完后立即将数据附加到日志中。这会导致副本始终不同步。
          */
         val initialLogEndOffset = localReplica.logEndOffset.messageOffset
         val initialLogStartOffset = localReplica.logStartOffset
         val fetchTimeMs = time.milliseconds
         val logReadInfo = localReplica.log match {
           case Some(log) =>
-            val adjustedFetchSize = math.min(partitionFetchSize, limitBytes)
+            val adjustedFetchSize = math.min(partitionFetchSize, limitBytes) // 本次可获取的大小
 
-            // Try the read first, this tells us whether we need all of adjustedFetchSize for this partition
+            // 首先尝试读取，这告诉我们是否需要此分区的所有adjustedFetchSize
             val fetch = log.read(offset, adjustedFetchSize, maxOffsetOpt, minOneMessage, isolationLevel)
 
-            // If the partition is being throttled, simply return an empty set.
+            // 如果分区被限制，只需返回一个空集。
             if (shouldLeaderThrottle(quota, tp, replicaId))
               FetchDataInfo(fetch.fetchOffsetMetadata, MemoryRecords.EMPTY)
-            // For FetchRequest version 3, we replace incomplete message sets with an empty one as consumers can make
-            // progress in such cases and don't need to report a `RecordTooLargeException`
+            // 对于FetchRequest版本3，我们将不完整的消息集替换为空的消息集，
+            // 因为消费者可以在这种情况下取得进展，并且不需要报告“RecordTooLargeException”
             else if (!hardMaxBytesLimit && fetch.firstEntryIncomplete)
               FetchDataInfo(fetch.fetchOffsetMetadata, MemoryRecords.EMPTY)
             else fetch
@@ -975,11 +991,11 @@ class ReplicaManager(val config: KafkaConfig,
       }
     }
 
-    var limitBytes = fetchMaxBytes
+    var limitBytes = fetchMaxBytes // 剩余允许获取的
     val result = new mutable.ArrayBuffer[(TopicPartition, LogReadResult)]
     var minOneMessage = !hardMaxBytesLimit
     readPartitionInfo.foreach { case (tp, fetchInfo) =>
-      val readResult = read(tp, fetchInfo, limitBytes, minOneMessage)
+      val readResult = read(tp, fetchInfo, limitBytes, minOneMessage) // 读取记录内容的结果
       val recordBatchSize = readResult.info.records.sizeInBytes
       // Once we read from a non-empty partition, we stop ignoring request and partition level size limits
       if (recordBatchSize > 0)
@@ -991,8 +1007,7 @@ class ReplicaManager(val config: KafkaConfig,
   }
 
   /**
-   *  To avoid ISR thrashing, we only throttle a replica on the leader if it's in the throttled replica list,
-   *  the quota is exceeded and the replica is not in sync.
+    *  为了避免ISR颠簸，我们只限制领导者上的副本（如果它位于受限制的副本列表中），超出配额并且副本不同步。
    */
   def shouldLeaderThrottle(quota: ReplicaQuota, topicPartition: TopicPartition, replicaId: Int): Boolean = {
     val isReplicaInSync = nonOfflinePartition(topicPartition).exists { partition =>
@@ -1004,22 +1019,24 @@ class ReplicaManager(val config: KafkaConfig,
   def getMagic(topicPartition: TopicPartition): Option[Byte] =
     getReplica(topicPartition).flatMap(_.log.map(_.config.messageFormatVersion.messageFormatVersion.value))
 
+  // 更新元数据缓存
   def maybeUpdateMetadataCache(correlationId: Int, updateMetadataRequest: UpdateMetadataRequest) : Seq[TopicPartition] =  {
     replicaStateChangeLock synchronized {
-      if(updateMetadataRequest.controllerEpoch < controllerEpoch) {
+      if(updateMetadataRequest.controllerEpoch < controllerEpoch) {// 小于当前控制器epoch，控制器转移
         val stateControllerEpochErrorMessage = s"Received update metadata request with correlation id $correlationId " +
           s"from an old controller ${updateMetadataRequest.controllerId} with epoch ${updateMetadataRequest.controllerEpoch}. " +
           s"Latest known controller epoch is $controllerEpoch"
         stateChangeLogger.warn(stateControllerEpochErrorMessage)
         throw new ControllerMovedException(stateChangeLogger.messageWithPrefix(stateControllerEpochErrorMessage))
       } else {
-        val deletedPartitions = metadataCache.updateCache(correlationId, updateMetadataRequest)
-        controllerEpoch = updateMetadataRequest.controllerEpoch
+        val deletedPartitions = metadataCache.updateCache(correlationId, updateMetadataRequest) // 更新元数据缓存
+        controllerEpoch = updateMetadataRequest.controllerEpoch // 更新控制器epoch
         deletedPartitions
       }
     }
   }
 
+  // 变为领导者，或者跟随者
   def becomeLeaderOrFollower(correlationId: Int,
                              leaderAndIsrRequest: LeaderAndIsrRequest,
                              onLeadershipChange: (Iterable[Partition], Iterable[Partition]) => Unit): LeaderAndIsrResponse = {
@@ -1330,14 +1347,14 @@ class ReplicaManager(val config: KafkaConfig,
     partitionsToMakeFollower
   }
 
+  // 可能收缩ISR
   private def maybeShrinkIsr(): Unit = {
     trace("Evaluating ISR list of partitions to see which replicas can be removed from the ISR")
     nonOfflinePartitionsIterator.foreach(_.maybeShrinkIsr(config.replicaLagTimeMaxMs))
   }
 
   /**
-   * Update the follower's fetch state in the leader based on the last fetch request and update `readResult`,
-   * if necessary.
+    * 根据最后一次获取请求更新领导者中的追随者获取状态，并在必要时更新`readResult`。
    */
   private def updateFollowerLogReadResults(replicaId: Int,
                                            readResults: Seq[(TopicPartition, LogReadResult)]): Seq[(TopicPartition, LogReadResult)] = {
@@ -1347,7 +1364,7 @@ class ReplicaManager(val config: KafkaConfig,
       nonOfflinePartition(topicPartition) match {
         case Some(partition) =>
           partition.getReplica(replicaId) match {
-            case Some(replica) =>
+            case Some(replica) => // 主题下的分区副本
               if (partition.updateReplicaLogReadResult(replica, readResult))
                 partition.leaderReplicaIfLocal.foreach { leaderReplica =>
                   updatedReadResult = readResult.updateLeaderReplicaInfo(leaderReplica)
@@ -1366,6 +1383,7 @@ class ReplicaManager(val config: KafkaConfig,
     }
   }
 
+  // 作为领导者分区的迭代器
   private def leaderPartitionsIterator: Iterator[Partition] =
     nonOfflinePartitionsIterator.filter(_.leaderReplicaIfLocal.isDefined)
 
@@ -1397,19 +1415,19 @@ class ReplicaManager(val config: KafkaConfig,
     allPartitions.put(tp, ReplicaManager.OfflinePartition)
   }
 
-  // logDir should be an absolute path
+  // 处理失败日志
   def handleLogDirFailure(dir: String) {
     if (!logManager.isLogDirOnline(dir))
       return
     info(s"Stopping serving replicas in dir $dir")
     replicaStateChangeLock synchronized {
-      val newOfflinePartitions = nonOfflinePartitionsIterator.filter { partition =>
+      val newOfflinePartitions = nonOfflinePartitionsIterator.filter { partition => // 错误目录下的tp
         partition.getReplica(config.brokerId).exists { replica =>
           replica.log.isDefined && replica.log.get.dir.getParent == dir
         }
       }.map(_.topicPartition).toSet
 
-      val partitionsWithOfflineFutureReplica = nonOfflinePartitionsIterator.filter { partition =>
+      val partitionsWithOfflineFutureReplica = nonOfflinePartitionsIterator.filter { partition =>  // 错误目录下未来的分区
         partition.getReplica(Request.FutureLocalReplicaId).exists { replica =>
           replica.log.isDefined && replica.log.get.dir.getParent == dir
         }
@@ -1420,7 +1438,7 @@ class ReplicaManager(val config: KafkaConfig,
 
       partitionsWithOfflineFutureReplica.foreach(partition => partition.removeFutureLocalReplica())
       newOfflinePartitions.foreach { topicPartition =>
-        val partition = allPartitions.put(topicPartition, ReplicaManager.OfflinePartition)
+        val partition = allPartitions.put(topicPartition, ReplicaManager.OfflinePartition)  // 标注下线
         partition.removePartitionMetrics()
       }
       newOfflinePartitions.map(_.topic).foreach { topic: String =>
@@ -1470,13 +1488,14 @@ class ReplicaManager(val config: KafkaConfig,
     new ReplicaAlterLogDirsManager(config, this, quotaManager, brokerTopicStats)
   }
 
+  // 获取指定领导者epoch的最新偏移量
   def lastOffsetForLeaderEpoch(requestedEpochInfo: Map[TopicPartition, Integer]): Map[TopicPartition, EpochEndOffset] = {
     requestedEpochInfo.map { case (tp, leaderEpoch) =>
       val epochEndOffset = getPartition(tp) match {
         case Some(partition) =>
           if (partition eq ReplicaManager.OfflinePartition)
             new EpochEndOffset(KAFKA_STORAGE_ERROR, UNDEFINED_EPOCH_OFFSET)
-          else
+          else // 获取指定的epoch偏移量
             partition.lastOffsetForLeaderEpoch(leaderEpoch)
         case None =>
           new EpochEndOffset(UNKNOWN_TOPIC_OR_PARTITION, UNDEFINED_EPOCH_OFFSET)

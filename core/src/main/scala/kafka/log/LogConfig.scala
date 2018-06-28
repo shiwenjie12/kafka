@@ -87,7 +87,7 @@ case class LogConfig(props: java.util.Map[_, _], overriddenConfigs: Set[String] 
   val minCleanableRatio = getDouble(LogConfig.MinCleanableDirtyRatioProp)
   val compact = getList(LogConfig.CleanupPolicyProp).asScala.map(_.toLowerCase(Locale.ROOT)).contains(LogConfig.Compact)
   val delete = getList(LogConfig.CleanupPolicyProp).asScala.map(_.toLowerCase(Locale.ROOT)).contains(LogConfig.Delete)
-  val uncleanLeaderElectionEnable = getBoolean(LogConfig.UncleanLeaderElectionEnableProp)
+  val uncleanLeaderElectionEnable = getBoolean(LogConfig.UncleanLeaderElectionEnableProp) // 是否清除领导者选举
   val minInSyncReplicas = getInt(LogConfig.MinInSyncReplicasProp)
   val compressionType = getString(LogConfig.CompressionTypeProp).toLowerCase(Locale.ROOT)
   val preallocate = getBoolean(LogConfig.PreAllocateEnableProp)
@@ -168,8 +168,10 @@ object LogConfig {
     "[PartitionId]:[BrokerId],[PartitionId]:[BrokerId]:... or alternatively the wildcard '*' can be used to throttle " +
     "all replicas for this topic."
 
+  // 继承了ConfigDef的基础上，添加了serverDefaultConfigNames
   private class LogConfigDef extends ConfigDef {
 
+    // 特定的服务器配置
     private final val serverDefaultConfigNames = mutable.Map[String, String]()
 
     def define(name: String, defType: ConfigDef.Type, defaultValue: Any, validator: Validator,
@@ -193,6 +195,7 @@ object LogConfig {
       this
     }
 
+    // super:("Name", "Description", "Type", "Default", "Valid Values", "Importance")
     override def headers = List("Name", "Description", "Type", "Default", "Valid Values", "Server Default Property", "Importance").asJava
 
     override def getConfigValue(key: ConfigKey, headerName: String): String = {
@@ -271,13 +274,13 @@ object LogConfig {
   def serverConfigName(configName: String): Option[String] = configDef.serverConfigName(configName)
 
   /**
-   * Create a log config instance using the given properties and defaults
+   * 使用给定的属性和默认值创建日志配置实例
    */
   def fromProps(defaults: java.util.Map[_ <: Object, _ <: Object], overrides: Properties): LogConfig = {
     val props = new Properties()
     defaults.asScala.foreach { case (k, v) => props.put(k, v) }
     props ++= overrides
-    val overriddenKeys = overrides.keySet.asScala.map(_.asInstanceOf[String]).toSet
+    val overriddenKeys = overrides.keySet.asScala.map(_.asInstanceOf[String]).toSet // 重置的键
     new LogConfig(props, overriddenKeys)
   }
 

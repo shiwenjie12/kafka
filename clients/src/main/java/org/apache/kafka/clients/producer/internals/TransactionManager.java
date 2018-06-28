@@ -95,8 +95,8 @@ public class TransactionManager {
     private final Map<TopicPartition, Long> lastAckedOffset;
 
     private final PriorityQueue<TxnRequestHandler> pendingRequests;// 使用优先级队列（事务请求处理器）
-    private final Set<TopicPartition> newPartitionsInTransaction;
-    private final Set<TopicPartition> pendingPartitionsInTransaction;
+    private final Set<TopicPartition> newPartitionsInTransaction; // 事务中新添加的分区
+    private final Set<TopicPartition> pendingPartitionsInTransaction; // 正在等待的分区
     private final Set<TopicPartition> partitionsInTransaction;// 在事务中的TopicPartition
     private final Map<TopicPartition, CommittedOffset> pendingTxnOffsetCommits;
 
@@ -240,7 +240,7 @@ public class TransactionManager {
             maybeFailWithError();
         transitionTo(State.ABORTING_TRANSACTION);
 
-        // We're aborting the transaction, so there should be no need to add new partitions
+        // 我们中止交易，所以不应该添加新的分区
         newPartitionsInTransaction.clear();
         return beginCompletingTransaction(TransactionResult.ABORT);
     }
@@ -251,8 +251,9 @@ public class TransactionManager {
      * @return
      */
     private TransactionalRequestResult beginCompletingTransaction(TransactionResult transactionResult) {
-        if (!newPartitionsInTransaction.isEmpty())
+        if (!newPartitionsInTransaction.isEmpty()) // 将之前的新添加的分区处理器，入队
             enqueueRequest(addPartitionsToTransactionHandler());
+        // 入队结束事务处理器
         EndTxnRequest.Builder builder = new EndTxnRequest.Builder(transactionalId, producerIdAndEpoch.producerId,
                 producerIdAndEpoch.epoch, transactionResult);
         EndTxnHandler handler = new EndTxnHandler(builder);
@@ -276,10 +277,11 @@ public class TransactionManager {
         return handler.result;
     }
 
+    // 将分区添加到事务中
     public synchronized void maybeAddPartitionToTransaction(TopicPartition topicPartition) {
         failIfNotReadyForSend();
 
-        if (isPartitionAdded(topicPartition) || isPartitionPendingAdd(topicPartition))
+        if (isPartitionAdded(topicPartition) || isPartitionPendingAdd(topicPartition)) // 已经存在或者正在发送
             return;
 
         log.debug("Begin adding new partition {} to transaction", topicPartition);
@@ -424,7 +426,7 @@ public class TransactionManager {
     }
 
     /**
-     * 返回下一个序列号被写入了topicpartition。
+     * 返回下一个序列号（topicpartition）
      */
     synchronized Integer sequenceNumber(TopicPartition topicPartition) {
         Integer currentSequenceNumber = nextSequence.get(topicPartition);
@@ -495,11 +497,13 @@ public class TransactionManager {
         queue.remove(batch);
     }
 
+    // 更新回复序号
     synchronized void maybeUpdateLastAckedSequence(TopicPartition topicPartition, int sequence) {
         if (sequence > lastAckedSequence(topicPartition))
             lastAckedSequence.put(topicPartition, sequence);
     }
 
+    // tp上一次回复的序号
     synchronized int lastAckedSequence(TopicPartition topicPartition) {
         Integer currentLastAckedSequence = lastAckedSequence.get(topicPartition);
         if (currentLastAckedSequence == null)
@@ -603,11 +607,10 @@ public class TransactionManager {
             return false;
         for (Iterator<TopicPartition> iter = partitionsWithUnresolvedSequences.iterator(); iter.hasNext(); ) {
             TopicPartition topicPartition = iter.next();
-            if (!hasInflightBatches(topicPartition)) {
-                // The partition has been fully drained. At this point, the last ack'd sequence should be once less than
-                // next sequence destined for the partition. If so, the partition is fully resolved. If not, we should
-                // reset the sequence number if necessary.
-                if (isNextSequence(topicPartition, sequenceNumber(topicPartition))) {
+            if (!hasInflightBatches(topicPartition)) { // 没有正在发送的tp的批数据
+                // 该分区已完全耗尽。 此时，最后一个确认序列应该小于指定给该分区的下一个序列。
+                // 如果是这样，分区已完全解决。 如果没有，我们应该重新设置序列号。
+                if (isNextSequence(topicPartition, sequenceNumber(topicPartition))) { // 判断是否是下一个序号
                     // This would happen when a batch was expired, but subsequent batches succeeded.
                     iter.remove();
                 } else {
@@ -632,6 +635,7 @@ public class TransactionManager {
         nextSequence.put(topicPartition, sequence);
     }
 
+    // 获取下一个事务请求的处理器
     synchronized TxnRequestHandler nextRequestHandler(boolean hasIncompleteBatches) {
         if (!newPartitionsInTransaction.isEmpty())
             enqueueRequest(addPartitionsToTransactionHandler());
@@ -640,7 +644,7 @@ public class TransactionManager {
         if (nextRequestHandler == null)
             return null;
 
-        // Do not send the EndTxn until all batches have been flushed
+        // 直到所有批次被刷新后才发送EndTxn
         if (nextRequestHandler.isEndTxn() && hasIncompleteBatches)
             return null;
 
@@ -667,6 +671,7 @@ public class TransactionManager {
         return nextRequestHandler;
     }
 
+    // 重新入队
     synchronized void retry(TxnRequestHandler request) {
         request.setRetry();
         enqueueRequest(request);
@@ -825,7 +830,7 @@ public class TransactionManager {
     private boolean maybeTerminateRequestWithError(TxnRequestHandler requestHandler) {
         if (hasError()) {
             if (hasAbortableError() && requestHandler instanceof FindCoordinatorHandler)
-                // No harm letting the FindCoordinator request go through if we're expecting to abort
+                // 如果我们期望中止，则不会让FindCoordinator请求通过
                 return false;
 
             requestHandler.fail(lastError);
@@ -849,7 +854,7 @@ public class TransactionManager {
      * @param coordinatorKey
      */
     private synchronized void lookupCoordinator(FindCoordinatorRequest.CoordinatorType type, String coordinatorKey) {
-        switch (type) {
+        switch (type) {  // 重置协调器
             case GROUP:
                 consumerGroupCoordinator = null;
                 break;
@@ -873,6 +878,7 @@ public class TransactionManager {
         partitionsInTransaction.clear();
     }
 
+    // 事务要添加的分区处理器
     private synchronized TxnRequestHandler addPartitionsToTransactionHandler() {
         pendingPartitionsInTransaction.addAll(newPartitionsInTransaction);
         newPartitionsInTransaction.clear();
@@ -945,7 +951,7 @@ public class TransactionManager {
             if (response.requestHeader().correlationId() != inFlightRequestCorrelationId) {
                 fatalError(new RuntimeException("Detected more than one in-flight transactional request."));
             } else {
-                clearInFlightTransactionalRequestCorrelationId();
+                clearInFlightTransactionalRequestCorrelationId(); // 清除
                 if (response.wasDisconnected()) {
                     log.debug("Disconnected from {}. Will retry.", response.destination());
                     if (this.needsCoordinator())
@@ -1120,6 +1126,7 @@ public class TransactionManager {
             // the partitions failed to be added and we enter an error state, we expect the batches to be
             // aborted anyway. In this case, we must be able to continue sending the batches which are in
             // retry for partitions that were successfully added.
+            // 移除事务中正在发送的分区
             pendingPartitionsInTransaction.removeAll(partitions);
 
             if (!unauthorizedTopics.isEmpty()) {
@@ -1128,7 +1135,7 @@ public class TransactionManager {
                 abortableError(new KafkaException("Could not add partitions to transaction due to errors: " + errors));
             } else {
                 log.debug("Successfully added partitions {} to transaction", partitions);
-                partitionsInTransaction.addAll(partitions);
+                partitionsInTransaction.addAll(partitions); // 添加事务中的分区
                 transactionStarted = true;
                 result.done();
             }
@@ -1178,6 +1185,7 @@ public class TransactionManager {
             return null;
         }
 
+        // 处理协调器响应
         @Override
         public void handleResponse(AbstractResponse response) {
             FindCoordinatorResponse findCoordinatorResponse = (FindCoordinatorResponse) response;
@@ -1207,6 +1215,7 @@ public class TransactionManager {
         }
     }
 
+    // 事务结束的处理器
     private class EndTxnHandler extends TxnRequestHandler {
         private final EndTxnRequest.Builder builder;
 
@@ -1235,7 +1244,7 @@ public class TransactionManager {
             Errors error = endTxnResponse.error();
 
             if (error == Errors.NONE) {
-                completeTransaction();
+                completeTransaction(); // 完成事务，更改状态为准备，清除分区数据
                 result.done();
             } else if (error == Errors.COORDINATOR_NOT_AVAILABLE || error == Errors.NOT_COORDINATOR) {
                 lookupCoordinator(FindCoordinatorRequest.CoordinatorType.TRANSACTION, transactionalId);

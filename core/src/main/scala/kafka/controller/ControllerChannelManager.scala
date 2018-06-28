@@ -64,7 +64,7 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
 
   controllerContext.liveBrokers.foreach(addNewBroker)
 
-  def startup() = {
+  def startup() = { // 开始所有的发送线程
     brokerLock synchronized {
       brokerStateInfo.foreach(brokerState => startRequestSendThread(brokerState._1))
     }
@@ -81,7 +81,7 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
     brokerLock synchronized {
       val stateInfoOpt = brokerStateInfo.get(brokerId)
       stateInfoOpt match {
-        case Some(stateInfo) =>
+        case Some(stateInfo) => // 添加到消息队列中
           stateInfo.messageQueue.put(QueueItem(apiKey, request, callback))
         case None =>
           warn(s"Not sending request $request to broker $brokerId, since it is offline.")
@@ -105,12 +105,13 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
     }
   }
 
+  // 向管理员与其他broker的通道中添加新的broker
   private def addNewBroker(broker: Broker) {
     val messageQueue = new LinkedBlockingQueue[QueueItem]
     debug(s"Controller ${config.brokerId} trying to connect to broker ${broker.id}")
     val brokerNode = broker.node(config.interBrokerListenerName)
     val logContext = new LogContext(s"[Controller id=${config.brokerId}, targetBrokerId=${brokerNode.idString}] ")
-    val networkClient = {
+    val networkClient = { // 网络客户端
       val channelBuilder = ChannelBuilders.clientChannelBuilder(
         config.interBrokerSecurityProtocol,
         JaasContext.Type.SERVER,
@@ -151,6 +152,7 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
       case Some(name) => s"$name:Controller-${config.brokerId}-to-broker-${broker.id}-send-thread"
     }
 
+    // 请求发送的线程
     val requestThread = new RequestSendThread(config.brokerId, controllerContext, messageQueue, networkClient,
       brokerNode, config, time, stateChangeLogger, threadName)
     requestThread.setDaemon(false)
@@ -188,10 +190,11 @@ class ControllerChannelManager(controllerContext: ControllerContext, config: Kaf
   protected def startRequestSendThread(brokerId: Int) {
     val requestThread = brokerStateInfo(brokerId).requestSendThread
     if (requestThread.getState == Thread.State.NEW)
-      requestThread.start()
+      requestThread.start() // 启动线程
   }
 }
 
+// 用于存储请求的队列项
 case class QueueItem(apiKey: ApiKeys, request: AbstractRequest.Builder[_ <: AbstractRequest],
                      callback: AbstractResponse => Unit)
 
@@ -212,9 +215,9 @@ class RequestSendThread(val controllerId: Int,
 
   override def doWork(): Unit = {
 
-    def backoff(): Unit = pause(100, TimeUnit.MILLISECONDS)
+    def backoff(): Unit = pause(100, TimeUnit.MILLISECONDS) // 用于暂停当前线程
 
-    val QueueItem(apiKey, requestBuilder, callback) = queue.take()
+    val QueueItem(apiKey, requestBuilder, callback) = queue.take()  // 本次需要发送的请求
     var clientResponse: ClientResponse = null
     try {
       var isSendSuccessful = false
@@ -222,14 +225,14 @@ class RequestSendThread(val controllerId: Int,
         // if a broker goes down for a long time, then at some point the controller's zookeeper listener will trigger a
         // removeBroker which will invoke shutdown() on this thread. At that point, we will stop retrying.
         try {
-          if (!brokerReady()) {
+          if (!brokerReady()) { // 如果broker的连接准备失败，则进行尝试
             isSendSuccessful = false
             backoff()
           }
           else {
             val clientRequest = networkClient.newClientRequest(brokerNode.idString, requestBuilder,
               time.milliseconds(), true)
-            clientResponse = NetworkClientUtils.sendAndReceive(networkClient, clientRequest, time)
+            clientResponse = NetworkClientUtils.sendAndReceive(networkClient, clientRequest, time) // 发送直达接受到响应
             isSendSuccessful = true
           }
         } catch {
@@ -254,7 +257,7 @@ class RequestSendThread(val controllerId: Int,
           s"${requestHeader.correlationId} sent to broker $brokerNode")
 
         if (callback != null) {
-          callback(response)
+          callback(response) // 处理回调
         }
       }
     } catch {
@@ -265,7 +268,7 @@ class RequestSendThread(val controllerId: Int,
     }
   }
 
-  private def brokerReady(): Boolean = {
+  private def brokerReady(): Boolean = { // 判断是否准备好了
     try {
       if (!NetworkClientUtils.isReady(networkClient, brokerNode, time.milliseconds())) {
         if (!NetworkClientUtils.awaitReady(networkClient, brokerNode, time, socketTimeoutMs))
@@ -285,16 +288,19 @@ class RequestSendThread(val controllerId: Int,
 
 }
 
+// 控制器向broker发送批请求的处理器
 class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogger: StateChangeLogger) extends  Logging {
   val controllerContext = controller.controllerContext
   val controllerId: Int = controller.config.brokerId
+  // 用于发送的
   val leaderAndIsrRequestMap = mutable.Map.empty[Int, mutable.Map[TopicPartition, LeaderAndIsrRequest.PartitionState]]
   val stopReplicaRequestMap = mutable.Map.empty[Int, Seq[StopReplicaRequestInfo]]
+
   val updateMetadataRequestBrokerSet = mutable.Set.empty[Int]
   val updateMetadataRequestPartitionInfoMap = mutable.Map.empty[TopicPartition, UpdateMetadataRequest.PartitionState]
 
   def newBatch() {
-    // raise error if the previous batch is not empty
+    // 如果以前的批次不为空，则会引发错误
     if (leaderAndIsrRequestMap.nonEmpty)
       throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating " +
         s"a new one. Some LeaderAndIsr state changes $leaderAndIsrRequestMap might be lost ")
@@ -314,6 +320,7 @@ class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogge
     updateMetadataRequestPartitionInfoMap.clear()
   }
 
+  //  添加LeaderAndIsrRequest请求
   def addLeaderAndIsrRequestForBrokers(brokerIds: Seq[Int], topicPartition: TopicPartition,
                                        leaderIsrAndControllerEpoch: LeaderIsrAndControllerEpoch,
                                        replicas: Seq[Int], isNew: Boolean) {
@@ -343,18 +350,19 @@ class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogge
     }
   }
 
-  /** Send UpdateMetadataRequest to the given brokers for the given partitions and partitions that are being deleted */
+  /** 将UpdateMetadataRequest发送给指定的代理，以获取正在删除的给定分区和分区 */
   def addUpdateMetadataRequestForBrokers(brokerIds: Seq[Int],
                                          partitions: collection.Set[TopicPartition]) {
 
+    // 更新元数据（分区信息），用于之后发生
     def updateMetadataRequestPartitionInfo(partition: TopicPartition, beingDeleted: Boolean) {
       val leaderIsrAndControllerEpochOpt = controllerContext.partitionLeadershipInfo.get(partition)
       leaderIsrAndControllerEpochOpt match {
-        case Some(l @ LeaderIsrAndControllerEpoch(leaderAndIsr, controllerEpoch)) =>
-          val replicas = controllerContext.partitionReplicaAssignment(partition)
-          val offlineReplicas = replicas.filter(!controllerContext.isReplicaOnline(_, partition))
-          val leaderIsrAndControllerEpoch = if (beingDeleted) {
-            val leaderDuringDelete = LeaderAndIsr.duringDelete(leaderAndIsr.isr)
+        case Some(l @ LeaderIsrAndControllerEpoch(leaderAndIsr, controllerEpoch)) => // 模式匹配
+          val replicas = controllerContext.partitionReplicaAssignment(partition) // 所有的副本
+          val offlineReplicas = replicas.filter(!controllerContext.isReplicaOnline(_, partition))  // 离线的副本
+          val leaderIsrAndControllerEpoch = if (beingDeleted) { // 被删除的
+            val leaderDuringDelete = LeaderAndIsr.duringDelete(leaderAndIsr.isr) // 设置为删除的ISR
             LeaderIsrAndControllerEpoch(leaderDuringDelete, controllerEpoch)
           } else {
             l
@@ -379,14 +387,15 @@ class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogge
     else
       partitions
 
-    updateMetadataRequestBrokerSet ++= brokerIds.filter(_ >= 0)
+    updateMetadataRequestBrokerSet ++= brokerIds.filter(_ >= 0)  // 需要发送更新元数据请求的broker
     givenPartitions.foreach(partition => updateMetadataRequestPartitionInfo(partition,
-      beingDeleted = controller.topicDeletionManager.partitionsToBeDeleted.contains(partition)))
+      beingDeleted = controller.topicDeletionManager.partitionsToBeDeleted.contains(partition))) // 判断是否是要删除的tp
   }
 
+  // 控制器发送消息到其他broker
   def sendRequestsToBrokers(controllerEpoch: Int) {
     try {
-      val stateChangeLog = stateChangeLogger.withControllerEpoch(controllerEpoch)
+      val stateChangeLog = stateChangeLogger.withControllerEpoch(controllerEpoch) // 设置日志
 
       val leaderAndIsrRequestVersion: Short =
         if (controller.config.interBrokerProtocolVersion >= KAFKA_1_0_IV0) 1
@@ -415,8 +424,9 @@ class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogge
           s"for partition $tp")
       }
 
+      // 元数据更改处理
       val partitionStates = Map.empty ++ updateMetadataRequestPartitionInfoMap
-      val updateMetadataRequestVersion: Short =
+      val updateMetadataRequestVersion: Short =  // 更新元数据请求的版本
         if (controller.config.interBrokerProtocolVersion >= KAFKA_1_0_IV0) 4
         else if (controller.config.interBrokerProtocolVersion >= KAFKA_0_10_2_IV0) 3
         else if (controller.config.interBrokerProtocolVersion >= KAFKA_0_10_0_IV1) 2
@@ -424,7 +434,7 @@ class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogge
         else 0
 
       val updateMetadataRequest = {
-        val liveBrokers = if (updateMetadataRequestVersion == 0) {
+        val liveBrokers = if (updateMetadataRequestVersion == 0) { //存活的broker
           // Version 0 of UpdateMetadataRequest only supports PLAINTEXT.
           controllerContext.liveOrShuttingDownBrokers.map { broker =>
             val securityProtocol = SecurityProtocol.PLAINTEXT
@@ -492,6 +502,7 @@ class ControllerBrokerRequestBatch(controller: KafkaController, stateChangeLogge
   }
 }
 
+// 控制器中存在的broker信息
 case class ControllerBrokerStateInfo(networkClient: NetworkClient,
                                      brokerNode: Node,
                                      messageQueue: BlockingQueue[QueueItem],

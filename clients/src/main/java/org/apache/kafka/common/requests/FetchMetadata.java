@@ -26,35 +26,34 @@ public class FetchMetadata {
     public static final Logger log = LoggerFactory.getLogger(FetchMetadata.class);
 
     /**
-     * The session ID used by clients with no session.
+     * 没有会话的客户端使用的会话ID。
      */
     public static final int INVALID_SESSION_ID = 0;
 
     /**
-     * The first epoch.  When used in a fetch request, indicates that the client
-     * wants to create or recreate a session.
+     * 第一个epoch。 用于提取请求时，指示客户端想要创建或重新创建会话。
      */
     public static final int INITIAL_EPOCH = 0;
 
     /**
-     * An invalid epoch.  When used in a fetch request, indicates that the client
-     * wants to close any existing session, and not create a new one.
+     * 一个无效的epoch。 在提取请求中使用时，指示客户端要关闭任何现有会话，而不是创建新会话。
      */
     public static final int FINAL_EPOCH = -1;
 
     /**
-     * The FetchMetadata that is used when initializing a new FetchSessionHandler.
+     * 初始化新的FetchSessionHandler时使用的FetchMetadata。
      */
     public static final FetchMetadata INITIAL = new FetchMetadata(INVALID_SESSION_ID, INITIAL_EPOCH);
 
     /**
      * The FetchMetadata that is implicitly used for handling older FetchRequests that
      * don't include fetch metadata.
+     * 历史版本
      */
     public static final FetchMetadata LEGACY = new FetchMetadata(INVALID_SESSION_ID, FINAL_EPOCH);
 
     /**
-     * Returns the next epoch.
+     * 返回下一个epoch.
      *
      * @param prevEpoch The previous epoch.
      * @return          The next epoch.
@@ -114,7 +113,7 @@ public class FetchMetadata {
     }
 
     /**
-     * Return the metadata for the next error response.
+     * 返回下一个错误响应的元数据。
      */
     public FetchMetadata nextCloseExisting() {
         return new FetchMetadata(sessionId, INITIAL_EPOCH);

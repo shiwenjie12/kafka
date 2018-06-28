@@ -84,7 +84,7 @@ public class MemoryRecords extends AbstractRecords {
     }
 
     /**
-     * Write all records to the given channel (including partial records).
+     * 将所有的记录写入到给定的通道(including partial records).
      * @param channel The channel to write to
      * @return The number of bytes written
      * @throws IOException For any IO errors writing to the channel
@@ -121,11 +121,11 @@ public class MemoryRecords extends AbstractRecords {
     }
 
     /**
-     * Filter the records into the provided ByteBuffer.
+     * 将记录过滤到提供的ByteBuffer中。
      *
      * @param partition                   The partition that is filtered (used only for logging)
      * @param filter                      The filter function
-     * @param destinationBuffer           The byte buffer to write the filtered records to
+     * @param destinationBuffer           将过滤的记录写入的字节缓冲区
      * @param maxRecordBatchSize          The maximum record batch size. Note this is not a hard limit: if a batch
      *                                    exceeds this after filtering, we log a warning, but the batch will still be
      *                                    created.
@@ -158,7 +158,7 @@ public class MemoryRecords extends AbstractRecords {
             bytesRead += batch.sizeInBytes();
 
             BatchRetention batchRetention = filter.checkBatchRetention(batch);
-            if (batchRetention == BatchRetention.DELETE)
+            if (batchRetention == BatchRetention.DELETE)// 如果是可以丢弃的话，则不用进行复制
                 continue;
 
             // We use the absolute offset to decide whether to retain the message or not. Due to KAFKA-4298, we have to
@@ -178,13 +178,14 @@ public class MemoryRecords extends AbstractRecords {
                     if (filter.shouldRetainRecord(batch, record)) {
                         // Check for log corruption due to KAFKA-4298. If we find it, make sure that we overwrite
                         // the corrupted batch with correct data.
+                        // 检查由于KAFKA-4298造成的日志损坏。 如果我们找到它，请确保我们用正确的数据覆盖损坏的批处理。
                         if (!record.hasMagic(batchMagic))
                             writeOriginalBatch = false;
 
                         if (record.offset() > maxOffset)
                             maxOffset = record.offset();
 
-                        retainedRecords.add(record);
+                        retainedRecords.add(record);// 添加可以丢弃的记录
                     } else {
                         writeOriginalBatch = false;
                     }
@@ -231,8 +232,7 @@ public class MemoryRecords extends AbstractRecords {
                         batch.isTransactional(), batch.isControlBatch());
             }
 
-            // If we had to allocate a new buffer to fit the filtered output (see KAFKA-5316), return early to
-            // avoid the need for additional allocations.
+            // 如果我们必须分配一个新的缓冲区来适应已过滤的输出（请参阅KAFKA-5316），请尽早返回以避免需要额外的分配。
             ByteBuffer outputBuffer = bufferOutputStream.buffer();
             if (outputBuffer != destinationBuffer)
                 return new FilterResult(outputBuffer, messagesRead, bytesRead, messagesRetained, bytesRetained,
@@ -333,9 +333,9 @@ public class MemoryRecords extends AbstractRecords {
 
     public static abstract class RecordFilter {
         public enum BatchRetention {
-            DELETE, // Delete the batch without inspecting records
-            RETAIN_EMPTY, // Retain the batch even if it is empty
-            DELETE_EMPTY  // Delete the batch if it is empty
+            DELETE, // 删除批次而不检查记录
+            RETAIN_EMPTY, // 即使它是空的，也保留批次
+            DELETE_EMPTY  // 即使它是空的，也保留批次
         }
 
         /**
@@ -595,6 +595,8 @@ public class MemoryRecords extends AbstractRecords {
                 producerEpoch, marker);
     }
 
+
+    // 构建结束事务标记的记录
     public static MemoryRecords withEndTransactionMarker(long initialOffset, long timestamp, int partitionLeaderEpoch,
                                                          long producerId, short producerEpoch,
                                                          EndTransactionMarker marker) {

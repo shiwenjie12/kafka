@@ -23,7 +23,7 @@ import org.apache.kafka.common.MetricName
 import org.apache.kafka.common.metrics._
 import org.apache.kafka.common.utils.Time
 
-
+// 在ClientQuotaManager基础上实现的关于请求的度量管理
 class ClientRequestQuotaManager(private val config: ClientQuotaManagerConfig,
                                 private val metrics: Metrics,
                                 private val time: Time,

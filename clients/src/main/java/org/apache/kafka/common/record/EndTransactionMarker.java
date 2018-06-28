@@ -29,6 +29,8 @@ import java.nio.ByteBuffer;
  * This class represents the control record which is written to the log to indicate the completion
  * of a transaction. The record key specifies the {@link ControlRecordType control type} and the
  * value embeds information useful for write validation (for now, just the coordinator epoch).
+ * 该类表示写入日志以指示事务完成的控制记录。
+ * 记录键指定了ControlRecordType控件类型，并且该值嵌入了用于写入验证的信息（现在只是协调器时期）。
  */
 public class EndTransactionMarker {
     private static final Logger log = LoggerFactory.getLogger(EndTransactionMarker.class);
@@ -46,6 +48,11 @@ public class EndTransactionMarker {
     private final ControlRecordType type;
     private final int coordinatorEpoch;
 
+    /**
+     * 结束事务时的标志
+     * @param type 结束事务时的类型
+     * @param coordinatorEpoch 协调者的epoch
+     */
     public EndTransactionMarker(ControlRecordType type, int coordinatorEpoch) {
         ensureTransactionMarkerControlType(type);
         this.type = type;

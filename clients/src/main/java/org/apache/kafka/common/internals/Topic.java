@@ -46,6 +46,7 @@ public class Topic {
                     "ASCII alphanumerics, '.', '_' and '-'");
     }
 
+    // 是否是内部主题
     public static boolean isInternal(String topic) {
         return INTERNAL_TOPICS.contains(topic);
     }

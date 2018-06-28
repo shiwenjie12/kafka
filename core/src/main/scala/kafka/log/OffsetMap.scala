@@ -35,8 +35,8 @@ trait OffsetMap {
 }
 
 /**
- * An hash table used for deduplicating the log. This hash table uses a cryptographicly secure hash of the key as a proxy for the key
- * for comparisons and to save space on object overhead. Collisions are resolved by probing. This hash table does not support deletes.
+  * 用于删除日志的哈希表。该哈希表使用密钥的加密安全散列作为比较密钥的代理，并节省对象开销的空间。
+  * 碰撞是通过探测来解决的。此哈希表不支持删除。（内存利用效率高）
  * @param memory The amount of memory this map can use
  * @param hashAlgorithm The hash algorithm instance to use: MD2, MD5, SHA-1, SHA-256, SHA-384, SHA-512
  */
@@ -47,10 +47,10 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
   /* the hash algorithm instance to use, default is MD5 */
   private val digest = MessageDigest.getInstance(hashAlgorithm)
   
-  /* the number of bytes for this hash algorithm */
-  private val hashSize = digest.getDigestLength
+  /* 哈希算法的字节数 */
+  private val hashSize = digest.getDigestLength// MD5 16
   
-  /* create some hash buffers to avoid reallocating each time */
+  /* 创建一些散列缓冲区以避免每次重新分配 */
   private val hash1 = new Array[Byte](hashSize)
   private val hash2 = new Array[Byte](hashSize)
   
@@ -67,7 +67,7 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
   private var lastOffset = -1L
 
   /**
-   * The number of bytes of space each entry uses (the number of bytes in the hash plus an 8 byte offset)
+   * 每个条目使用的空间字节数（散列加上8字节偏移量的字节数  long）
    */
   val bytesPerEntry = hashSize + 8
   
@@ -77,7 +77,7 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
   val slots: Int = memory / bytesPerEntry
   
   /**
-   * Associate this offset to the given key.
+   * 将此偏移量与给定的键关联。
    * @param key The key
    * @param offset The offset
    */
@@ -87,11 +87,12 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
     hashInto(key, hash1)
     // probe until we find the first empty slot
     var attempt = 0
-    var pos = positionOf(hash1, attempt)  
+    var pos = positionOf(hash1, attempt)  // 计算position
     while(!isEmpty(pos)) {
+      // 不为空，进行尝试再次插入
       bytes.position(pos)
       bytes.get(hash2)
-      if(Arrays.equals(hash1, hash2)) {
+      if(Arrays.equals(hash1, hash2)) {// 发现相同的值，进行覆盖
         // we found an existing entry, overwrite it and return (size does not change)
         bytes.putLong(offset)
         lastOffset = offset
@@ -101,6 +102,7 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
       pos = positionOf(hash1, attempt)
     }
     // found an empty slot, update it--size grows by 1
+    // 进行插入
     bytes.position(pos)
     bytes.put(hash1)
     bytes.putLong(offset)
@@ -115,7 +117,7 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
     bytes.getLong(position) == 0 && bytes.getLong(position + 8) == 0 && bytes.getLong(position + 16) == 0
 
   /**
-   * Get the offset associated with this key.
+   * 获取与此键关联的偏移量
    * @param key The key
    * @return The offset associated with this key or -1 if the key is not found
    */
@@ -137,7 +139,7 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
         return -1L
       bytes.get(hash2)
       attempt += 1
-    } while(!Arrays.equals(hash1, hash2))
+    } while(!Arrays.equals(hash1, hash2))// 相同则表示正确获取到键
     bytes.getLong()
   }
   
@@ -158,7 +160,7 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
   override def size: Int = entries
   
   /**
-   * The rate of collisions in the lookups
+   * 查找中的碰撞速率
    */
   def collisionRate: Double = 
     (this.probes - this.lookups) / this.lookups.toDouble
@@ -173,21 +175,21 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
   }
 
   /**
-   * Calculate the ith probe position. We first try reading successive integers from the hash itself
-   * then if all of those fail we degrade to linear probing.
+    * 计算探头位置。我们首先尝试从散列本身读取连续的整数，然后如果所有这些失败，我们退化到线性探测。
    * @param hash The hash of the key to find the position for
    * @param attempt The ith probe
    * @return The byte offset in the buffer at which the ith probing for the given hash would reside
    */
   private def positionOf(hash: Array[Byte], attempt: Int): Int = {
+    // 计算出探头
     val probe = CoreUtils.readInt(hash, math.min(attempt, hashSize - 4)) + math.max(0, attempt - hashSize + 4)
-    val slot = Utils.abs(probe) % slots
+    val slot = Utils.abs(probe) % slots //计算出槽点
     this.probes += 1
     slot * bytesPerEntry
   }
   
   /**
-   * The offset at which we have stored the given key
+   * 我们存储了给定密钥的偏移量。
    * @param key The key to hash
    * @param buffer The buffer to store the hash into
    */
@@ -198,4 +200,11 @@ class SkimpyOffsetMap(val memory: Int, val hashAlgorithm: String = "MD5") extend
     digest.digest(buffer, 0, hashSize)
   }
   
+}
+
+object SkimpyOffsetMap{
+  def main(args: Array[String]): Unit = {
+    val digest = MessageDigest.getInstance("MD5")
+    println(digest.getDigestLength)
+  }
 }

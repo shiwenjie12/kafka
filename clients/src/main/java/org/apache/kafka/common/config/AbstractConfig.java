@@ -45,7 +45,7 @@ public class AbstractConfig {
     /* configs for which values have been requested, used to detect unused configs */
     private final Set<String> used;
 
-    /* the original values passed in by the user */
+    /* 用户传递的原始值 */
     private final Map<String, ?> originals;
 
     /* the parsed values */
@@ -208,9 +208,8 @@ public class AbstractConfig {
     }
 
     /**
-     * Put all keys that do not start with {@code prefix} and their parsed values in the result map and then
-     * put all the remaining keys with the prefix stripped and their parsed values in the result map.
-     *
+     * 在结果映射中将所有不以{@代码前缀}开始的所有键及其解析值放置，
+     * 然后在结果映射中将所有剩余键与前缀剥离并解析它们的值。
      * This is useful if one wants to allow prefixed configs to override default ones.
      * <p>
      * Two forms of prefixes are supported:
@@ -393,8 +392,8 @@ public class AbstractConfig {
     }
 
     /**
-     * Marks keys retrieved via `get` as used. This is needed because `Configurable.configure` takes a `Map` instead
-     * of an `AbstractConfig` and we can't change that without breaking public API like `Partitioner`.
+     * 标记键通过“GET”检索。这是需要的，因为“可配置.CONTION”需要一个“map”，而不是一个“抽象CONFIG”，
+     * 并且我们不能在不破坏公共API的情况下像“分区器”那样改变它。
      */
     private class RecordingMap<V> extends HashMap<String, V> {
 

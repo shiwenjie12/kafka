@@ -42,7 +42,7 @@ import scala.collection.JavaConverters._
 /**
  * The cleaner is responsible for removing obsolete records from logs which have the "compact" retention strategy.
  * A message with key K and offset O is obsolete if there exists a message with key K and offset O' such that O < O'.
- *
+ * cleaner负责从具有“紧凑型”保留策略的日志中删除过时的记录。 如果存在带键K的消息并且偏移O'使得O <O'，则具有键K和偏移量O的消息已经过时。
  * Each log can be thought of being split into two sections of segments: a "clean" section which has previously been cleaned followed by a
  * "dirty" section that has not yet been cleaned. The dirty section is further divided into the "cleanable" section followed by an "uncleanable" section.
  * The uncleanable section is excluded from cleaning. The active log segment is always uncleanable. If there is a
@@ -69,20 +69,16 @@ import scala.collection.JavaConverters._
  * basis and is measured from the time the segment enters the clean portion of the log (at which point any prior message with that key has been removed).
  * Delete markers in the clean section of the log that are older than this time will not be retained when log segments are being recopied as part of cleaning.
  *
- * Note that cleaning is more complicated with the idempotent/transactional producer capabilities. The following
- * are the key points:
+  * 请注意，清洁是更复杂的幂等/事务生产者能力。以下是要点：
  *
- * 1. In order to maintain sequence number continuity for active producers, we always retain the last batch
- *    from each producerId, even if all the records from the batch have been removed. The batch will be removed
- *    once the producer either writes a new batch or is expired due to inactivity.
- * 2. We do not clean beyond the last stable offset. This ensures that all records observed by the cleaner have
- *    been decided (i.e. committed or aborted). In particular, this allows us to use the transaction index to
- *    collect the aborted transactions ahead of time.
- * 3. Records from aborted transactions are removed by the cleaner immediately without regard to record keys.
- * 4. Transaction markers are retained until all record batches from the same transaction have been removed and
- *    a sufficient amount of time has passed to reasonably ensure that an active consumer wouldn't consume any
- *    data from the transaction prior to reaching the offset of the marker. This follows the same logic used for
- *    tombstone deletion.
+  * 1.为了保持活跃生产者的序列号连续性，我们总是保留来自每个生产商ID的最后一批，即使所有批次的记录都已被删除。
+  *   一旦生产商编写了新的批次或由于不活动而过期，该批将被删除。
+  * 2. 我们不清除超出最后稳定的偏移量。这确保了由清洁器观察到的所有记录已被确定（即提交或中止）。
+  *    特别是，这允许我们使用事务索引提前收集中止的事务。
+ * 3. 由中止的事务记录立即被清洁器移除而不考虑记录密钥。
+  * 4. 事务标记被保留，直到来自同一事务的所有记录批次被移除，并且足够的时间已经过去，
+  *    以合理地确保活动的消费者在到达标记的偏移之前不会消耗来自事务的任何数据。
+  *    这遵循相同的逻辑用于墓碑删除。
  *
  * @param initialConfig Initial configuration parameters for the cleaner. Actual config may be dynamically updated.
  * @param logDirs The directories where offset checkpoints reside
@@ -96,13 +92,13 @@ class LogCleaner(initialConfig: CleanerConfig,
                  time: Time = Time.SYSTEM) extends Logging with KafkaMetricsGroup with BrokerReconfigurable
 {
 
-  /* Log cleaner configuration which may be dynamically updated */
+  /* 可以动态更新的日志清理程序配置*/
   @volatile private var config = initialConfig
 
-  /* for managing the state of partitions being cleaned. package-private to allow access in tests */
+  /* 用于管理正在清理的分区的状态。 封装专用以允许在测试中访问 */
   private[log] val cleanerManager = new LogCleanerManager(logDirs, logs, logDirFailureChannel)
 
-  /* a throttle used to limit the I/O of all the cleaner threads to a user-specified maximum rate */
+  /* 用于限制所有清除线程的I/O到用户指定的最大速率的节流阀。*/
   private val throttler = new Throttler(desiredRatePerSec = config.maxIoBytesPerSecond,
                                         checkIntervalMs = 300,
                                         throttleDown = true,
@@ -257,13 +253,14 @@ class LogCleaner(initialConfig: CleanerConfig,
   /**
    * The cleaner threads do the actual log cleaning. Each thread processes does its cleaning repeatedly by
    * choosing the dirtiest log, cleaning it, and then swapping in the cleaned segments.
+    * 清洁的线程做实际的日志清理。每个线程处理通过选择最脏的日志，清洗它，然后在清洗的部分中交换来重复清洗。
    */
   private class CleanerThread(threadId: Int)
     extends ShutdownableThread(name = "kafka-log-cleaner-thread-" + threadId, isInterruptible = false) {
 
     protected override def loggerName = classOf[LogCleaner].getName
 
-    if (config.dedupeBufferSize / config.numThreads > Int.MaxValue)
+    if (config.dedupeBufferSize / config.numThreads > Int.MaxValue) // 忽略多于缓存空间
       warn("Cannot use more than 2G of cleaner buffer space per cleaner thread, ignoring excess buffer space...")
 
     val cleaner = new Cleaner(id = threadId,
@@ -295,7 +292,7 @@ class LogCleaner(initialConfig: CleanerConfig,
      * Clean a log if there is a dirty log available, otherwise sleep for a bit
      */
     private def cleanOrSleep() {
-      val cleaned = cleanerManager.grabFilthiestCompactedLog(time) match {
+      val cleaned = cleanerManager.grabFilthiestCompactedLog(time) match {// 最脏的数据段
         case None =>
           false
         case Some(cleanable) =>
@@ -330,7 +327,7 @@ class LogCleaner(initialConfig: CleanerConfig,
     }
 
     /**
-     * Log out statistics on a single run of the cleaner.
+     * 注销单个清洁器运行的统计信息。
      */
     def recordStats(id: Int, name: String, from: Long, to: Long, stats: CleanerStats) {
       this.lastStats = stats
@@ -420,7 +417,7 @@ private[log] class Cleaner(val id: Int,
   require(offsetMap.slots * dupBufferLoadFactor > 1, "offset map is too small to fit in even a single message, so log cleaning will never make progress. You can increase log.cleaner.dedupe.buffer.size or decrease log.cleaner.threads")
 
   /**
-   * Clean the given log
+    * 清除给定的日志
    *
    * @param cleanable The log to be cleaned
    *
@@ -429,6 +426,7 @@ private[log] class Cleaner(val id: Int,
   private[log] def clean(cleanable: LogToClean): (Long, CleanerStats) = {
     // figure out the timestamp below which it is safe to remove delete tombstones
     // this position is defined to be a configurable time beneath the last modified time of the last clean segment
+    // 计算出删除删除墓碑的时间戳，该位置被定义为在最后一个干净片段的最后修改时间之下的可配置时间。
     val deleteHorizonMs =
       cleanable.log.logSegments(0, cleanable.firstDirtyOffset).lastOption match {
         case None => 0L
@@ -438,6 +436,7 @@ private[log] class Cleaner(val id: Int,
     doClean(cleanable, deleteHorizonMs)
   }
 
+  // 进行实际清除处理
   private[log] def doClean(cleanable: LogToClean, deleteHorizonMs: Long): (Long, CleanerStats) = {
     info("Beginning cleaning of log %s.".format(cleanable.log.name))
 
@@ -447,16 +446,16 @@ private[log] class Cleaner(val id: Int,
     // build the offset map
     info("Building offset map for %s...".format(cleanable.log.name))
     val upperBoundOffset = cleanable.firstUncleanableOffset
-    buildOffsetMap(log, cleanable.firstDirtyOffset, upperBoundOffset, offsetMap, stats)
+    buildOffsetMap(log, cleanable.firstDirtyOffset, upperBoundOffset, offsetMap, stats) // 根据记录类型构建offsetMap
     val endOffset = offsetMap.latestOffset + 1
     stats.indexDone()
 
-    // determine the timestamp up to which the log will be cleaned
-    // this is the lower of the last active segment and the compaction lag
+    //确定日志将被清理到的时间戳
+    //这是最后一个活动段的下限和压实滞后。
     val cleanableHorizonMs = log.logSegments(0, cleanable.firstUncleanableOffset).lastOption.map(_.lastModified).getOrElse(0L)
 
 
-    // group the segments and clean the groups
+    // 将段分组然后清洁组
     info("Cleaning log %s (cleaning prior to %s, discarding tombstones prior to %s)...".format(log.name, new Date(cleanableHorizonMs), new Date(deleteHorizonMs)))
     for (group <- groupSegmentsBySize(log.logSegments(0, endOffset), log.config.segmentSize, log.config.maxIndexSize, cleanable.firstUncleanableOffset))
       cleanSegments(log, group, offsetMap, deleteHorizonMs, stats)
@@ -464,7 +463,7 @@ private[log] class Cleaner(val id: Int,
     // record buffer utilization
     stats.bufferUtilization = offsetMap.utilization
 
-    stats.allDone()
+    stats.allDone()// 标记结束
 
     (endOffset, stats)
   }
@@ -475,7 +474,7 @@ private[log] class Cleaner(val id: Int,
    * @param log The log being cleaned
    * @param segments The group of segments being cleaned
    * @param map The offset map to use for cleaning segments
-   * @param deleteHorizonMs The time to retain delete tombstones
+   * @param deleteHorizonMs 保留删除墓碑的时间
    * @param stats Collector for cleaning statistics
    */
   private[log] def cleanSegments(log: Log,
@@ -495,21 +494,22 @@ private[log] class Cleaner(val id: Int,
     deleteCleanedFileIfExists(firstSegment.timeIndex.file)
     deleteCleanedFileIfExists(firstSegment.txnIndex.file)
 
+    // 最终合成的那个段
     val baseOffset = firstSegment.baseOffset
     val cleaned = LogSegment.open(log.dir, baseOffset, log.config, time, fileSuffix = Log.CleanedFileSuffix,
       initFileSize = log.initFileSize, preallocate = log.config.preallocate)
 
     try {
-      // clean segments into the new destination segment
+      // 将新片段细分为新的目标段
       val iter = segments.iterator
       var currentSegmentOpt: Option[LogSegment] = Some(iter.next())
       while (currentSegmentOpt.isDefined) {
-        val currentSegment = currentSegmentOpt.get
+        val currentSegment = currentSegmentOpt.get// 当前处理的段
         val nextSegmentOpt = if (iter.hasNext) Some(iter.next()) else None
 
-        val startOffset = currentSegment.baseOffset
-        val upperBoundOffset = nextSegmentOpt.map(_.baseOffset).getOrElse(map.latestOffset + 1)
-        val abortedTransactions = log.collectAbortedTransactions(startOffset, upperBoundOffset)
+        val startOffset = currentSegment.baseOffset  // 当前回收段的起始offset
+        val upperBoundOffset = nextSegmentOpt.map(_.baseOffset).getOrElse(map.latestOffset + 1) // 下一个段的起始offset作为结束offset
+        val abortedTransactions = log.collectAbortedTransactions(startOffset, upperBoundOffset)// 收集区间内偏移量
         val transactionMetadata = CleanedTransactionMetadata(abortedTransactions, Some(cleaned.txnIndex))
 
         val retainDeletes = currentSegment.lastModified > deleteHorizonMs
@@ -544,9 +544,7 @@ private[log] class Cleaner(val id: Int,
   }
 
   /**
-   * Clean the given source log segment into the destination segment using the key=>offset mapping
-   * provided
-   *
+   * 使用提供的key=>offset映射将给定的源日志段清理到目标段中
    * @param topicPartition The topic and partition of the log segment to clean
    * @param sourceRecords The dirty log segment
    * @param dest The cleaned log segment
@@ -572,8 +570,7 @@ private[log] class Cleaner(val id: Int,
         // note that we will never delete a marker until all the records from that transaction are removed.
         discardBatchRecords = shouldDiscardBatch(batch, transactionMetadata, retainTxnMarkers = retainDeletes)
 
-        // check if the batch contains the last sequence number for the producer. if so, we cannot
-        // remove the batch just yet or the producer may see an out of sequence error.
+        // 检查批次是否包含生产者的最后序列号。 如果是这样，我们不能删除该批次，否则生产者可能会看到一个无序的错误。
         if (batch.hasProducerId && activeProducers.get(batch.producerId).contains(batch.lastSequence))
           BatchRetention.RETAIN_EMPTY
         else if (discardBatchRecords)
@@ -599,8 +596,9 @@ private[log] class Cleaner(val id: Int,
       writeBuffer.clear()
 
       sourceRecords.readInto(readBuffer, position)
-      val records = MemoryRecords.readableRecords(readBuffer)
+      val records = MemoryRecords.readableRecords(readBuffer)// 从文件中读取MemoryRecord
       throttler.maybeThrottle(records.sizeInBytes)
+      // 过滤记录
       val result = records.filterTo(topicPartition, logCleanerFilter, writeBuffer, maxLogMessageSize, decompressionBufferSupplier)
       stats.readMessages(result.messagesRead, result.bytesRead)
       stats.recopyMessages(result.messagesRetained, result.bytesRetained)
@@ -629,6 +627,7 @@ private[log] class Cleaner(val id: Int,
     restoreBuffers()
   }
 
+  // 是否应该丢弃批次
   private def shouldDiscardBatch(batch: RecordBatch,
                                  transactionMetadata: CleanedTransactionMetadata,
                                  retainTxnMarkers: Boolean): Boolean = {
@@ -667,7 +666,7 @@ private[log] class Cleaner(val id: Int,
   }
 
   /**
-   * Double the I/O buffer capacity
+   * 在限定情况下，升级双倍I/O缓存
    */
   def growBuffers(maxLogMessageSize: Int) {
     val maxBufferSize = math.max(maxLogMessageSize, maxIoBufferSize)
@@ -680,7 +679,7 @@ private[log] class Cleaner(val id: Int,
   }
 
   /**
-   * Restore the I/O buffer capacity to its original size
+   * 将I/O缓冲容量恢复到原来的大小
    */
   def restoreBuffers() {
     if(this.readBuffer.capacity > this.ioBufferSize)
@@ -690,9 +689,8 @@ private[log] class Cleaner(val id: Int,
   }
 
   /**
-   * Group the segments in a log into groups totaling less than a given size. the size is enforced separately for the log data and the index data.
-   * We collect a group of such segments together into a single
-   * destination segment. This prevents segment sizes from shrinking too much.
+    * 将日志中的段分组为小于给定大小的组。对日志数据和索引数据分别执行大小。
+    *我们收集一组这样的段一起成为一个单一的目的段。这防止了段大小收缩太多。
    *
    * @param segments The log segments to group
    * @param maxSize the maximum size in bytes for the total of all log data in a group
@@ -748,7 +746,7 @@ private[log] class Cleaner(val id: Int,
   }
 
   /**
-   * Build a map of key_hash => offset for the keys in the cleanable dirty portion of the log to use in cleaning.
+    * 为清洁中使用的日志的可清洗脏部分中的键构建key_hash => offset的映射。
    * @param log The log to use
    * @param start The offset at which dirty messages begin
    * @param end The ending offset for the map that is being built
@@ -761,7 +759,7 @@ private[log] class Cleaner(val id: Int,
                                   map: OffsetMap,
                                   stats: CleanerStats) {
     map.clear()
-    val dirty = log.logSegments(start, end).toBuffer
+    val dirty = log.logSegments(start, end).toBuffer // 需要回收的脏数据段
     info("Building offset map for log %s for %d segments in offset range [%d, %d).".format(log.name, dirty.size, start, end))
 
     val abortedTransactions = log.collectAbortedTransactions(start, end)
@@ -771,7 +769,7 @@ private[log] class Cleaner(val id: Int,
     // but we may be able to fit more (if there is lots of duplication in the dirty section of the log)
     var full = false
     for (segment <- dirty if !full) {
-      checkDone(log.topicPartition)
+      checkDone(log.topicPartition)// 检查清除状态
 
       full = buildOffsetMapForSegment(log.topicPartition, segment, map, start, log.config.maxMessageSize,
         transactionMetadata, stats)
@@ -783,7 +781,7 @@ private[log] class Cleaner(val id: Int,
 
   /**
    * Add the messages in the given segment to the offset map
-   *
+   * 添加消息到给定的segment
    * @param segment The segment to index
    * @param map The map in which to store the key=>offset mapping
    * @param stats Collector for cleaning statistics
@@ -797,14 +795,14 @@ private[log] class Cleaner(val id: Int,
                                        maxLogMessageSize: Int,
                                        transactionMetadata: CleanedTransactionMetadata,
                                        stats: CleanerStats): Boolean = {
-    var position = segment.offsetIndex.lookup(startOffset).position
+    var position = segment.offsetIndex.lookup(startOffset).position // 目标offset索引文件的起始偏移量
     val maxDesiredMapSize = (map.slots * this.dupBufferLoadFactor).toInt
     while (position < segment.log.sizeInBytes) {
       checkDone(topicPartition)
       readBuffer.clear()
       segment.log.readInto(readBuffer, position)
-      val records = MemoryRecords.readableRecords(readBuffer)
-      throttler.maybeThrottle(records.sizeInBytes)
+      val records = MemoryRecords.readableRecords(readBuffer)// 读取的记录
+      throttler.maybeThrottle(records.sizeInBytes)// 控制速率
 
       val startPosition = position
       for (batch <- records.batches.asScala) {
@@ -814,13 +812,13 @@ private[log] class Cleaner(val id: Int,
         } else {
           val isAborted = transactionMetadata.onBatchRead(batch)
           if (isAborted) {
-            // If the batch is aborted, do not bother populating the offset map.
-            // Note that abort markers are supported in v2 and above, which means count is defined.
+            // 如果批处理被中止，请不要打扰填充offset map。
+            // 注意，在V2和以上支持中止标记，这意味着计数被定义。
             stats.indexMessagesRead(batch.countOrNull)
           } else {
             for (record <- batch.asScala) {
               if (record.hasKey && record.offset >= startOffset) {
-                if (map.size < maxDesiredMapSize)
+                if (map.size < maxDesiredMapSize)// 向偏移offsetmap中添加记录
                   map.put(record.key, record.offset)
                 else
                   return true
@@ -831,13 +829,13 @@ private[log] class Cleaner(val id: Int,
         }
 
         if (batch.lastOffset >= startOffset)
-          map.updateLatestOffset(batch.lastOffset)
+          map.updateLatestOffset(batch.lastOffset)// 更新offset中的最新偏移量
       }
-      val bytesRead = records.validBytes
+      val bytesRead = records.validBytes // 将已处理的记录进行更新偏移量和stats
       position += bytesRead
       stats.indexBytesRead(bytesRead)
 
-      // if we didn't read even one complete message, our read buffer may be too small
+      // 如果我们没有读取一个完整的消息，那么我们的读取缓冲区可能太小了。
       if(position == startPosition)
         growBuffers(maxLogMessageSize)
     }
@@ -899,7 +897,7 @@ private class CleanerStats(time: Time = Time.SYSTEM) {
 }
 
 /**
- * Helper class for a log, its topic/partition, the first cleanable position, and the first uncleanable dirty position
+ * 日志的Help类，其主题/分区，第一个可清除位置，以及第一个不可清洗的脏位置
  */
 private case class LogToClean(topicPartition: TopicPartition, log: Log, firstDirtyOffset: Long, uncleanableOffset: Long) extends Ordered[LogToClean] {
   val cleanBytes = log.logSegments(-1, firstDirtyOffset).map(_.size.toLong).sum
@@ -914,7 +912,7 @@ private case class LogToClean(topicPartition: TopicPartition, log: Log, firstDir
 private[log] object CleanedTransactionMetadata {
   def apply(abortedTransactions: List[AbortedTxn],
             transactionIndex: Option[TransactionIndex] = None): CleanedTransactionMetadata = {
-    val queue = mutable.PriorityQueue.empty[AbortedTxn](new Ordering[AbortedTxn] {
+    val queue = mutable.PriorityQueue.empty[AbortedTxn](new Ordering[AbortedTxn] {// 优先级队列
       override def compare(x: AbortedTxn, y: AbortedTxn): Int = x.firstOffset compare y.firstOffset
     }.reverse)
     queue ++= abortedTransactions
@@ -942,6 +940,7 @@ private[log] class CleanedTransactionMetadata(val abortedTransactions: mutable.P
   def onControlBatchRead(controlBatch: RecordBatch): Boolean = {
     consumeAbortedTxnsUpTo(controlBatch.lastOffset)
 
+    // 获取控制批次类型
     val controlRecord = controlBatch.iterator.next()
     val controlType = ControlRecordType.parse(controlRecord.key)
     val producerId = controlBatch.producerId
@@ -956,13 +955,14 @@ private[log] class CleanedTransactionMetadata(val abortedTransactions: mutable.P
         }
 
       case ControlRecordType.COMMIT =>
-        // This marker is eligible for deletion if we didn't traverse any batches from the transaction
+        // 如果我们没有遍历交易中的任何批次，则此标记符合删除条件
         !ongoingCommittedTxns.remove(producerId)
 
       case _ => false
     }
   }
 
+  // 将小于offset的abortedTxn添加到ongoingAbortedTxns
   private def consumeAbortedTxnsUpTo(offset: Long): Unit = {
     while (abortedTransactions.headOption.exists(_.firstOffset <= offset)) {
       val abortedTxn = abortedTransactions.dequeue()
@@ -973,6 +973,7 @@ private[log] class CleanedTransactionMetadata(val abortedTransactions: mutable.P
   /**
    * Update the transactional state for the incoming non-control batch. If the batch is part of
    * an aborted transaction, return true to indicate that it is safe to discard.
+    * 更新传入非控制批处理的事务状态。如果批处理是中止事务的一部分，则返回TRUE以指示放弃该操作是安全的。
    */
   def onBatchRead(batch: RecordBatch): Boolean = {
     consumeAbortedTxnsUpTo(batch.lastOffset)
@@ -993,5 +994,6 @@ private[log] class CleanedTransactionMetadata(val abortedTransactions: mutable.P
 }
 
 private class AbortedTransactionMetadata(val abortedTxn: AbortedTxn) {
+  // 观察到的批次最新的offset
   var lastObservedBatchOffset: Option[Long] = None
 }

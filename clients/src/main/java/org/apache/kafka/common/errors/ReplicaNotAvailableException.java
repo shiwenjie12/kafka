@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 package org.apache.kafka.common.errors;
-
+// 无效的备份
 public class ReplicaNotAvailableException extends ApiException {
 
     private static final long serialVersionUID = 1L;

@@ -30,7 +30,7 @@ import org.apache.kafka.common.metrics.stats.SimpleRate
 import org.apache.kafka.common.utils.Time
 
 /**
-  * Configuration settings for quota management
+  * 备份配额管理的配置设置
   *
   * @param quotaBytesPerSecondDefault The default bytes per second quota allocated to internal replication
   * @param numQuotaSamples            The number of samples to retain in memory
@@ -50,6 +50,7 @@ object ReplicationQuotaManagerConfig {
   val InactiveSensorExpirationTimeSeconds = 3600
 }
 
+// 备份的配额
 trait ReplicaQuota {
   def isThrottled(topicPartition: TopicPartition): Boolean
   def isQuotaExceeded(): Boolean
@@ -60,7 +61,7 @@ object Constants {
 }
 
 /**
-  * Tracks replication metrics and comparing them to any quotas for throttled partitions.
+  * 跟踪复制度量并将它们与节流分区的任何配额进行比较。
   *
   * @param config          The quota configs
   * @param metrics         The Metrics instance
@@ -72,6 +73,7 @@ class ReplicationQuotaManager(val config: ReplicationQuotaManagerConfig,
                               private val replicationType: QuotaType,
                               private val time: Time) extends Logging with ReplicaQuota {
   private val lock = new ReentrantReadWriteLock()
+  // 节流的分区
   private val throttledPartitions = new ConcurrentHashMap[String, Seq[Int]]()
   private var quota: Quota = null
   private val sensorAccess = new SensorAccess(lock, metrics)
@@ -95,7 +97,7 @@ class ReplicationQuotaManager(val config: ReplicationQuotaManagerConfig,
   }
 
   /**
-    * Check if the quota is currently exceeded
+    * 检查当前配额是否超过
     *
     * @return
     */
@@ -111,7 +113,7 @@ class ReplicationQuotaManager(val config: ReplicationQuotaManagerConfig,
   }
 
   /**
-    * Is the passed partition throttled by this ReplicationQuotaManager
+    * 该 ReplicationQuotaManager是否通过分区节流
     *
     * @param topicPartition the partition to check
     * @return
@@ -139,9 +141,8 @@ class ReplicationQuotaManager(val config: ReplicationQuotaManagerConfig,
   }
 
   /**
-    * Update the set of throttled partitions for this QuotaManager. The partitions passed, for
-    * any single topic, will replace any previous
-    *
+    * 为这个QuotaManager更新一组节流分区。为任何单个主题传递的分区将替换以前的任何主题。
+    * 标记限流的主题分区
     * @param topic
     * @param partitions the set of throttled partitions
     * @return
@@ -151,7 +152,7 @@ class ReplicationQuotaManager(val config: ReplicationQuotaManagerConfig,
   }
 
   /**
-    * Mark all replicas for this topic as throttled
+    * 将此主题的所有副本标记为节流
     *
     * @param topic
     * @return

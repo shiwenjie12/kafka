@@ -30,7 +30,7 @@ import org.apache.kafka.common.utils.{KafkaThread, Time}
 import scala.collection.mutable
 
 /**
- * A thread that answers kafka requests.
+ * 一个回答kafka请求的线程。
  */
 class KafkaRequestHandler(id: Int,
                           brokerId: Int,
@@ -51,9 +51,9 @@ class KafkaRequestHandler(id: Int,
       // time should be discounted by # threads.
       val startSelectTime = time.nanoseconds
 
-      val req = requestChannel.receiveRequest(300)
+      val req = requestChannel.receiveRequest(300)  // 从请求通道中获取请求
       val endTime = time.nanoseconds
-      val idleTime = endTime - startSelectTime
+      val idleTime = endTime - startSelectTime // 空闲时间
       aggregateIdleMeter.mark(idleTime / totalHandlerThreads.get)
 
       req match {
@@ -92,6 +92,7 @@ class KafkaRequestHandler(id: Int,
 
 }
 
+// 请求的处理池
 class KafkaRequestHandlerPool(val brokerId: Int,
                               val requestChannel: RequestChannel,
                               val apis: KafkaApis,
@@ -108,7 +109,7 @@ class KafkaRequestHandlerPool(val brokerId: Int,
     createHandler(i)
   }
 
-  def createHandler(id: Int): Unit = synchronized {
+  def createHandler(id: Int): Unit = synchronized { // 创建kafka的请求处理器
     runnables += new KafkaRequestHandler(id, brokerId, aggregateIdleMeter, threadPoolSize, requestChannel, apis, time)
     KafkaThread.daemon("kafka-request-handler-" + id, runnables(id)).start()
   }
@@ -138,8 +139,9 @@ class KafkaRequestHandlerPool(val brokerId: Int,
   }
 }
 
+// broker的主题度量器
 class BrokerTopicMetrics(name: Option[String]) extends KafkaMetricsGroup {
-  val tags: scala.collection.Map[String, String] = name match {
+  val tags: scala.collection.Map[String, String] = name match {// 标签
     case None => Map.empty
     case Some(topic) => Map("topic" -> topic)
   }
@@ -195,6 +197,7 @@ object BrokerTopicStats {
   private val valueFactory = (k: String) => new BrokerTopicMetrics(Some(k))
 }
 
+// Broker的主题状态 包含各种参数
 class BrokerTopicStats {
   import BrokerTopicStats._
 

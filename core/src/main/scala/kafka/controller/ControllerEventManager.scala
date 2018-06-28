@@ -29,11 +29,13 @@ import scala.collection._
 object ControllerEventManager {
   val ControllerEventThreadName = "controller-event-thread"
 }
+// 控制器事件管理
 class ControllerEventManager(controllerId: Int, rateAndTimeMetrics: Map[ControllerState, KafkaTimer],
                              eventProcessedListener: ControllerEvent => Unit) {
 
   @volatile private var _state: ControllerState = ControllerState.Idle
   private val putLock = new ReentrantLock()
+  // 事件的阻塞队列
   private val queue = new LinkedBlockingQueue[ControllerEvent]
   private val thread = new ControllerEventThread(ControllerEventManager.ControllerEventThreadName)
 
@@ -60,19 +62,19 @@ class ControllerEventManager(controllerId: Int, rateAndTimeMetrics: Map[Controll
 
     override def doWork(): Unit = {
       queue.take() match {
-        case KafkaController.ShutdownEventThread => initiateShutdown()
+        case KafkaController.ShutdownEventThread => initiateShutdown() // 初始化关闭线程
         case controllerEvent =>
-          _state = controllerEvent.state
+          _state = controllerEvent.state // 控制器状态
 
           try {
-            rateAndTimeMetrics(state).time {
-              controllerEvent.process()
+            rateAndTimeMetrics(state).time { // 状态的速率度量器和timer
+              controllerEvent.process() // 执行事件任务
             }
           } catch {
             case e: Throwable => error(s"Error processing event $controllerEvent", e)
           }
 
-          try eventProcessedListener(controllerEvent)
+          try eventProcessedListener(controllerEvent) // 更新控制器度量
           catch {
             case e: Throwable => error(s"Error while invoking listener for processed event $controllerEvent", e)
           }

@@ -26,6 +26,7 @@ import org.apache.kafka.common.requests.WriteTxnMarkersResponse
 import scala.collection.mutable
 import scala.collection.JavaConverters._
 
+// 事务标记请求完成的处理器
 class TransactionMarkerRequestCompletionHandler(brokerId: Int,
                                                 txnStateManager: TransactionStateManager,
                                                 txnMarkerChannelManager: TransactionMarkerChannelManager,
@@ -36,7 +37,7 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
   override def onComplete(response: ClientResponse): Unit = {
     val requestHeader = response.requestHeader
     val correlationId = requestHeader.correlationId
-    if (response.wasDisconnected) {
+    if (response.wasDisconnected) {  // 由于未连接到节点，取消请求
       trace(s"Cancelled request with header $requestHeader due to node ${response.destination} being disconnected")
 
       for (txnIdAndMarker <- txnIdAndMarkerEntries.asScala) {
@@ -84,7 +85,7 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
             }
         }
       }
-    } else {
+    } else {  // 成功发送响应的
       debug(s"Received WriteTxnMarker response $response from node ${response.destination} with correlation id $correlationId")
 
       val writeTxnMarkerResponse = response.responseBody.asInstanceOf[WriteTxnMarkersResponse]
@@ -122,7 +123,7 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
             var abortSending: Boolean = false
 
             if (epochAndMetadata.coordinatorEpoch != txnMarker.coordinatorEpoch) {
-              // coordinator epoch has changed, just cancel it from the purgatory
+              // 协调员时代已经改变，只是从炼狱取消它
               info(s"Transaction coordinator epoch for $transactionalId has changed from ${txnMarker.coordinatorEpoch} to " +
                 s"${epochAndMetadata.coordinatorEpoch}; cancel sending transaction markers $txnMarker to the brokers")
 
@@ -133,7 +134,7 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
                 for ((topicPartition, error) <- errors.asScala) {
                   error match {
                     case Errors.NONE =>
-                      txnMetadata.removePartition(topicPartition)
+                      txnMetadata.removePartition(topicPartition) // 移除事务中的tp,用于延时操作完成
 
                     case Errors.CORRUPT_MESSAGE |
                          Errors.MESSAGE_TOO_LARGE |
@@ -146,7 +147,7 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
                          Errors.NOT_LEADER_FOR_PARTITION |
                          Errors.NOT_ENOUGH_REPLICAS |
                          Errors.NOT_ENOUGH_REPLICAS_AFTER_APPEND |
-                         Errors.REQUEST_TIMED_OUT => // these are retriable errors
+                         Errors.REQUEST_TIMED_OUT => // 可以重试的错误
 
                       info(s"Sending $transactionalId's transaction marker for partition $topicPartition has failed with error ${error.exceptionName}, retrying " +
                         s"with current coordinator epoch ${epochAndMetadata.coordinatorEpoch}")
@@ -178,12 +179,12 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
               }
             }
 
-            if (!abortSending) {
+            if (!abortSending) { // 是否中断发送
               if (retryPartitions.nonEmpty) {
                 debug(s"Re-enqueuing ${txnMarker.transactionResult} transaction markers for transactional id $transactionalId " +
                   s"under coordinator epoch ${txnMarker.coordinatorEpoch}")
 
-                // re-enqueue with possible new leaders of the partitions
+                // 与可能的新分区领导重新入队
                 txnMarkerChannelManager.addTxnMarkersToBrokerQueue(
                   transactionalId,
                   txnMarker.producerId,
@@ -192,7 +193,7 @@ class TransactionMarkerRequestCompletionHandler(brokerId: Int,
                   txnMarker.coordinatorEpoch,
                   retryPartitions.toSet)
               } else {
-                txnMarkerChannelManager.completeSendMarkersForTxnId(transactionalId)
+                txnMarkerChannelManager.completeSendMarkersForTxnId(transactionalId)  // 完成延迟操作
               }
             }
         }

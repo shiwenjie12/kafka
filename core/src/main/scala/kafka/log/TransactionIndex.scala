@@ -45,18 +45,19 @@ private[log] case class TxnIndexSearchResult(abortedTransactions: List[AbortedTx
 class TransactionIndex(val startOffset: Long, @volatile var file: File) extends Logging {
   // note that the file is not created until we need it
   @volatile private var maybeChannel: Option[FileChannel] = None
-  private var lastOffset: Option[Long] = None
+  private var lastOffset: Option[Long] = None // 最新的中断偏移量
 
   if (file.exists)
     openChannel()
 
+  // 写入中断事务记录
   def append(abortedTxn: AbortedTxn): Unit = {
     lastOffset.foreach { offset =>
       if (offset >= abortedTxn.lastOffset)
         throw new IllegalArgumentException("The last offset of appended transactions must increase sequentially")
     }
-    lastOffset = Some(abortedTxn.lastOffset)
-    Utils.writeFully(channel, abortedTxn.buffer.duplicate())
+    lastOffset = Some(abortedTxn.lastOffset) // 更新最新索引
+    Utils.writeFully(channel, abortedTxn.buffer.duplicate()) // 写入文件
   }
 
   def flush(): Unit = maybeChannel.foreach(_.force(true))
@@ -80,6 +81,7 @@ class TransactionIndex(val startOffset: Long, @volatile var file: File) extends 
     }
   }
 
+  // 打开通道
   private def openChannel(): FileChannel = {
     val channel = FileChannel.open(file.toPath, StandardOpenOption.READ, StandardOpenOption.WRITE,
       StandardOpenOption.CREATE)
@@ -108,10 +110,10 @@ class TransactionIndex(val startOffset: Long, @volatile var file: File) extends 
     } finally file = f
   }
 
+  // 截取文件
   def truncateTo(offset: Long): Unit = {
-    val buffer = ByteBuffer.allocate(AbortedTxn.TotalSize)
     var newLastOffset: Option[Long] = None
-    for ((abortedTxn, position) <- iterator(() => buffer)) {
+    for ((abortedTxn, position) <- iterator()) {
       if (abortedTxn.lastOffset >= offset) {
         channel.truncate(position)
         lastOffset = newLastOffset
@@ -159,12 +161,11 @@ class TransactionIndex(val startOffset: Long, @volatile var file: File) extends 
   }
 
   /**
-   * Collect all aborted transactions which overlap with a given fetch range.
+   * 收集与给定提取范围重叠的所有中止事务。
    *
    * @param fetchOffset Inclusive first offset of the fetch range
    * @param upperBoundOffset Exclusive last offset in the fetch range
-   * @return An object containing the aborted transactions and whether the search needs to continue
-   *         into the next log segment.
+   * @return 包含中止事务的对象以及搜索是否需要继续到下一个日志段。
    */
   def collectAbortedTxns(fetchOffset: Long, upperBoundOffset: Long): TxnIndexSearchResult = {
     val abortedTransactions = ListBuffer.empty[AbortedTxn]
@@ -172,7 +173,7 @@ class TransactionIndex(val startOffset: Long, @volatile var file: File) extends 
       if (abortedTxn.lastOffset >= fetchOffset && abortedTxn.firstOffset < upperBoundOffset)
         abortedTransactions += abortedTxn
 
-      if (abortedTxn.lastStableOffset >= upperBoundOffset)
+      if (abortedTxn.lastStableOffset >= upperBoundOffset) // 标志为搜索完成
         return TxnIndexSearchResult(abortedTransactions.toList, isComplete = true)
     }
     TxnIndexSearchResult(abortedTransactions.toList, isComplete = false)
@@ -209,7 +210,7 @@ private[log] object AbortedTxn {
 
   val CurrentVersion: Short = 0
 }
-
+// 中断事务的内容
 private[log] class AbortedTxn(val buffer: ByteBuffer) {
   import AbortedTxn._
 

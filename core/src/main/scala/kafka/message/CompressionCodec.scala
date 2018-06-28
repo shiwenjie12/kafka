@@ -19,6 +19,7 @@ package kafka.message
 
 import java.util.Locale
 
+// 消息的压缩编码
 object CompressionCodec {
   def getCompressionCodec(codec: Int): CompressionCodec = {
     codec match {
@@ -55,10 +56,10 @@ object BrokerCompressionCodec {
   }
 
   def getTargetCompressionCodec(compressionType: String, producerCompression: CompressionCodec): CompressionCodec = {
-    if (ProducerCompressionCodec.name.equals(compressionType))
+    if (ProducerCompressionCodec.name.equals(compressionType)) // 如果配置是producter，则按照生产者的编码
       producerCompression
     else
-      getCompressionCodec(compressionType)
+      getCompressionCodec(compressionType) // 按照服务的编码
   }
 }
 

@@ -28,6 +28,7 @@ object EndPoint {
 
   private val uriParseExp = """^(.*)://\[?([0-9a-zA-Z\-%._:]*)\]?:(-?[0-9]+)""".r
 
+  // 默认的监听器与加密协议的键值对
   private[kafka] val DefaultSecurityProtocolMap: Map[ListenerName, SecurityProtocol] =
     SecurityProtocol.values.map(sp => ListenerName.forSecurityProtocol(sp) -> sp).toMap
 
@@ -43,10 +44,12 @@ object EndPoint {
   def createEndPoint(connectionString: String, securityProtocolMap: Option[Map[ListenerName, SecurityProtocol]]): EndPoint = {
     val protocolMap = securityProtocolMap.getOrElse(DefaultSecurityProtocolMap)
 
+    // 根据监听器获取加密协议
     def securityProtocol(listenerName: ListenerName): SecurityProtocol =
       protocolMap.getOrElse(listenerName,
         throw new IllegalArgumentException(s"No security protocol defined for listener ${listenerName.value}"))
 
+    // 解析连接串和加密协议构成 endpoint
     connectionString match {
       case uriParseExp(listenerNameString, "", port) =>
         val listenerName = ListenerName.normalised(listenerNameString)
@@ -60,7 +63,7 @@ object EndPoint {
 }
 
 /**
- * Part of the broker definition - matching host/port pair to a protocol
+ * 代理定义的一部分 - 将主机/端口对与协议相匹配
  */
 case class EndPoint(host: String, port: Int, listenerName: ListenerName, securityProtocol: SecurityProtocol) {
   def connectionString: String = {

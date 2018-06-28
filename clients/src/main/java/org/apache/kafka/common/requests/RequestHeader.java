@@ -112,6 +112,7 @@ public class RequestHeader extends AbstractRequestResponse {
         return new ResponseHeader(correlationId);
     }
 
+    // 解析请求头
     public static RequestHeader parse(ByteBuffer buffer) {
         try {
             short apiKey = buffer.getShort();

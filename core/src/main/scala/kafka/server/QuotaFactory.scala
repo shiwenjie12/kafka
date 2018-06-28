@@ -22,6 +22,7 @@ import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.metrics.Metrics
 import org.apache.kafka.common.utils.Time
 
+// 配额的种类
 object QuotaType  {
   case object Fetch extends QuotaType
   case object Produce extends QuotaType
@@ -32,8 +33,10 @@ object QuotaType  {
 }
 sealed trait QuotaType
 
+// 配额工厂用于管理限制集群中元素的速度
 object QuotaFactory extends Logging {
 
+  // 无界限的配置
   object UnboundedQuota extends ReplicaQuota {
     override def isThrottled(topicPartition: TopicPartition): Boolean = false
     override def isQuotaExceeded(): Boolean = false
@@ -52,6 +55,7 @@ object QuotaFactory extends Logging {
     }
   }
 
+  // 初始化配额管理器
   def instantiate(cfg: KafkaConfig, metrics: Metrics, time: Time, threadNamePrefix: String): QuotaManagers = {
     QuotaManagers(
       new ClientQuotaManager(clientFetchConfig(cfg), metrics, Fetch, time, threadNamePrefix),
@@ -63,6 +67,7 @@ object QuotaFactory extends Logging {
     )
   }
 
+  // 关于生产的配额的配置文件
   def clientProduceConfig(cfg: KafkaConfig): ClientQuotaManagerConfig = {
     if (cfg.producerQuotaBytesPerSecondDefault != Long.MaxValue)
       warn(s"${KafkaConfig.ProducerQuotaBytesPerSecondDefaultProp} has been deprecated in 0.11.0.0 and will be removed in a future release. Use dynamic quota defaults instead.")
@@ -73,6 +78,7 @@ object QuotaFactory extends Logging {
     )
   }
 
+  // 关于获取的配额的配置文件
   def clientFetchConfig(cfg: KafkaConfig): ClientQuotaManagerConfig = {
     if (cfg.consumerQuotaBytesPerSecondDefault != Long.MaxValue)
       warn(s"${KafkaConfig.ConsumerQuotaBytesPerSecondDefaultProp} has been deprecated in 0.11.0.0 and will be removed in a future release. Use dynamic quota defaults instead.")
@@ -83,6 +89,7 @@ object QuotaFactory extends Logging {
     )
   }
 
+  // 关于客户端请求配额的配置文件
   def clientRequestConfig(cfg: KafkaConfig): ClientQuotaManagerConfig = {
     ClientQuotaManagerConfig(
       numQuotaSamples = cfg.numQuotaSamples,

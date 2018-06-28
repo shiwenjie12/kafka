@@ -25,9 +25,11 @@ object LeaderAndIsr {
 
   def apply(leader: Int, isr: List[Int]): LeaderAndIsr = LeaderAndIsr(leader, initialLeaderEpoch, isr, initialZKVersion)
 
+  // 领导者期间被删除
   def duringDelete(isr: List[Int]): LeaderAndIsr = LeaderAndIsr(LeaderDuringDelete, isr)
 }
 
+// 包含领导者和ISR信息
 case class LeaderAndIsr(leader: Int,
                         leaderEpoch: Int,
                         isr: List[Int],

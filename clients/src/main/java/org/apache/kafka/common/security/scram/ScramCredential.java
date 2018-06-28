@@ -16,8 +16,10 @@
  */
 package org.apache.kafka.common.security.scram;
 
+// Scram凭证
 public class ScramCredential {
 
+    // 已字节码数组存储
     private final byte[] salt;
     private final byte[] serverKey;
     private final byte[] storedKey;

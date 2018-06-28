@@ -27,14 +27,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+// 委托令牌缓存
 public class DelegationTokenCache {
 
+    // 凭证缓存
     private CredentialCache credentialCache = new CredentialCache();
-    //Cache to hold all the tokens
+    // 令牌缓存
     private Map<String, TokenInformation> tokenCache = new ConcurrentHashMap<>();
-    //Cache to hold hmac->tokenId mapping. This is required for renew, expire requests
+    // 缓存保存hmac->tokenId映射。这是更新、过期请求所必需的。
     private Map<String, String> hmacIDCache = new ConcurrentHashMap<>();
 
+    /**
+     * @param scramMechanisms SHA-256、SHA-512
+     */
     public DelegationTokenCache(Collection<String> scramMechanisms) {
         //Create caches for scramMechanisms
         ScramCredentialUtils.createCache(credentialCache, scramMechanisms);
@@ -50,6 +55,7 @@ public class DelegationTokenCache {
         return tokenInfo == null ? null : tokenInfo.owner().getName();
     }
 
+    // 更新缓存数据的三方面
     public void updateCache(DelegationToken token, Map<String, ScramCredential> scramCredentialMap) {
         //Update TokenCache
         String tokenId =  token.tokenInfo().tokenId();

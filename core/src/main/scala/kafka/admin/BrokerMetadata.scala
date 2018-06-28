@@ -14,7 +14,7 @@
 package kafka.admin
 
 /**
-  * Broker metadata used by admin tools.
+  * 管理工具使用的代理元数据。
   *
   * @param id an integer that uniquely identifies this broker
   * @param rack the rack of the broker, which is used to in rack aware partition assignment for fault tolerance.

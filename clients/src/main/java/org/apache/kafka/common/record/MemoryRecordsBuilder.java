@@ -72,7 +72,7 @@ public class MemoryRecordsBuilder {
     private short producerEpoch;
     private int baseSequence;
     /**
-     * 为压缩的记录大小
+     * 未压缩的记录大小
      */
     private int uncompressedRecordsSizeInBytes = 0; // Number of bytes (excluding the header) written before compression
     /**
@@ -133,10 +133,12 @@ public class MemoryRecordsBuilder {
         this.partitionLeaderEpoch = partitionLeaderEpoch;
         this.writeLimit = writeLimit;
         this.initialPosition = bufferStream.position();
+        // 批量head大小
         this.batchHeaderSizeInBytes = AbstractRecords.recordBatchHeaderSizeInBytes(magic, compressionType);
 
         bufferStream.position(initialPosition + batchHeaderSizeInBytes);
         this.bufferStream = bufferStream;
+        // 构造压缩流
         this.appendStream = new DataOutputStream(compressionType.wrapForOutput(this.bufferStream, magic));
     }
 
@@ -214,7 +216,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Get the max timestamp and its offset. The details of the offset returned are a bit subtle.
+     * 获取最大时间戳及其偏移量。返回的偏移量有点微妙。
      *
      * If the log append time is used, the offset will be the last offset unless no compression is used and
      * the message format version is 0 or 1, in which case, it will be the first offset.
@@ -251,7 +253,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Return the sum of the size of the batch header (always uncompressed) and the records (before compression).
+     * 返回批头（总是未压缩）和记录（压缩前）的大小之和。
      */
     public int uncompressedBytesWritten() {
         return uncompressedRecordsSizeInBytes + batchHeaderSizeInBytes;
@@ -552,7 +554,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Append a control record at the next sequential offset.
+     * 在下一个顺序偏移量处追加一个控制记录。
      * @param timestamp The record timestamp
      * @param type The control record type (cannot be UNKNOWN)
      * @param value The control record value
@@ -567,7 +569,7 @@ public class MemoryRecordsBuilder {
     }
 
     /**
-     * Return CRC of the record or null if record-level CRC is not supported for the message format
+     * 返回记录的CRC，如果消息格式不支持记录级别的CRC，则返回null
      */
     public Long appendEndTxnMarker(long timestamp, EndTransactionMarker marker) {
         if (producerId == RecordBatch.NO_PRODUCER_ID)
@@ -697,7 +699,7 @@ public class MemoryRecordsBuilder {
                     ", last offset: " + offset);
 
         numRecords += 1;
-        uncompressedRecordsSizeInBytes += size;
+        uncompressedRecordsSizeInBytes += size; // 增加记录的大小
         lastOffset = offset;
 
         if (magic > RecordBatch.MAGIC_VALUE_V0 && timestamp > maxTimestamp) {

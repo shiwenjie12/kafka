@@ -250,9 +250,11 @@ public class DefaultRecordBatch extends AbstractRecordBatch implements MutableRe
         return buffer.getInt(PARTITION_LEADER_EPOCH_OFFSET);
     }
 
+    // 压缩版本的迭代器
     private CloseableIterator<Record> compressedIterator(BufferSupplier bufferSupplier) {
         final ByteBuffer buffer = this.buffer.duplicate();
         buffer.position(RECORDS_OFFSET);
+        // 已经解压的输入流
         final DataInputStream inputStream = new DataInputStream(compressionType().wrapForInput(buffer, magic(),
                 bufferSupplier));
 
@@ -288,6 +290,7 @@ public class DefaultRecordBatch extends AbstractRecordBatch implements MutableRe
         };
     }
 
+    // 未压缩的记录迭代器
     private CloseableIterator<Record> uncompressedIterator() {
         final ByteBuffer buffer = this.buffer.duplicate();
         buffer.position(RECORDS_OFFSET);
@@ -430,22 +433,6 @@ public class DefaultRecordBatch extends AbstractRecordBatch implements MutableRe
 
     /**
      * 写入头信息
-     * @param buffer
-     * @param baseOffset
-     * @param lastOffsetDelta
-     * @param sizeInBytes
-     * @param magic
-     * @param compressionType
-     * @param timestampType
-     * @param firstTimestamp
-     * @param maxTimestamp
-     * @param producerId
-     * @param epoch
-     * @param sequence
-     * @param isTransactional
-     * @param isControlBatch
-     * @param partitionLeaderEpoch
-     * @param numRecords
      */
     static void writeHeader(ByteBuffer buffer,
                             long baseOffset,
@@ -494,6 +481,7 @@ public class DefaultRecordBatch extends AbstractRecordBatch implements MutableRe
                 "compression=" + compressionType() + ", timestampType=" + timestampType() + ", crc=" + checksum() + ")";
     }
 
+    // 计算大小
     public static int sizeInBytes(long baseOffset, Iterable<Record> records) {
         Iterator<Record> iterator = records.iterator();
         if (!iterator.hasNext())
@@ -503,10 +491,10 @@ public class DefaultRecordBatch extends AbstractRecordBatch implements MutableRe
         Long firstTimestamp = null;
         while (iterator.hasNext()) {
             Record record = iterator.next();
-            int offsetDelta = (int) (record.offset() - baseOffset);
+            int offsetDelta = (int) (record.offset() - baseOffset); // 偏移增量
             if (firstTimestamp == null)
                 firstTimestamp = record.timestamp();
-            long timestampDelta = record.timestamp() - firstTimestamp;
+            long timestampDelta = record.timestamp() - firstTimestamp; // 时间戳增量
             size += DefaultRecord.sizeInBytes(offsetDelta, timestampDelta, record.key(), record.value(),
                     record.headers());
         }

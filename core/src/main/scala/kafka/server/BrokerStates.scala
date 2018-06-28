@@ -53,7 +53,7 @@ package kafka.server
  *               |Not Running|
  *               +-----------+
  *
- * Custom states is also allowed for cases where there are custom kafka states for different scenarios.
+ * 对于不同场景的自定义卡夫卡状态，也允许使用自定义状态。
  */
 sealed trait BrokerStates { def state: Byte }
 case object NotRunning extends BrokerStates { val state: Byte = 0 }
@@ -63,7 +63,9 @@ case object RunningAsBroker extends BrokerStates { val state: Byte = 3 }
 case object PendingControlledShutdown extends BrokerStates { val state: Byte = 6 }
 case object BrokerShuttingDown extends BrokerStates { val state: Byte = 7 }
 
-
+/**
+  * 代理服务器的当前状态，默认（NotRunning）
+  */
 case class BrokerState() {
   @volatile var currentState: Byte = NotRunning.state
 

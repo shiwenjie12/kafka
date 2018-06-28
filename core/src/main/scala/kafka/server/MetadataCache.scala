@@ -34,11 +34,12 @@ import org.apache.kafka.common.protocol.Errors
 import org.apache.kafka.common.requests.{MetadataResponse, UpdateMetadataRequest}
 
 /**
- *  A cache for the state (e.g., current leader) of each partition. This cache is updated through
- *  UpdateMetadataRequest from the controller. Every broker maintains the same cache, asynchronously.
+  *  用于每个分区的状态（例如，当前领导者）的缓存。
+  *  该缓存通过控制器的UpdateMetadataRequest进行更新。 每个代理异步维护相同的缓存。
  */
 class MetadataCache(brokerId: Int) extends Logging {
 
+  // topicpartition级别的分区状态信息
   private val cache = mutable.Map[String, mutable.Map[Int, UpdateMetadataRequest.PartitionState]]()
   @volatile private var controllerId: Option[Int] = None
   private val aliveBrokers = mutable.Map[Int, Broker]()
@@ -65,16 +66,16 @@ class MetadataCache(brokerId: Int) extends Logging {
 
   // errorUnavailableEndpoints exists to support v0 MetadataResponses
   private def getPartitionMetadata(topic: String, listenerName: ListenerName, errorUnavailableEndpoints: Boolean): Option[Iterable[MetadataResponse.PartitionMetadata]] = {
-    cache.get(topic).map { partitions =>
+    cache.get(topic).map { partitions => // 主题的分区信息
       partitions.map { case (partitionId, partitionState) =>
-        val topicPartition = TopicAndPartition(topic, partitionId)
-        val maybeLeader = getAliveEndpoint(partitionState.basePartitionState.leader, listenerName)
-        val replicas = partitionState.basePartitionState.replicas.asScala.map(_.toInt)
+        val topicPartition = TopicAndPartition(topic, partitionId) // tp
+        val maybeLeader = getAliveEndpoint(partitionState.basePartitionState.leader, listenerName) // 获取存活的领导者
+        val replicas = partitionState.basePartitionState.replicas.asScala.map(_.toInt) // 副本
         val replicaInfo = getEndpoints(replicas, listenerName, errorUnavailableEndpoints)
         val offlineReplicaInfo = getEndpoints(partitionState.offlineReplicas.asScala.map(_.toInt), listenerName, errorUnavailableEndpoints)
 
         maybeLeader match {
-          case None =>
+          case None =>  // 领导者无效
             debug(s"Error while fetching metadata for $topicPartition: leader not available")
             new MetadataResponse.PartitionMetadata(Errors.LEADER_NOT_AVAILABLE, partitionId, Node.noNode(),
               replicaInfo.asJava, java.util.Collections.emptyList(), offlineReplicaInfo.asJava)
@@ -83,13 +84,13 @@ class MetadataCache(brokerId: Int) extends Logging {
             val isr = partitionState.basePartitionState.isr.asScala.map(_.toInt)
             val isrInfo = getEndpoints(isr, listenerName, errorUnavailableEndpoints)
 
-            if (replicaInfo.size < replicas.size) {
+            if (replicaInfo.size < replicas.size) {  // 副本节点缺失
               debug(s"Error while fetching metadata for $topicPartition: replica information not available for " +
                 s"following brokers ${replicas.filterNot(replicaInfo.map(_.id).contains).mkString(",")}")
 
               new MetadataResponse.PartitionMetadata(Errors.REPLICA_NOT_AVAILABLE, partitionId, leader,
                 replicaInfo.asJava, isrInfo.asJava, offlineReplicaInfo.asJava)
-            } else if (isrInfo.size < isr.size) {
+            } else if (isrInfo.size < isr.size) {  //  isr节点缺失
               debug(s"Error while fetching metadata for $topicPartition: in sync replica information not available for " +
                 s"following brokers ${isr.filterNot(isrInfo.map(_.id).contains).mkString(",")}")
               new MetadataResponse.PartitionMetadata(Errors.REPLICA_NOT_AVAILABLE, partitionId, leader,
@@ -160,9 +161,9 @@ class MetadataCache(brokerId: Int) extends Logging {
     }
   }
 
-  // if the leader is not known, return None;
-  // if the leader is known and corresponding node is available, return Some(node)
-  // if the leader is known but corresponding node with the listener name is not available, return Some(NO_NODE)
+  // 如果领导人不知道，则返回无;
+  // 如果领导者已知且对应节点可用，则返回Some（Node）
+  // 如果领导者是已知的但具有监听者名称的相应节点不可用，则返回Some（NO_NODE）
   def getPartitionLeaderEndpoint(topic: String, partitionId: Int, listenerName: ListenerName): Option[Node] = {
     inReadLock(partitionMetadataLock) {
       cache.get(topic).flatMap(_.get(partitionId)) map { partitionInfo =>
@@ -180,7 +181,7 @@ class MetadataCache(brokerId: Int) extends Logging {
 
   def getControllerId: Option[Int] = controllerId
 
-  // This method returns the deleted TopicPartitions received from UpdateMetadataRequest
+  // 此方法返回从UpdateMetadataRequest收到的已删除的TopicPartition
   def updateCache(correlationId: Int, updateMetadataRequest: UpdateMetadataRequest): Seq[TopicPartition] = {
     inWriteLock(partitionMetadataLock) {
       controllerId = updateMetadataRequest.controllerId match {
@@ -189,7 +190,7 @@ class MetadataCache(brokerId: Int) extends Logging {
         }
       aliveNodes.clear()
       aliveBrokers.clear()
-      updateMetadataRequest.liveBrokers.asScala.foreach { broker =>
+      updateMetadataRequest.liveBrokers.asScala.foreach { broker => // 更新broker信息
         // `aliveNodes` is a hot path for metadata requests for large clusters, so we use java.util.HashMap which
         // is a bit faster than scala.collection.mutable.HashMap. When we drop support for Scala 2.10, we could
         // move to `AnyRefMap`, which has comparable performance.
@@ -199,10 +200,11 @@ class MetadataCache(brokerId: Int) extends Logging {
           endPoints += EndPoint(ep.host, ep.port, ep.listenerName, ep.securityProtocol)
           nodes.put(ep.listenerName, new Node(broker.id, ep.host, ep.port))
         }
+        // 更新存活broker和nodes
         aliveBrokers(broker.id) = Broker(broker.id, endPoints, Option(broker.rack))
         aliveNodes(broker.id) = nodes.asScala
       }
-      aliveNodes.get(brokerId).foreach { listenerMap =>
+      aliveNodes.get(brokerId).foreach { listenerMap => // 判断监听器在经纪人之间并不完全相同。
         val listeners = listenerMap.keySet
         if (!aliveNodes.values.forall(_.keySet == listeners))
           error(s"Listeners are not identical across brokers: $aliveNodes")
@@ -210,9 +212,9 @@ class MetadataCache(brokerId: Int) extends Logging {
 
       val deletedPartitions = new mutable.ArrayBuffer[TopicPartition]
       updateMetadataRequest.partitionStates.asScala.foreach { case (tp, info) =>
-        val controllerId = updateMetadataRequest.controllerId
-        val controllerEpoch = updateMetadataRequest.controllerEpoch
-        if (info.basePartitionState.leader == LeaderAndIsr.LeaderDuringDelete) {
+        val controllerId = updateMetadataRequest.controllerId // 控制中心的id
+        val controllerEpoch = updateMetadataRequest.controllerEpoch // 控制中心的epoch
+        if (info.basePartitionState.leader == LeaderAndIsr.LeaderDuringDelete) { // 表示tp删除
           removePartitionInfo(tp.topic, tp.partition)
           stateChangeLogger.trace(s"Deleted partition $tp from metadata cache in response to UpdateMetadata " +
             s"request sent by controller $controllerId epoch $controllerEpoch with correlation id $correlationId")
@@ -235,6 +237,7 @@ class MetadataCache(brokerId: Int) extends Logging {
 
   def contains(tp: TopicPartition): Boolean = getPartitionInfo(tp.topic, tp.partition).isDefined
 
+  // 移除topicpartition的缓存信息
   private def removePartitionInfo(topic: String, partitionId: Int): Boolean = {
     cache.get(topic).exists { infos =>
       infos.remove(partitionId)

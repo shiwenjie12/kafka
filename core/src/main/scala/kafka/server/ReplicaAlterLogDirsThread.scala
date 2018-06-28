@@ -37,12 +37,12 @@ import org.apache.kafka.common.record.{FileRecords, MemoryRecords}
 import scala.collection.JavaConverters._
 import scala.collection.{Map, Seq, Set, mutable}
 
-
-class ReplicaAlterLogDirsThread(name: String,
-                                sourceBroker: BrokerEndPoint,
+// 改变副本日志目录的线程
+class ReplicaAlterLogDirsThread(name: String, // 线程名称
+                                sourceBroker: BrokerEndPoint,  // 源broker终结点
                                 brokerConfig: KafkaConfig,
                                 replicaMgr: ReplicaManager,
-                                quota: ReplicationQuotaManager,
+                                quota: ReplicationQuotaManager, // AlterLogDirs的配额管理器
                                 brokerTopicStats: BrokerTopicStats)
   extends AbstractFetcherThread(name = name,
                                 clientId = name,
@@ -73,6 +73,7 @@ class ReplicaAlterLogDirsThread(name: String,
       }
     }
 
+    // 直接调用fetchMessage
     replicaMgr.fetchMessages(
       0L, // timeout is 0 so that the callback will be executed immediately
       Request.FutureLocalReplicaId,
@@ -80,7 +81,7 @@ class ReplicaAlterLogDirsThread(name: String,
       request.maxBytes,
       request.version <= 2,
       request.fetchData.asScala.toSeq,
-      UnboundedQuota,
+      UnboundedQuota, // 无限制配额
       processResponseCallback,
       request.isolationLevel)
 
@@ -94,7 +95,7 @@ class ReplicaAlterLogDirsThread(name: String,
 
   // process fetched data
   def processPartitionData(topicPartition: TopicPartition, fetchOffset: Long, partitionData: PartitionData) {
-    val futureReplica = replicaMgr.getReplicaOrException(topicPartition, Request.FutureLocalReplicaId)
+    val futureReplica = replicaMgr.getReplicaOrException(topicPartition, Request.FutureLocalReplicaId)  // 改变分区，也就是未来分区
     val partition = replicaMgr.getPartition(topicPartition).get
     val records = partitionData.toRecords
 
@@ -107,7 +108,7 @@ class ReplicaAlterLogDirsThread(name: String,
     futureReplica.highWatermark = new LogOffsetMetadata(partitionData.highWatermark)
     futureReplica.maybeIncrementLogStartOffset(partitionData.logStartOffset)
 
-    if (partition.maybeReplaceCurrentWithFutureReplica())
+    if (partition.maybeReplaceCurrentWithFutureReplica())  // 表示可以替换副本
       removePartitions(Set(topicPartition))
 
     quota.record(records.sizeInBytes)
@@ -141,6 +142,7 @@ class ReplicaAlterLogDirsThread(name: String,
       delayPartitions(partitions, brokerConfig.replicaFetchBackoffMs.toLong)
   }
 
+  // 构造领导者epoch请求
   def buildLeaderEpochRequest(allPartitions: Seq[(TopicPartition, PartitionFetchState)]): ResultWithPartitions[Map[TopicPartition, Int]] = {
     val partitionEpochOpts = allPartitions
       .filter { case (_, state) => state.isTruncatingLog }
@@ -170,6 +172,7 @@ class ReplicaAlterLogDirsThread(name: String,
 
     fetchedEpochs.foreach { case (topicPartition, epochOffset) =>
       try {
+        // 未来的副本
         val futureReplica = replicaMgr.getReplicaOrException(topicPartition, Request.FutureLocalReplicaId)
         val partition = replicaMgr.getPartition(topicPartition).get
 
@@ -181,7 +184,7 @@ class ReplicaAlterLogDirsThread(name: String,
             if (epochOffset.endOffset == UNDEFINED_EPOCH_OFFSET)
               partitionStates.stateValue(topicPartition).fetchOffset
             else if (epochOffset.endOffset >= futureReplica.logEndOffset.messageOffset)
-              futureReplica.logEndOffset.messageOffset
+              futureReplica.logEndOffset.messageOffset // 未来副本的leo
             else
               epochOffset.endOffset
 
@@ -198,7 +201,7 @@ class ReplicaAlterLogDirsThread(name: String,
   }
 
   def buildFetchRequest(partitionMap: Seq[(TopicPartition, PartitionFetchState)]): ResultWithPartitions[FetchRequest] = {
-    // Only include replica in the fetch request if it is not throttled.
+    // 如果未被限制，则仅在提取请求中包含副本。
     val maxPartitionOpt = partitionMap.filter { case (topicPartition, partitionFetchState) =>
       partitionFetchState.isReadyForFetch && !quota.isQuotaExceeded
     }.reduceLeftOption { (left, right) =>
@@ -213,7 +216,7 @@ class ReplicaAlterLogDirsThread(name: String,
     val requestMap = new util.LinkedHashMap[TopicPartition, JFetchRequest.PartitionData]
     val partitionsWithError = mutable.Set[TopicPartition]()
 
-    if (maxPartitionOpt.nonEmpty) {
+    if (maxPartitionOpt.nonEmpty) {  // 最大的分区
       val (topicPartition, partitionFetchState) = maxPartitionOpt.get
       try {
         val logStartOffset = replicaMgr.getReplicaOrException(topicPartition, Request.FutureLocalReplicaId).logStartOffset
@@ -223,8 +226,8 @@ class ReplicaAlterLogDirsThread(name: String,
           partitionsWithError += topicPartition
       }
     }
-    // Set maxWait and minBytes to 0 because the response should return immediately if
-    // the future log has caught up with the current log of the partition
+
+    // 将max Wait和minUtes设置为0，因为如果将来的日志赶上了分区的当前日志，响应应该立即返回
     val requestBuilder = JFetchRequest.Builder.forReplica(ApiKeys.FETCH.latestVersion, replicaId, 0, 0, requestMap).setMaxBytes(maxBytes)
     ResultWithPartitions(new FetchRequest(requestBuilder), partitionsWithError)
   }

@@ -51,10 +51,10 @@ public class SimpleMemoryPool implements MemoryPool {
         if (sizeInBytes <= 0 || maxSingleAllocationBytes <= 0 || maxSingleAllocationBytes > sizeInBytes)
             throw new IllegalArgumentException("must provide a positive size and max single allocation size smaller than size."
                 + "provided " + sizeInBytes + " and " + maxSingleAllocationBytes + " respectively");
-        this.sizeBytes = sizeInBytes;
+        this.sizeBytes = sizeInBytes; // 总可分配内存
         this.strict = strict;
         this.availableMemory = new AtomicLong(sizeInBytes);
-        this.maxSingleAllocationSize = maxSingleAllocationBytes;
+        this.maxSingleAllocationSize = maxSingleAllocationBytes; // 单次分配的的内存大小
         this.oomTimeSensor = oomPeriodSensor;
     }
 

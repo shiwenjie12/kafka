@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Interface for reconfigurable classes that support dynamic configuration.
+ * 支持动态配置的可重构类的接口。
  */
 public interface Reconfigurable extends Configurable {
 

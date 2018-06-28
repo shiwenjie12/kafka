@@ -17,12 +17,12 @@
 package org.apache.kafka.common.utils;
 
 /**
- * Internal class that should be used instead of `Exit.exit()` and `Runtime.getRuntime().halt()` so that tests can
- * easily change the behaviour.
+ * 应该使用的内部类，而不是`Exit.exit()` 和 `Runtime.getRuntime().halt()` 以便测试可以容易改变行为。
+ * https://blog.csdn.net/yzccc/article/details/53731228
  */
 public class Exit {
 
-    public interface Procedure {
+    public interface Procedure {// 程序执行，用于退出的
         void execute(int statusCode, String message);
     }
 

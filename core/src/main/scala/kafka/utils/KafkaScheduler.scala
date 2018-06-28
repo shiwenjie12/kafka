@@ -30,23 +30,22 @@ import org.apache.kafka.common.utils.KafkaThread
 trait Scheduler {
   
   /**
-   * Initialize this scheduler so it is ready to accept scheduling of tasks
+   * 初始化此调度程序，以便准备接受任务调度。
    */
   def startup()
   
   /**
-   * Shutdown this scheduler. When this method is complete no more executions of background tasks will occur. 
-   * This includes tasks scheduled with a delayed execution.
+    * 关闭此调度程序。当此方法完成时，将不再执行后台任务的执行，这包括执行延迟执行的任务。
    */
   def shutdown()
   
   /**
-   * Check if the scheduler has been started
+   * 检查调度程序是否已启动
    */
   def isStarted: Boolean
   
   /**
-   * Schedule a task
+   * 安排一个任务
    * @param name The name of this task
    * @param delay The amount of time to wait before the first execution
    * @param period The period with which to execute the task. If < 0 the task will execute only once.
@@ -56,7 +55,7 @@ trait Scheduler {
 }
 
 /**
- * A scheduler based on java.util.concurrent.ScheduledThreadPoolExecutor
+ * 一个基于java.util.concurrent.ScheduledThreadPoolExecutor的调度器
  * 
  * It has a pool of kafka-scheduler- threads that do the actual work.
  * 
@@ -79,7 +78,7 @@ class KafkaScheduler(val threads: Int,
       executor = new ScheduledThreadPoolExecutor(threads)
       executor.setContinueExistingPeriodicTasksAfterShutdownPolicy(false)
       executor.setExecuteExistingDelayedTasksAfterShutdownPolicy(false)
-      executor.setThreadFactory(new ThreadFactory() {
+      executor.setThreadFactory(new ThreadFactory() {// 设置创建线程工厂
                                   def newThread(runnable: Runnable): Thread = 
                                     new KafkaThread(threadNamePrefix + schedulerThreadId.getAndIncrement(), runnable, daemon)
                                 })
@@ -114,6 +113,7 @@ class KafkaScheduler(val threads: Int,
           trace("Completed execution of scheduled task '%s'.".format(name))
         }
       }
+      // 定时执行方法
       if(period >= 0)
         executor.scheduleAtFixedRate(runnable, delay, period, unit)
       else

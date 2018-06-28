@@ -19,15 +19,18 @@ package kafka.security.auth
 import kafka.common.{BaseEnum, KafkaException}
 import org.apache.kafka.common.acl.AclPermissionType
 
+// 允许类型
 sealed trait PermissionType extends BaseEnum {
   val toJava: AclPermissionType
 }
 
+// 允许
 case object Allow extends PermissionType {
   val name = "Allow"
   val toJava = AclPermissionType.ALLOW
 }
 
+// 拒绝
 case object Deny extends PermissionType {
   val name = "Deny"
   val toJava = AclPermissionType.DENY

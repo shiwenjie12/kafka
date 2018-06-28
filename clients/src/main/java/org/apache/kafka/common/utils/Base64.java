@@ -24,6 +24,7 @@ import java.lang.invoke.MethodType;
 /**
  * Temporary class in order to support Java 7 and Java 9. `DatatypeConverter` is not in the base module of Java 9
  * and `java.util.Base64` was only introduced in Java 8.
+ * 转换Base64的工具类， java 7 和 9 使用 DatatypeConverter，java 8 使用 java.util.Base64
  */
 public final class Base64 {
 

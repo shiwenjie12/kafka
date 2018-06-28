@@ -27,13 +27,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * A simple implementation of `MetadataUpdater` that returns the cluster nodes set via the constructor or via
- * `setNodes`.
- *
- * This is useful in cases where automatic metadata updates are not required. An example is controller/broker
- * communication.
- *
- * This class is not thread-safe!
+ * 一个简单的`MetadataUpdater`实现，它返回通过构造函数或`setNodes`设置的集群节点。
+ * 这在不需要自动更新元数据的情况下非常有用。 控制器/经纪人通信就是一个例子。
+ * 这个类不是线程安全的！
  */
 public class ManualMetadataUpdater implements MetadataUpdater {
 

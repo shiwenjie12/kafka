@@ -27,9 +27,9 @@ object ReplicationUtils extends Logging {
   def updateLeaderAndIsr(zkClient: KafkaZkClient, partition: TopicPartition, newLeaderAndIsr: LeaderAndIsr,
                          controllerEpoch: Int): (Boolean, Int) = {
     debug(s"Updated ISR for $partition to ${newLeaderAndIsr.isr.mkString(",")}")
-    val path = TopicPartitionStateZNode.path(partition)
+    val path = TopicPartitionStateZNode.path(partition) // tp状态路径
     val newLeaderData = TopicPartitionStateZNode.encode(LeaderIsrAndControllerEpoch(newLeaderAndIsr, controllerEpoch))
-    // use the epoch of the controller that made the leadership decision, instead of the current controller epoch
+    // 使用做出领导决定的控制器的时代，而不是当前的控制器时代
     val updatePersistentPath: (Boolean, Int) = zkClient.conditionalUpdatePath(path, newLeaderData,
       newLeaderAndIsr.zkVersion, Some(checkLeaderAndIsrZkData))
     updatePersistentPath
@@ -38,15 +38,18 @@ object ReplicationUtils extends Logging {
   private def checkLeaderAndIsrZkData(zkClient: KafkaZkClient, path: String, expectedLeaderAndIsrInfo: Array[Byte]): (Boolean, Int) = {
     try {
       val (writtenLeaderOpt, writtenStat) = zkClient.getDataAndStat(path)
+      // 期望的领导者数据
       val expectedLeaderOpt = TopicPartitionStateZNode.decode(expectedLeaderAndIsrInfo, writtenStat)
-      val succeeded = writtenLeaderOpt.map { writtenData =>
+      val succeeded = writtenLeaderOpt.map
+      { writtenData =>
+        // zk中存储的领导者数据
         val writtenLeaderOpt = TopicPartitionStateZNode.decode(writtenData, writtenStat)
         (expectedLeaderOpt, writtenLeaderOpt) match {
           case (Some(expectedLeader), Some(writtenLeader)) if expectedLeader == writtenLeader => true
           case _ => false
         }
       }.getOrElse(false)
-      if (succeeded) (true, writtenStat.getVersion)
+      if (succeeded) (true, writtenStat.getVersion) // 写入到zk的版本
       else (false, -1)
     } catch {
       case _: Exception => (false, -1)

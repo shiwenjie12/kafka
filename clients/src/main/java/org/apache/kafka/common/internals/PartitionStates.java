@@ -27,10 +27,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * This class is a useful building block for doing fetch requests where topic partitions have to be rotated via
- * round-robin to ensure fairness and some level of determinism given the existence of a limit on the fetch response
- * size. Because the serialization of fetch requests is more efficient if all partitions for the same topic are grouped
- * together, we do such grouping in the method `set`.
+ * 这个类是一个有用的构建模块，用于执行提取请求，其中主题分区必须通过循环法进行轮换，
+ * 以确保公平性和一定程度的确定性，因为存在对提取响应大小的限制。 因为如果将同一主题的所有分区组合在一起，
+ * 则获取请求的序列化效率更高，因此我们在`set`方法中进行这样的分组。
  *
  * As partitions are moved to the end, the same topic may be repeated more than once. In the optimal case, a single
  * topic would "wrap around" and appear twice. However, as partitions are fetched in different orders and partition
@@ -43,6 +42,7 @@ public class PartitionStates<S> {
 
     public PartitionStates() {}
 
+    // 将制定分区的状态移动到结尾
     public void moveToEnd(TopicPartition topicPartition) {
         S state = map.remove(topicPartition);
         if (state != null)
@@ -74,7 +74,7 @@ public class PartitionStates<S> {
     }
 
     /**
-     * Returns the partition states in order.
+     * 返回排序的分区状态
      */
     public List<PartitionState<S>> partitionStates() {
         List<PartitionState<S>> result = new ArrayList<>();
@@ -112,7 +112,7 @@ public class PartitionStates<S> {
 
     private void update(Map<TopicPartition, S> partitionToState) {
         LinkedHashMap<String, List<TopicPartition>> topicToPartitions = new LinkedHashMap<>();
-        for (TopicPartition tp : partitionToState.keySet()) {
+        for (TopicPartition tp : partitionToState.keySet()) { // 先将主题进行分组，用于提高效率
             List<TopicPartition> partitions = topicToPartitions.get(tp.topic());
             if (partitions == null) {
                 partitions = new ArrayList<>();
@@ -128,6 +128,7 @@ public class PartitionStates<S> {
         }
     }
 
+    // 分区上的状态，包含tp和对应的状态
     public static class PartitionState<S> {
         private final TopicPartition topicPartition;
         private final S value;

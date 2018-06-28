@@ -36,6 +36,7 @@ import java.nio.channels.SocketChannel;
 import java.util.Map;
 import java.util.Set;
 
+// ssl的通道构造器
 public class SslChannelBuilder implements ChannelBuilder, ListenerReconfigurable {
     private static final Logger log = LoggerFactory.getLogger(SslChannelBuilder.class);
 
@@ -46,8 +47,7 @@ public class SslChannelBuilder implements ChannelBuilder, ListenerReconfigurable
     private Map<String, ?> configs;
 
     /**
-     * Constructs a SSL channel builder. ListenerName is provided only
-     * for server channel builder and will be null for client channel builder.
+     * 构造SSL通道生成器。ListenerName只为服务器通道生成器提供，对于客户端通道生成器将为NULL。
      */
     public SslChannelBuilder(Mode mode, ListenerName listenerName, boolean isInterBrokerListener) {
         this.mode = mode;

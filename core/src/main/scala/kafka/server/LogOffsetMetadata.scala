@@ -33,16 +33,16 @@ object LogOffsetMetadata {
 }
 
 /*
- * A log offset structure, including:
- *  1. the message offset
- *  2. the base message offset of the located segment
- *  3. the physical position on the located segment
+ * 日志偏移结构，包括：
+ *  1. 消息偏移
+ *  2. 定位段的基本消息偏移量
+ *  3. 定位段的物理位置
  */
 case class LogOffsetMetadata(messageOffset: Long,
                              segmentBaseOffset: Long = LogOffsetMetadata.UnknownSegBaseOffset,
                              relativePositionInSegment: Int = LogOffsetMetadata.UnknownFilePosition) {
 
-  // check if this offset is already on an older segment compared with the given offset
+  // 检查这个偏移量是否已经在比给定的偏移量更老的段上
   def onOlderSegment(that: LogOffsetMetadata): Boolean = {
     if (messageOffsetOnly)
       throw new KafkaException(s"$this cannot compare its segment info with $that since it only has message offset info")
@@ -58,7 +58,7 @@ case class LogOffsetMetadata(messageOffset: Long,
     this.segmentBaseOffset == that.segmentBaseOffset
   }
 
-  // compute the number of messages between this offset to the given offset
+  // 计算此偏移量与给定偏移量之间的消息数
   def offsetDiff(that: LogOffsetMetadata): Long = {
     this.messageOffset - that.messageOffset
   }

@@ -27,7 +27,7 @@ import java.util.Collections;
 public class ApiVersionsRequest extends AbstractRequest {
     private static final Schema API_VERSIONS_REQUEST_V0 = new Schema();
 
-    /* v1 request is the same as v0. Throttle time has been added to response */
+    /* v1请求与v0相同。 延迟时间已添加到响应中 */
     private static final Schema API_VERSIONS_REQUEST_V1 = API_VERSIONS_REQUEST_V0;
 
     public static Schema[] schemaVersions() {

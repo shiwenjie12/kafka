@@ -1,3 +1,7 @@
+
+终于将kafka学习完了，一路的艰辛只有自己知道
+===========
+
 Apache Kafka
 =================
 See our [web site](http://kafka.apache.org) for details on the project.

@@ -33,9 +33,10 @@ trait CheckpointFileFormatter[T]{
   def fromLine(line: String): Option[T]
 }
 
+// 将实体写入到检查点文件中
 class CheckpointFile[T](val file: File,
                         version: Int,
-                        formatter: CheckpointFileFormatter[T],
+                        formatter: CheckpointFileFormatter[T],// 实体的格式器
                         logDirFailureChannel: LogDirFailureChannel,
                         logDir: String) extends Logging {
   private val path = file.toPath.toAbsolutePath
@@ -45,10 +46,11 @@ class CheckpointFile[T](val file: File,
   try Files.createFile(file.toPath) // create the file if it doesn't exist
   catch { case _: FileAlreadyExistsException => }
 
+  // 向检查点文件写入实体
   def write(entries: Seq[T]) {
     lock synchronized {
       try {
-        // write to temp file and then swap with the existing file
+        // 写入临时文件，然后与现有文件交换
         val fileOutputStream = new FileOutputStream(tempPath.toFile)
         val writer = new BufferedWriter(new OutputStreamWriter(fileOutputStream, StandardCharsets.UTF_8))
         try {
@@ -69,7 +71,7 @@ class CheckpointFile[T](val file: File,
           writer.close()
         }
 
-        Utils.atomicMoveWithFallback(tempPath, path)
+        Utils.atomicMoveWithFallback(tempPath, path)// 替换原始的文件
       } catch {
         case e: IOException =>
           val msg = s"Error while writing to checkpoint file ${file.getAbsolutePath}"
@@ -79,6 +81,7 @@ class CheckpointFile[T](val file: File,
     }
   }
 
+  // 从检查点文件中读取实体
   def read(): Seq[T] = {
     def malformedLineException(line: String) =
       new IOException(s"Malformed line in checkpoint file (${file.getAbsolutePath}): $line'")
@@ -95,7 +98,7 @@ class CheckpointFile[T](val file: File,
               line = reader.readLine()
               if (line == null)
                 return Seq.empty
-              val expectedSize = line.toInt
+              val expectedSize = line.toInt // 期望的大小，写入时的大小
               val entries = mutable.Buffer[T]()
               line = reader.readLine()
               while (line != null) {

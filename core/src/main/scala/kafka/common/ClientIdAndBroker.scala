@@ -18,8 +18,7 @@ package kafka.common
  */
 
 /**
- * Convenience case class since (clientId, brokerInfo) pairs are used to create
- * SyncProducer Request Stats and SimpleConsumer Request and Response Stats.
+  * （clientId，brokerInfo）对用于创建SyncProducer请求统计和SimpleConsumer请求和响应统计。
  */
 
 trait ClientIdBroker {

@@ -210,7 +210,7 @@ public class NetworkClient implements KafkaClient {
     }
 
     /**
-     * Begin connecting to the given node, return true if we are already connected and ready to send to that node.
+     * 开始连接到给定节点，如果我们已经连接并准备发送到该节点，则返回true。
      *
      * @param node The node to check
      * @param now The current timestamp
@@ -225,7 +225,7 @@ public class NetworkClient implements KafkaClient {
             return true;
 
         if (connectionStates.canConnect(node.idString(), now))
-            // if we are interested in sending to a node and we don't have a connection to it, initiate one
+            // 如果我们有兴趣发送到一个节点并且我们没有连接到它，请启动一个节点
             initiateConnect(node, now);
 
         return false;
@@ -467,7 +467,7 @@ public class NetworkClient implements KafkaClient {
             log.error("Unexpected error during I/O", e);
         }
 
-        // 过程完成动作
+        // 处理完成动作
         long updatedNow = this.time.milliseconds();
         List<ClientResponse> responses = new ArrayList<>();
         handleCompletedSends(responses, updatedNow);
@@ -617,7 +617,7 @@ public class NetworkClient implements KafkaClient {
     private void processDisconnection(List<ClientResponse> responses, String nodeId, long now, ChannelState disconnectState) {
         connectionStates.disconnected(nodeId, now);
         apiVersions.remove(nodeId);
-        nodesNeedingApiVersionsFetch.remove(nodeId);
+        nodesNeedingApiVersionsFetch.remove(nodeId); // 移除指定节点的api请求
         switch (disconnectState.state()) {// 记录连接状态
             case AUTHENTICATION_FAILED:
                 connectionStates.authenticationFailed(nodeId, now, disconnectState.exception());
@@ -720,6 +720,7 @@ public class NetworkClient implements KafkaClient {
         }
     }
 
+    // 处理api请求的响应
     private void handleApiVersionsResponse(List<ClientResponse> responses,
                                            InFlightRequest req, long now, ApiVersionsResponse apiVersionsResponse) {
         final String node = req.destination;
@@ -728,12 +729,13 @@ public class NetworkClient implements KafkaClient {
                 log.warn("Received error {} from node {} when making an ApiVersionsRequest with correlation id {}. Disconnecting.",
                         apiVersionsResponse.error(), node, req.header.correlationId());
                 this.selector.close(node);// 关闭选择器的指定通道
-                processDisconnection(responses, node, now, ChannelState.LOCAL_CLOSE);
+                processDisconnection(responses, node, now, ChannelState.LOCAL_CLOSE); // 本地关闭
             } else {
-                nodesNeedingApiVersionsFetch.put(node, new ApiVersionsRequest.Builder((short) 0));
+                nodesNeedingApiVersionsFetch.put(node, new ApiVersionsRequest.Builder((short) 0)); // 不支持的api版本请求，缩小版本
             }
             return;
         }
+        // 更新节点api版本
         NodeApiVersions nodeVersionInfo = new NodeApiVersions(apiVersionsResponse.apiVersions());
         apiVersions.update(node, nodeVersionInfo);
         this.connectionStates.ready(node);
@@ -770,7 +772,7 @@ public class NetworkClient implements KafkaClient {
             // connection.
             if (discoverBrokerVersions) {
                 this.connectionStates.checkingApiVersions(node);
-                nodesNeedingApiVersionsFetch.put(node, new ApiVersionsRequest.Builder());
+                nodesNeedingApiVersionsFetch.put(node, new ApiVersionsRequest.Builder());  // 如果连接成功的话，需要添加api请求
                 log.debug("Completed connection to node {}. Fetching API versions.", node);
             } else {
                 this.connectionStates.ready(node);
@@ -779,6 +781,7 @@ public class NetworkClient implements KafkaClient {
         }
     }
 
+    // 处理api初始化请求
     private void handleInitiateApiVersionRequests(long now) {
         Iterator<Map.Entry<String, ApiVersionsRequest.Builder>> iter = nodesNeedingApiVersionsFetch.entrySet().iterator();
         while (iter.hasNext()) {
@@ -893,6 +896,7 @@ public class NetworkClient implements KafkaClient {
                 metadata.failedUpdate(time.milliseconds(), exception);
         }
 
+        // 处理完成元数据请求
         @Override
         public void handleCompletedMetadataResponse(RequestHeader requestHeader, long now, MetadataResponse response) {
             this.metadataFetchInProgress = false;
@@ -904,9 +908,9 @@ public class NetworkClient implements KafkaClient {
 
             // don't update the cluster if there are no valid nodes...the topic we want may still be in the process of being
             // created which means we will get errors and no nodes until it exists
-            if (cluster.nodes().size() > 0) {
+            if (cluster.nodes().size() > 0) { // 成功更新
                 this.metadata.update(cluster, response.unavailableTopics(), now);
-            } else {
+            } else { // 失败更新
                 log.trace("Ignoring empty metadata response with correlation id {}.", requestHeader.correlationId());
                 this.metadata.failedUpdate(now, null);
             }
@@ -966,9 +970,9 @@ public class NetworkClient implements KafkaClient {
                 return reconnectBackoffMs;
             }
 
-            // connected, but can't send more OR connecting
-            // In either case, we just need to wait for a network event to let us know the selected
-            // connection might be usable again.
+            // 连接，但不能发送更多的OR连接
+            // 无论哪种情况，我们只需要等待网络事件让我们知道所选内容即可
+            // 连接可能会再次使用。
             return Long.MAX_VALUE;
         }
 

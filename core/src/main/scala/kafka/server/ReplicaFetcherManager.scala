@@ -21,6 +21,7 @@ import kafka.cluster.BrokerEndPoint
 import org.apache.kafka.common.metrics.Metrics
 import org.apache.kafka.common.utils.Time
 
+// 备份的获取管理器
 class ReplicaFetcherManager(brokerConfig: KafkaConfig, protected val replicaManager: ReplicaManager, metrics: Metrics,
                             time: Time, threadNamePrefix: Option[String] = None, quotaManager: ReplicationQuotaManager)
       extends AbstractFetcherManager("ReplicaFetcherManager on broker " + brokerConfig.brokerId,

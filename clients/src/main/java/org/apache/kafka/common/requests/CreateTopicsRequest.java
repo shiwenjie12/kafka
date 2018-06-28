@@ -101,6 +101,7 @@ public class CreateTopicsRequest extends AbstractRequest {
         public final Map<Integer, List<Integer>> replicasAssignments;
         public final Map<String, String> configs;
 
+        // 分区及副本的详情
         private TopicDetails(int numPartitions,
                              short replicationFactor,
                              Map<Integer, List<Integer>> replicasAssignments,
@@ -289,6 +290,7 @@ public class CreateTopicsRequest extends AbstractRequest {
         return validateOnly;
     }
 
+    // 反序列化的时候，会进行重复的主题的处理
     public Set<String> duplicateTopics() {
         return this.duplicateTopics;
     }

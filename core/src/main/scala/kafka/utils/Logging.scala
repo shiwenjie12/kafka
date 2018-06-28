@@ -21,13 +21,16 @@ import com.typesafe.scalalogging.Logger
 import org.slf4j.{LoggerFactory, Marker, MarkerFactory}
 
 
+/**
+  * 用于注册到将日志管理注册到JMX中
+  */
 object Log4jControllerRegistration {
   private val logger = Logger(this.getClass.getName)
 
   try {
     val log4jController = Class.forName("kafka.utils.Log4jController").asInstanceOf[Class[Object]]
     val instance = log4jController.getDeclaredConstructor().newInstance()
-    CoreUtils.registerMBean(instance, "kafka:type=kafka.Log4jController")
+    CoreUtils.registerMBean(instance, "kafka:type=kafka.Log4jController")// 注册Log4jController的   MBean
     logger.info("Registered kafka:type=kafka.Log4jController MBean")
   } catch {
     case _: Exception => logger.info("Couldn't register kafka:type=kafka.Log4jController MBean")
@@ -38,14 +41,27 @@ private object Logging {
   private val FatalMarker: Marker = MarkerFactory.getMarker("FATAL")
 }
 
+/**
+  * 实现日志记录的接口
+  */
 trait Logging {
 
+  /**
+    * 日志组件懒加载
+    */
   protected lazy val logger = Logger(LoggerFactory.getLogger(loggerName))
 
+  /**
+    * log信息的标识
+    */
   protected var logIdent: String = _
 
   Log4jControllerRegistration
 
+  /**
+    * 获取日志记录的实体
+    * @return
+    */
   protected def loggerName: String = getClass.getName
 
   protected def msgWithLogIdent(msg: String): String =

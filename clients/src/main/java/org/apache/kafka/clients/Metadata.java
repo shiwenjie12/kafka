@@ -161,20 +161,20 @@ public final class Metadata {
     }
 
     /**
-     * 等待元数据更新，直到当前版本比我们所知道的最后一个版本大。
+     * 等待元数据更新，直到当前版本比我们所知道的最后一个版本大。（异步等待）
      */
     public synchronized void awaitUpdate(final int lastVersion, final long maxWaitMs) throws InterruptedException {
         if (maxWaitMs < 0) {
             throw new IllegalArgumentException("Max time to wait for metadata updates should not be < 0 milliseconds");
         }
         long begin = System.currentTimeMillis();
-        long remainingWaitMs = maxWaitMs;// 持续等待时间
+        long remainingWaitMs = maxWaitMs;// 单次持续等待时间
         while (this.version <= lastVersion) {
-            AuthenticationException ex = getAndClearAuthenticationException();
+            AuthenticationException ex = getAndClearAuthenticationException(); // 如果授权失败，则抛出异常，避免重试
             if (ex != null)
                 throw ex;
             if (remainingWaitMs != 0)
-                wait(remainingWaitMs);
+                wait(remainingWaitMs); // 等待元数据更新
             long elapsed = System.currentTimeMillis() - begin;
             if (elapsed >= maxWaitMs)
                 throw new TimeoutException("Failed to update metadata after " + maxWaitMs + " ms.");
@@ -270,8 +270,7 @@ public final class Metadata {
     }
 
     /**
-     * Record an attempt to update the metadata that failed. We need to keep track of this
-     * to avoid retrying immediately.
+     * 记录尝试更新失败的元数据。 我们需要跟踪这一点，以避免立即重试。
      */
     public synchronized void failedUpdate(long now, AuthenticationException authenticationException) {
         this.lastRefreshMs = now;
@@ -353,6 +352,7 @@ public final class Metadata {
         requestUpdate();
     }
 
+    // 过滤除当前主题的之外的集群
     private Cluster getClusterForCurrentTopics(Cluster cluster) {
         Set<String> unauthorizedTopics = new HashSet<>();
         Collection<PartitionInfo> partitionInfos = new ArrayList<>();
@@ -366,7 +366,7 @@ public final class Metadata {
             unauthorizedTopics.addAll(cluster.unauthorizedTopics());
             unauthorizedTopics.retainAll(this.topics.keySet());
 
-            for (String topic : this.topics.keySet()) {
+            for (String topic : this.topics.keySet()) {  // 当前的主题
                 List<PartitionInfo> partitionInfoList = cluster.partitionsForTopic(topic);
                 if (!partitionInfoList.isEmpty()) {
                     partitionInfos.addAll(partitionInfoList);

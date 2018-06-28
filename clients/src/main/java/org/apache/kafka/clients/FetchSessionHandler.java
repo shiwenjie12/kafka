@@ -42,15 +42,12 @@ import static org.apache.kafka.common.requests.FetchMetadata.INVALID_SESSION_ID;
 /**
  * FetchSessionHandler 保持获取会话状态连接到broker。
  *
- * Using the protocol outlined by KIP-227, clients can create incremental fetch sessions.
- * These sessions allow the client to fetch information about a set of partition over
- * and over, without explicitly enumerating all the partitions in the request and the
- * response.
+ * 使用KIP-227所概述的协议，客户端可以创建增量获取会话。
+ * 这些会话允许客户端反复地获取关于一组分区的信息，而不显式枚举请求和响应中的所有分区。
  *
- * FetchSessionHandler tracks the partitions which are in the session.  It also
- * determines which partitions need to be included in each fetch request, and what
- * the attached fetch session metadata should be for each request.  The corresponding
- * class on the receiving broker side is FetchManager.
+ * FetchSessionHandler跟踪会话中的分区。
+ * 它还确定每个提取请求中需要包含哪些分区，以及每个请求的附加提取会话元数据应该是什么。
+ * 接收代理端的相应类是FetchManager。
  */
 public class FetchSessionHandler {
     private final Logger log;
@@ -58,7 +55,7 @@ public class FetchSessionHandler {
     private final int node;
 
     /**
-     * The metadata for the next fetch request.
+     * 下一个获取请求的元数据。
      */
     private FetchMetadata nextMetadata = FetchMetadata.INITIAL;
 
@@ -68,29 +65,29 @@ public class FetchSessionHandler {
     }
 
     /**
-     * All of the partitions which exist in the fetch request session.
+     * 提取请求会话中存在的所有分区。
      */
     private LinkedHashMap<TopicPartition, PartitionData> sessionPartitions =
         new LinkedHashMap<>(0);
 
     public static class FetchRequestData {
         /**
-         * The partitions to send in the fetch request.
+         * 要在获取请求中发送的分区。
          */
         private final Map<TopicPartition, PartitionData> toSend;
 
         /**
-         * The partitions to send in the request's "forget" list.
+         * 在请求的"forget"列表中发送分区。
          */
         private final List<TopicPartition> toForget;
 
         /**
-         * All of the partitions which exist in the fetch request session.
+         * 取回请求会话中存在的所有分区。
          */
         private final Map<TopicPartition, PartitionData> sessionPartitions;
 
         /**
-         * The metadata to use in this fetch request.
+         * 在这个获取请求中使用的元数据。
          */
         private final FetchMetadata metadata;
 
@@ -119,7 +116,7 @@ public class FetchSessionHandler {
         }
 
         /**
-         * Get the full set of partitions involved in this fetch request.
+         * 获取此提取请求中涉及的全部分区。
          */
         public Map<TopicPartition, PartitionData> sessionPartitions() {
             return sessionPartitions;
@@ -173,17 +170,11 @@ public class FetchSessionHandler {
 
     public class Builder {
         /**
-         * The next partitions which we want to fetch.
-         *
-         * It is important to maintain the insertion order of this list by using a LinkedHashMap rather
-         * than a regular Map.
-         *
-         * One reason is that when dealing with FULL fetch requests, if there is not enough response
-         * space to return data from all partitions, the server will only return data from partitions
-         * early in this list.
-         *
-         * Another reason is because we make use of the list ordering to optimize the preparation of
-         * incremental fetch requests (see below).
+         * 我们想要获取的下一个分区。
+         * 通过使用LinkedHashMap而不是常规Map来维护此列表的插入顺序非常重要。
+         * 其中一个原因是，在处理完整的提取请求时，如果没有足够的响应空间来从所有分区返回数据，
+         * 服务器将仅在此列表的早期返回分区中的数据。
+         * 另一个原因是因为我们利用列表排序来优化增量获取请求的准备（见下文）。
          */
         private LinkedHashMap<TopicPartition, PartitionData> next = new LinkedHashMap<>();
 
@@ -194,8 +185,9 @@ public class FetchSessionHandler {
             next.put(topicPartition, data);
         }
 
+        // 构建fetch请求数据
         public FetchRequestData build() {
-            if (nextMetadata.isFull()) {
+            if (nextMetadata.isFull()) { // 初始化或者完成
                 log.debug("Built full fetch {} for node {} with {}.",
                     nextMetadata, node, partitionsToLogString(next.keySet()));
                 sessionPartitions = next;
@@ -212,28 +204,27 @@ public class FetchSessionHandler {
                      sessionPartitions.entrySet().iterator(); iter.hasNext(); ) {
                 Entry<TopicPartition, PartitionData> entry = iter.next();
                 TopicPartition topicPartition = entry.getKey();
-                PartitionData prevData = entry.getValue();
-                PartitionData nextData = next.get(topicPartition);
+                PartitionData prevData = entry.getValue();// session的
+                PartitionData nextData = next.get(topicPartition); // 添加的
                 if (nextData != null) {
                     if (prevData.equals(nextData)) {
-                        // Omit this partition from the FetchRequest, because it hasn't changed
-                        // since the previous request.
+                        // 从FetchRequest中删除此分区，因为它自上一个请求以来没有更改过。
                         next.remove(topicPartition);
                     } else {
-                        // Move the altered partition to the end of 'next'
+                        // 将已更改的分区移动到“next”的末尾
                         next.remove(topicPartition);
                         next.put(topicPartition, nextData);
                         entry.setValue(nextData);
                         altered.add(topicPartition);
                     }
                 } else {
-                    // Remove this partition from the session.
+                    // 从session中移除分区
                     iter.remove();
-                    // Indicate that we no longer want to listen to this partition.
+                    // 表明我们不再想监听这个分区。
                     removed.add(topicPartition);
                 }
             }
-            // Add any new partitions to the session.
+            // 将任何新分区添加到会话中。
             for (Iterator<Entry<TopicPartition, PartitionData>> iter =
                      next.entrySet().iterator(); iter.hasNext(); ) {
                 Entry<TopicPartition, PartitionData> entry = iter.next();
@@ -247,7 +238,7 @@ public class FetchSessionHandler {
                     break;
                 }
                 sessionPartitions.put(topicPartition, nextData);
-                added.add(topicPartition);
+                added.add(topicPartition); // 添加的分区
             }
             log.debug("Built incremental fetch {} for node {}. Added {}, altered {}, removed {} " +
                     "out of {}", nextMetadata, node, partitionsToLogString(added),
@@ -275,7 +266,7 @@ public class FetchSessionHandler {
     }
 
     /**
-     * Return some partitions which are expected to be in a particular set, but which are not.
+     * 返回一些预期会在特定集合中的分区，但不是。
      *
      * @param toFind    The partitions to look for.
      * @param toSearch  The set of partitions to search.
@@ -293,16 +284,16 @@ public class FetchSessionHandler {
     }
 
     /**
-     * Verify that a full fetch response contains all the partitions in the fetch session.
+     * 验证完整的提取响应是否包含提取会话中的所有分区。
      *
      * @param response  The response.
      * @return          True if the full fetch response partitions are valid.
      */
     private String verifyFullFetchResponsePartitions(FetchResponse response) {
         StringBuilder bld = new StringBuilder();
-        Set<TopicPartition> omitted =
+        Set<TopicPartition> omitted = // 省略
             findMissing(response.responseData().keySet(), sessionPartitions.keySet());
-        Set<TopicPartition> extra =
+        Set<TopicPartition> extra = // 额外
             findMissing(sessionPartitions.keySet(), response.responseData().keySet());
         if (!omitted.isEmpty()) {
             bld.append("omitted=(").append(Utils.join(omitted, ", ")).append(", ");
@@ -318,7 +309,7 @@ public class FetchSessionHandler {
     }
 
     /**
-     * Verify that the partitions in an incremental fetch response are contained in the session.
+     * 验证会话中是否包含增量提取响应中的分区。
      *
      * @param response  The response.
      * @return          True if the incremental fetch response partitions are valid.
@@ -372,11 +363,10 @@ public class FetchSessionHandler {
     }
 
     /**
-     * Handle the fetch response.
+     * 处理获取响应,主要用于处理nextMetadata
      *
      * @param response  The response.
-     * @return          True if the response is well-formed; false if it can't be processed
-     *                  because of missing or unexpected partitions.
+     * @return          如果答案是完整的，则为真; 如果由于丢失或意外的分区而无法处理，则为false。
      */
     public boolean handleResponse(FetchResponse response) {
         if (response.error() != Errors.NONE) {
@@ -385,10 +375,10 @@ public class FetchSessionHandler {
             if (response.error() == Errors.FETCH_SESSION_ID_NOT_FOUND) {
                 nextMetadata = FetchMetadata.INITIAL;
             } else {
-                nextMetadata = nextMetadata.nextCloseExisting();
+                nextMetadata = nextMetadata.nextCloseExisting(); // 将epoch初始化为1
             }
             return false;
-        } else if (nextMetadata.isFull()) {
+        } else if (nextMetadata.isFull()) { // 初始化
             String problem = verifyFullFetchResponsePartitions(response);
             if (problem != null) {
                 log.info("Node {} sent an invalid full fetch response with {}", node, problem);
@@ -400,14 +390,14 @@ public class FetchSessionHandler {
                 nextMetadata = FetchMetadata.INITIAL;
                 return true;
             } else {
-                // The server created a new incremental fetch session.
+                // 服务器创建了一个新的增量提取会话。
                 log.debug("Node {} sent a full fetch response that created a new incremental " +
                     "fetch session {}{}", node, response.sessionId(), responseDataToLogString(response));
-                nextMetadata = FetchMetadata.newIncremental(response.sessionId());
+                nextMetadata = FetchMetadata.newIncremental(response.sessionId()); // 增加epoch
                 return true;
             }
         } else {
-            String problem = verifyIncrementalFetchResponsePartitions(response);
+            String problem = verifyIncrementalFetchResponsePartitions(response); //
             if (problem != null) {
                 log.info("Node {} sent an invalid incremental fetch response with {}", node, problem);
                 nextMetadata = nextMetadata.nextCloseExisting();

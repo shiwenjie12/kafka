@@ -32,7 +32,7 @@ import org.apache.kafka.common.security.scram.ScramMessages.ClientFirstMessage;
 import org.apache.kafka.common.security.scram.ScramMessages.ServerFirstMessage;
 
 /**
- * Scram message salt and hash functions defined in <a href="https://tools.ietf.org/html/rfc5802">RFC 5802</a>.
+ * 定义的SCRAM消息salt和哈希函数<a href="https://tools.ietf.org/html/rfc5802">RFC 5802</a>.
  */
 public class ScramFormatter {
 
@@ -41,8 +41,8 @@ public class ScramFormatter {
     private final SecureRandom random;
 
     public ScramFormatter(ScramMechanism mechanism) throws NoSuchAlgorithmException {
-        this.messageDigest = MessageDigest.getInstance(mechanism.hashAlgorithm());
-        this.mac = Mac.getInstance(mechanism.macAlgorithm());
+        this.messageDigest = MessageDigest.getInstance(mechanism.hashAlgorithm()); // 哈希算法
+        this.mac = Mac.getInstance(mechanism.macAlgorithm()); // mac算法
         this.random = new SecureRandom();
     }
 
@@ -78,6 +78,7 @@ public class ScramFormatter {
         return result;
     }
 
+    // 将字符串进行utf8 序列化
     public byte[] normalize(String str) {
         return toBytes(str);
     }
@@ -152,10 +153,11 @@ public class ScramFormatter {
         return str.getBytes(StandardCharsets.UTF_8);
     }
 
+    // 构造凭证
     public ScramCredential generateCredential(String password, int iterations) {
         try {
-            byte[] salt = secureRandomBytes();
-            byte[] saltedPassword = saltedPassword(password, salt, iterations);
+            byte[] salt = secureRandomBytes();// 加密的随机字节数组 初始化  佐料
+            byte[] saltedPassword = saltedPassword(password, salt, iterations);  // 利用mac和salt加密password
             byte[] clientKey = clientKey(saltedPassword);
             byte[] storedKey = storedKey(clientKey);
             byte[] serverKey = serverKey(saltedPassword);

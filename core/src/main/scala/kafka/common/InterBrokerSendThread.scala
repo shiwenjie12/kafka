@@ -25,7 +25,7 @@ import org.apache.kafka.common.utils.Time
 
 
 /**
- *  Class for inter-broker send thread that utilize a non-blocking network client.
+ *  Inter-broker发送线程使用非阻塞网络客户端的类。
  */
 abstract class InterBrokerSendThread(name: String,
                                      networkClient: NetworkClient,
@@ -33,6 +33,7 @@ abstract class InterBrokerSendThread(name: String,
                                      isInterruptible: Boolean = true)
   extends ShutdownableThread(name, isInterruptible) {
 
+  // 构造的请求，用于发送
   def generateRequests(): Iterable[RequestAndCompletionHandler]
 
   override def shutdown(): Unit = {
@@ -56,10 +57,11 @@ abstract class InterBrokerSendThread(name: String,
           true,
           completionHandler)
 
-        if (networkClient.ready(request.destination, now)) {
+        if (networkClient.ready(request.destination, now)) {  // 发送请求
           networkClient.send(clientRequest, now)
-        } else {
+        } else { // 如果本地不能调用，则直接本地进行回调
           val header = clientRequest.makeHeader(request.request.latestAllowedVersion)
+          // 断开连接的响应
           val disconnectResponse: ClientResponse = new ClientResponse(header, completionHandler, destination,
             now /* createdTimeMs */ , now /* receivedTimeMs */ , true /* disconnected */ , null /* versionMismatch */ ,
             null /* responseBody */)
@@ -88,5 +90,6 @@ abstract class InterBrokerSendThread(name: String,
 
 }
 
+// 包含请求和完成处理器
 case class RequestAndCompletionHandler(destination: Node, request: AbstractRequest.Builder[_ <: AbstractRequest],
                                        handler: RequestCompletionHandler)

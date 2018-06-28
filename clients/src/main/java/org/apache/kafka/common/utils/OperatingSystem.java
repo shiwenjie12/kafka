@@ -18,6 +18,9 @@ package org.apache.kafka.common.utils;
 
 import java.util.Locale;
 
+/**
+ * 获取操作系统的名称
+ */
 public final class OperatingSystem {
 
     private OperatingSystem() {

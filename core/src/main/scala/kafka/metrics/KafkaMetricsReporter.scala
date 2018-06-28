@@ -45,7 +45,7 @@ trait KafkaMetricsReporterMBean {
 }
 
 /**
-  * Implement {@link org.apache.kafka.common.ClusterResourceListener} to receive cluster metadata once it's available. Please see the class documentation for ClusterResourceListener for more information.
+  * 实现{@link org.apache.kafka.common.ClusterResourceListener}一次可获得集群元数据。
   */
 trait KafkaMetricsReporter {
   def init(props: VerifiableProperties)
@@ -55,17 +55,22 @@ object KafkaMetricsReporter {
   val ReporterStarted: AtomicBoolean = new AtomicBoolean(false)
   private var reporters: ArrayBuffer[KafkaMetricsReporter] = null
 
+  /**
+    * 根据配置属性注册JMX的报表
+    * @param verifiableProps
+    * @return
+    */
   def startReporters (verifiableProps: VerifiableProperties): Seq[KafkaMetricsReporter] = {
     ReporterStarted synchronized {
       if (!ReporterStarted.get()) {
         reporters = ArrayBuffer[KafkaMetricsReporter]()
         val metricsConfig = new KafkaMetricsConfig(verifiableProps)
-        if(metricsConfig.reporters.nonEmpty) {
+        if(metricsConfig.reporters.nonEmpty) {// 加载监控
           metricsConfig.reporters.foreach(reporterType => {
-            val reporter = CoreUtils.createObject[KafkaMetricsReporter](reporterType)
-            reporter.init(verifiableProps)
+            val reporter = CoreUtils.createObject[KafkaMetricsReporter](reporterType)// 创建监控对象
+            reporter.init(verifiableProps)// 监控初始化
             reporters += reporter
-            reporter match {
+            reporter match {// 如果监控继承了KafkaMetricsReporterMBean，则注册JMX
               case bean: KafkaMetricsReporterMBean => CoreUtils.registerMBean(reporter, bean.getMBeanName)
               case _ =>
             }
