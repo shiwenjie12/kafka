@@ -22,11 +22,11 @@ fi
 base_dir=$(dirname $0)
 
 if [ "x$KAFKA_LOG4J_OPTS" = "x" ]; then
-    export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$base_dir/../config/log4j.properties"
+    export KAFKA_LOG4J_OPTS="-Dlog4j.configuration=file:$base_dir/../config/log4j.properties" # log4j的参数
 fi
 
 if [ "x$KAFKA_HEAP_OPTS" = "x" ]; then
-    export KAFKA_HEAP_OPTS="-Xmx1G -Xms1G"
+    export KAFKA_HEAP_OPTS="-Xmx1G -Xms1G" #kafka的jvm堆参数 xmx:最大分配内存，xms初始化分配内存
 fi
 
 EXTRA_ARGS=${EXTRA_ARGS-'-name kafkaServer -loggc'}
@@ -35,7 +35,7 @@ COMMAND=$1
 case $COMMAND in
   -daemon)
     EXTRA_ARGS="-daemon "$EXTRA_ARGS
-    shift
+    shift #所有的位置参数都左移1位
     ;;
   *)
     ;;
